@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 function MailIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-slate-400">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px] text-[#75777e]">
       <rect width="20" height="16" x="2" y="4" rx="2" />
       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
     </svg>
@@ -14,7 +15,7 @@ function MailIcon() {
 }
 function LockIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-slate-400">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px] text-[#75777e]">
       <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
     </svg>
@@ -22,7 +23,7 @@ function LockIcon() {
 }
 function UserIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-slate-400">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px] text-[#75777e]">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
       <circle cx="12" cy="7" r="4" />
     </svg>
@@ -30,12 +31,12 @@ function UserIcon() {
 }
 function EyeIcon({ visible }: { visible: boolean }) {
   return visible ? (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px] text-[#75777e]">
       <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
       <circle cx="12" cy="12" r="3" />
     </svg>
   ) : (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px] text-[#75777e]">
       <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
       <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
       <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
@@ -43,55 +44,38 @@ function EyeIcon({ visible }: { visible: boolean }) {
     </svg>
   );
 }
-function SukiLogo() {
-  return (
-    <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 shadow-lg shadow-blue-200">
-      <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-8 h-8">
-        <path d="M24 10C24 10 20 8 16 8C11 8 8 11 8 14C8 17 11 18.5 16 19.5C21 20.5 24 22 24 25C24 28 21 29 16 29C11 29 8 27 8 27" stroke="white" strokeWidth="3" strokeLinecap="round" />
-        <circle cx="27" cy="27" r="2.5" fill="#93c5fd" />
-      </svg>
-    </div>
-  );
-}
 
-// ── Decorative right panel ────────────────────────────────────────────────────
-function DecorativePanel() {
+// ── Left Panel ────────────────────────────────────────────────────────────────
+function LeftPanel() {
   return (
-    <div className="hidden lg:flex flex-1 relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 items-center justify-center p-12">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_40%,rgba(255,255,255,0.12)_0%,transparent_60%)]" />
-      <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px), linear-gradient(90deg,rgba(255,255,255,0.4) 1px, transparent 1px)", backgroundSize: "48px 48px" }} />
-      <div className="absolute top-16 right-16 w-40 h-40 rounded-full bg-white/10 blur-2xl animate-pulse" />
-      <div className="absolute bottom-24 left-12 w-56 h-56 rounded-full bg-indigo-400/20 blur-3xl animate-pulse delay-700" />
-      <div className="relative z-10 max-w-sm text-center text-white">
-        <div className="grid grid-cols-2 gap-4 mb-10">
-          {[
-            { label: "Active Campaigns", value: "2,418" },
-            { label: "Leads Tracked", value: "18.6K" },
-            { label: "Conversion Rate", value: "34.7%" },
-            { label: "Revenue Growth", value: "+128%" },
-          ].map((stat) => (
-            <div key={stat.label} className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
-              <p className="text-2xl font-bold text-white">{stat.value}</p>
-              <p className="text-xs text-blue-200 mt-1">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-        <h2 className="text-2xl font-bold mb-3">Your marketing command centre</h2>
-        <p className="text-sm text-blue-200 leading-relaxed">Manage campaigns, nurture leads, and grow revenue — all from one powerful platform built for modern marketing teams.</p>
-        <div className="mt-8 flex items-center justify-center gap-2 bg-white/10 rounded-full px-5 py-2.5 border border-white/20 w-fit mx-auto">
-          <div className="flex -space-x-2">
-            {["#fbbf24", "#34d399", "#60a5fa"].map((color) => (
-              <div key={color} className="w-6 h-6 rounded-full border-2 border-white/40" style={{ backgroundColor: color }} />
-            ))}
-          </div>
-          <span className="text-xs text-blue-100">Trusted by <strong className="text-white">500+</strong> teams</span>
+    <div className="hidden lg:flex w-1/2 bg-[#0b1f3a] flex-col justify-center items-center p-12 text-center relative overflow-hidden">
+      {/* Background radial gradient for depth */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.03)_0%,transparent_80%)]" />
+
+      <div className="relative z-10 max-w-md flex flex-col items-center">
+        {/* Brand Logo */}
+        <img src="/logo.png" alt="Suki CRM Logo" className="w-[88px] h-[88px] object-contain mb-10" />
+
+        <h1 className="text-[40px] font-semibold text-white mb-6 leading-[1.15] tracking-tight font-sans">
+          Welcome to<br />Suki CRM
+        </h1>
+        <p className="text-[#7587a7] text-base leading-[24px] mb-12 font-medium">
+          Secure access to your customer ecosystem. Manage relationships,
+          analyze data, and grow your brand with enterprise-grade precision.
+        </p>
+
+        <div className="flex items-center gap-3 px-5 py-2.5 rounded-full border border-white/10 bg-white/[0.03] backdrop-blur-sm">
+          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-[13px] font-semibold text-white/90">Sign in with your official company email.</span>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Auth Card ────────────────────────────────────────────────────────────────
+// ── Auth Page ────────────────────────────────────────────────────────────────
 export default function AuthPage() {
   const router = useRouter();
   
@@ -138,42 +122,44 @@ export default function AuthPage() {
   };
 
   return (
-    <main className="min-h-screen flex bg-slate-50">
-      <div className="flex flex-1 items-center justify-center px-6 py-12 lg:px-16 lg:max-w-xl xl:max-w-2xl">
-        <div className="w-full max-w-sm">
-          <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/80 border border-slate-100 px-8 py-10 sm:px-10">
-            <div className="flex justify-center mb-7">
-              <SukiLogo />
-            </div>
+    <main className="min-h-screen flex bg-[#f7f9fb] font-sans">
+      <LeftPanel />
 
-            <h1 className="text-center text-2xl font-bold text-slate-800 tracking-tight">
-              {isLogin ? "Welcome back" : "Create an account"}
-            </h1>
-            <p className="text-center text-sm text-slate-500 mt-1 mb-8">
-              {isLogin ? "Sign in to Suki Marketing CRM" : "Join Suki Marketing CRM today"}
+      <div className="flex flex-1 items-center justify-center p-6 lg:p-12 relative">
+        <div className="w-full max-w-[460px] flex flex-col items-center">
+          
+          {/* Card */}
+          <div className="w-full bg-white rounded-[16px] border border-[#e2e8f0] shadow-[0px_2px_8px_rgba(11,31,58,0.04)] px-8 py-10 sm:px-12 sm:py-12 mb-8">
+            <h2 className="text-[24px] font-semibold text-[#191c1e] mb-2 tracking-[-0.01em]">
+              {isLogin ? "Internal Portal Login" : "Create Account"}
+            </h2>
+            <p className="text-[14px] text-[#44474d] mb-8 leading-[20px]">
+              {isLogin ? "Enter your credentials to continue." : "Set up your workspace to get started."}
             </p>
 
             {errorMsg && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600 font-medium text-center">
+              <div className="mb-6 p-3 rounded-[8px] bg-[#ffdad6] border border-[#ffb4ab] text-[13px] text-[#93000a] font-medium text-center">
                 {errorMsg}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <form onSubmit={handleSubmit} className="space-y-5" noValidate>
               
               {!isLogin && (
                 <>
                   <div>
-                    <label htmlFor="name" className="block text-xs font-semibold text-slate-600 mb-1.5">Full Name</label>
+                    <label htmlFor="name" className="block text-[12px] font-semibold text-[#191c1e] mb-2 tracking-[0.05em] uppercase">Full Name</label>
                     <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"><UserIcon /></span>
-                      <input id="name" type="text" required value={formData.name} onChange={handleChange} placeholder="John Doe" className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"><UserIcon /></span>
+                      <input id="name" type="text" required value={formData.name} onChange={handleChange} placeholder="John Doe" 
+                             className="w-full pl-11 pr-4 py-3 rounded-[8px] border border-[#e2e8f0] bg-white text-[#191c1e] text-[14px] placeholder:text-[#75777e] focus:outline-none focus:border-[#0b1f3a] focus:ring-2 focus:ring-[#0b1f3a]/20 transition-all" />
                     </div>
                   </div>
                   <div>
-                    <label htmlFor="role" className="block text-xs font-semibold text-slate-600 mb-1.5">Your Role</label>
+                    <label htmlFor="role" className="block text-[12px] font-semibold text-[#191c1e] mb-2 tracking-[0.05em] uppercase">Your Role</label>
                     <div className="relative">
-                      <select id="role" required value={formData.role} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition appearance-none">
+                      <select id="role" required value={formData.role} onChange={handleChange} 
+                              className="w-full px-4 py-3 rounded-[8px] border border-[#e2e8f0] bg-white text-[#191c1e] text-[14px] focus:outline-none focus:border-[#0b1f3a] focus:ring-2 focus:ring-[#0b1f3a]/20 transition-all appearance-none">
                         <option value="MarketingExecutive">Marketing Executive</option>
                         <option value="MarketingLead">Marketing Lead</option>
                         <option value="Admin">Admin</option>
@@ -185,59 +171,75 @@ export default function AuthPage() {
               )}
 
               <div>
-                <label htmlFor="email" className="block text-xs font-semibold text-slate-600 mb-1.5">Email address</label>
+                <label htmlFor="email" className="block text-[12px] font-semibold text-[#191c1e] mb-2 tracking-[0.05em] uppercase">
+                  {isLogin ? "Company Email" : "Email Address"}
+                </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"><MailIcon /></span>
-                  <input id="email" type="email" required value={formData.email} onChange={handleChange} placeholder="name@company.com" className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"><MailIcon /></span>
+                  <input id="email" type="email" required value={formData.email} onChange={handleChange} placeholder="name@company.com" 
+                         className="w-full pl-11 pr-4 py-3 rounded-[8px] border border-[#e2e8f0] bg-white text-[#191c1e] text-[14px] placeholder:text-[#c4c6ce] focus:outline-none focus:border-[#0b1f3a] focus:ring-2 focus:ring-[#0b1f3a]/20 transition-all" />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-xs font-semibold text-slate-600 mb-1.5">Password</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label htmlFor="password" className="block text-[12px] font-semibold text-[#191c1e] tracking-[0.05em] uppercase">Password</label>
+                  {isLogin && (
+                    <a href="#" className="text-[13px] font-medium text-[#44474d] hover:text-[#0b1f3a] transition-colors">Forgot Password?</a>
+                  )}
+                </div>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"><LockIcon /></span>
-                  <input id="password" type={showPassword ? "text" : "password"} required value={formData.password} onChange={handleChange} placeholder="Enter your password" className="w-full pl-10 pr-12 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
-                  <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"><LockIcon /></span>
+                  <input id="password" type={showPassword ? "text" : "password"} required value={formData.password} onChange={handleChange} placeholder="••••••••" 
+                         className="w-full pl-11 pr-12 py-3 rounded-[8px] border border-[#e2e8f0] bg-white text-[#191c1e] text-[14px] placeholder:text-[#c4c6ce] tracking-widest focus:outline-none focus:border-[#0b1f3a] focus:ring-2 focus:ring-[#0b1f3a]/20 transition-all font-mono" />
+                  <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#75777e] hover:text-[#191c1e] transition-colors">
                     <EyeIcon visible={showPassword} />
                   </button>
                 </div>
               </div>
 
               {isLogin && (
-                <div className="flex justify-end">
-                  <a href="#" className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors">Forgot Password?</a>
+                <div className="flex items-center gap-2 pt-2">
+                  <input type="checkbox" id="remember" className="w-4 h-4 rounded-[4px] border-[#c4c6ce] text-[#0b1f3a] focus:ring-[#0b1f3a]" />
+                  <label htmlFor="remember" className="text-[13px] text-[#44474d] cursor-pointer">Keep me signed in for 30 days</label>
                 </div>
               )}
 
-              <button type="submit" disabled={loading} className="w-full py-3 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-sm font-semibold shadow-md shadow-blue-200 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-1">
+              <button type="submit" disabled={loading} 
+                      className="w-full mt-4 py-3.5 px-6 rounded-[8px] bg-[#0b1f3a] hover:bg-[#152e52] text-white text-[14px] font-semibold transition-colors duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                 {loading ? (
-                  <><svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>{isLogin ? "Signing in…" : "Creating account…"}</>
+                  <><svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>{isLogin ? "Authenticating…" : "Creating account…"}</>
                 ) : (
-                  isLogin ? "Sign In" : "Sign Up"
+                  <>
+                    {isLogin ? "Login to Ecosystem" : "Create Account"} 
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  </>
                 )}
               </button>
             </form>
 
-            <div className="mt-6 flex items-center gap-3">
-              <div className="flex-1 h-px bg-slate-100" />
-              <span className="text-xs text-slate-400">Secure access</span>
-              <div className="flex-1 h-px bg-slate-100" />
-            </div>
-
-            <p className="mt-5 text-center text-xs text-slate-500">
-              {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-              <button onClick={() => { setIsLogin(!isLogin); setErrorMsg(""); }} className="font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-colors">
-                {isLogin ? "Sign up" : "Sign in"}
+            {/* Support / Toggle Link */}
+            <div className="mt-8 pt-8 border-t border-[#eceef0] text-center">
+              <p className="text-[13px] text-[#44474d] mb-1">
+                {isLogin ? "Need assistance or lost access?" : "Already have an account?"}
+              </p>
+              <button 
+                onClick={() => { setIsLogin(!isLogin); setErrorMsg(""); }} 
+                className="text-[13px] font-semibold text-[#191c1e] hover:text-[#0b1f3a] transition-colors"
+              >
+                {isLogin ? "Contact IT Support" : "Sign in to existing account"}
               </button>
-            </p>
+            </div>
           </div>
 
-          <p className="mt-6 text-center text-xs text-slate-400">
-            By continuing, you agree to our <a href="#" className="hover:underline text-slate-500">Terms of Service</a> &amp; <a href="#" className="hover:underline text-slate-500">Privacy Policy</a>
-          </p>
+          {/* Dots Indicator (Decorative) */}
+          <div className="flex items-center gap-2.5">
+            <div className="w-3 h-3 rounded-full bg-[#e0e3e5]"></div>
+            <div className="w-3 h-3 rounded-full bg-[#e0e3e5]"></div>
+            <div className="w-3 h-3 rounded-full bg-[#e0e3e5]"></div>
+          </div>
         </div>
       </div>
-      <DecorativePanel />
     </main>
   );
 }

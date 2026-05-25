@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 type NavItem = { href: string; label: string; icon: React.ReactNode };
 
@@ -57,6 +57,16 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/user/logout', { method: 'POST' });
+      router.push('/login');
+    } catch (err) {
+      console.error('Logout failed', err);
+    }
+  };
 
   const pageTitle = pathname.split("/").filter(Boolean).pop()?.replace(/-/g, " ") || "Dashboard";
 
@@ -68,12 +78,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Logo */}
         <div className="px-5 pt-6 pb-5 border-b border-white/[0.07] shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden border border-white/10 shrink-0">
-              <img src="/logo.png" alt="Suki ERP" className="w-full h-full object-contain p-1" />
+            <div className="w-12 h-12 flex items-center justify-center shrink-0">
+              <img src="/logo.png" alt="Suki ERP" className="w-full h-full object-contain" />
             </div>
             <div>
-              <p className="text-white text-sm font-bold leading-tight">Suki ERP</p>
-              <p className="text-white/35 text-[10px] leading-tight mt-0.5">Marketing CRM</p>
+              <p className="text-white text-base font-bold leading-tight">Suki ERP</p>
+              <p className="text-white/40 text-[11px] leading-tight mt-0.5">Marketing CRM</p>
             </div>
           </div>
         </div>
@@ -95,7 +105,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* User */}
         <div className="p-3 border-t border-white/[0.07] shrink-0">
-          <div className="flex items-center gap-3 px-2.5 py-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors group">
+          <div onClick={handleLogout} className="flex items-center gap-3 px-2.5 py-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors group">
             <img src="https://i.pravatar.cc/150?u=admin" alt="Admin" className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0" />
             <div className="flex-1 overflow-hidden">
               <p className="text-white text-xs font-semibold leading-tight truncate">Admin User</p>
