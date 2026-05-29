@@ -291,7 +291,7 @@ export default function InboundCheckInModal({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                  Check-In Time
+                  Visit Start Time
                 </label>
                 <input
                   type="text"
@@ -342,7 +342,7 @@ export default function InboundCheckInModal({
               disabled={formLoading}
               className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-[#0D2137] hover:bg-[#153456] transition-colors shadow-sm disabled:opacity-75"
             >
-              {formLoading ? "Saving Visit..." : "Submit Check-In"}
+              {formLoading ? "Saving Visit..." : "Start Visit"}
             </button>
           </div>
         </form>

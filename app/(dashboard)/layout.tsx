@@ -37,7 +37,7 @@ const crmNav: NavItem[]   = [
   { href: "/customer-master",    label: "Customers",         icon: icons.customers },
   { href: "/subscription",       label: "Subscriptions",     icon: icons.subscription },
   { href: "/marketing-log",      label: "Marketing Visits",  icon: icons.visits },
-  { href: "/visitor-management", label: "Visitor Management",icon: icons.visitors },
+  { href: "/visitor-management", label: "Office Visits",     icon: icons.visitors },
   { href: "/follow-up",          label: "Follow-ups",        icon: icons.followup },
   { href: "/decision-summary",   label: "Decision Summary",  icon: icons.audit },
 ];
@@ -110,6 +110,7 @@ function SidebarContent({ pathname, user, loading, handleLogout, onNavClick }: {
               <p className="px-3.5 text-[10px] font-semibold text-white/25 uppercase tracking-widest">Portal</p>
             </div>
             <NavLink item={{ href: "/subscription", label: "My Subscriptions", icon: icons.subscription }} active={pathname.startsWith("/subscription")} onClick={onNavClick} />
+            <NavLink item={{ href: "/customer/support", label: "My Requests/Tickets", icon: icons.visitors }} active={pathname.startsWith("/customer/support")} onClick={onNavClick} />
           </>
         )}
 
@@ -129,7 +130,15 @@ function SidebarContent({ pathname, user, loading, handleLogout, onNavClick }: {
       {/* User / Logout */}
       <div className="p-3 border-t border-white/[0.07] shrink-0">
         <div onClick={handleLogout} className="flex items-center gap-3 px-2.5 py-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors group">
-          <img src={`https://i.pravatar.cc/150?u=${user?.email || "admin"}`} alt="User" className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0" />
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center text-xs font-black tracking-wider border border-white/10 shrink-0 shadow-sm">
+            {(() => {
+              const name = user?.name || "System Admin";
+              const cleanName = name.replace(/[^a-zA-Z\s]/g, " ").trim();
+              const parts = cleanName.split(/\s+/);
+              if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+              return (parts[0][0] + (parts[parts.length - 1][0] || "")).toUpperCase();
+            })()}
+          </div>
           <div className="flex-1 overflow-hidden">
             <p className="text-white text-xs font-semibold leading-tight truncate">{user?.name || "Loading..."}</p>
             <p className="text-white/30 text-[10px] leading-tight truncate">{user?.role || "..."}</p>

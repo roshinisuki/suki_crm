@@ -18,6 +18,59 @@ const icons = {
   search: <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
 };
 
+function DecisionPurposeStatusBadge({ purpose, outcome }: { purpose: string; outcome: string }) {
+  const p = purpose ? purpose.toLowerCase() : "";
+  const o = outcome || "";
+
+  // Support Tailored Pipeline
+  if (p.includes("support")) {
+    if (o.includes("Resolved") || o.includes("resolved")) {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Resolved</span>;
+    } else if (o.includes("Resolving") || o.includes("resolving")) {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Resolving</span>;
+    } else {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Enquired to IT</span>;
+    }
+  }
+
+  // Renewal Tailored Pipeline
+  if (p.includes("subscription discussion") || p.includes("renewal") || p.includes("subscription")) {
+    if (o.includes("Renewed") || o.includes("renewed")) {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Renewed</span>;
+    } else if (o.includes("Renewal Processing") || o.includes("processing")) {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Renewal Processing</span>;
+    } else {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Renewal Requested</span>;
+    }
+  }
+
+  // Sales Meeting Tailored Pipeline
+  if (p.includes("sales")) {
+    if (o === "Converted") {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Converted</span>;
+    } else if (o === "Not Interested") {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">Not Interested</span>;
+    } else if (o === "Follow-up Required" || o === "Pending Decision") {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">{o}</span>;
+    } else {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">{o || "Interested"}</span>;
+    }
+  }
+
+  // Demo Tailored Pipeline
+  if (p.includes("demo")) {
+    if (o.includes("Completed")) {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Demo Completed</span>;
+    } else {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Demo Scheduled</span>;
+    }
+  }
+
+  // Default
+  if (!o) return null;
+  return <span className="font-semibold text-slate-600">{o}</span>;
+}
+
 export default function DecisionSummaryPage() {
   const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState<any>(null);
@@ -214,6 +267,90 @@ export default function DecisionSummaryPage() {
                     </td>
                   </tr>
                 ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Customer Inbound Start & End Visit History */}
+      <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col mt-6">
+        <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-bold text-slate-800">Customer Visit History (Start & End Logs)</h2>
+            <p className="text-xs text-slate-400 font-medium mt-0.5">Complete chronological log of office customer arrivals, timings, and meeting outcomes</p>
+          </div>
+        </div>
+
+        {/* History Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-slate-50/30 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-200/60">
+                <th className="px-6 py-4">Customer</th>
+                <th className="px-4 py-4">Purpose</th>
+                <th className="px-4 py-4">Host Name</th>
+                <th className="px-4 py-4">Visit Timings</th>
+                <th className="px-4 py-4">Outcome</th>
+                <th className="px-4 py-4">Portal Decision</th>
+                <th className="px-6 py-4">Meeting Notes / Details</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
+              {loading ? (
+                <tr><td colSpan={7} className="text-center py-8 text-slate-400">Loading visit history...</td></tr>
+              ) : !data?.visitHistory || data.visitHistory.length === 0 ? (
+                <tr><td colSpan={7} className="text-center py-12 text-slate-400 font-medium">No customer office visits logged yet</td></tr>
+              ) : (
+                data.visitHistory.map((v: any) => {
+                  const checkIn = new Date(v.checkInTime).toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" });
+                  const checkOut = v.checkOutTime 
+                    ? new Date(v.checkOutTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) 
+                    : null;
+                  
+                  return (
+                    <tr key={v.id} className="hover:bg-slate-50/40 transition-colors">
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-slate-800">{v.customer?.name}</p>
+                        <p className="text-[10px] text-slate-400 font-bold mt-0.5">{v.customer?.customerCode}</p>
+                      </td>
+                      <td className="px-4 py-4 text-slate-650">{v.purpose}</td>
+                      <td className="px-4 py-4 text-slate-600">{v.host?.name || "System Admin"}</td>
+                      <td className="px-4 py-4 text-slate-500 font-medium">
+                        <p>Started: {checkIn}</p>
+                        <p className={`text-[10px] font-bold mt-0.5 ${!checkOut ? "text-amber-500 animate-pulse" : "text-slate-400"}`}>
+                          {!checkOut ? "● In Office" : `Ended: ${checkOut}`}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4">
+                        {v.status === "CHECKED_IN" ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                            In Premises
+                          </span>
+                        ) : (
+                          <DecisionPurposeStatusBadge purpose={v.purpose} outcome={v.outcome} />
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-black border ${
+                          v.customerDecision === "APPROVED"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : v.customerDecision === "REJECTED"
+                              ? "bg-red-50 text-red-700 border-red-200"
+                              : "bg-slate-100 text-slate-700 border-slate-200"
+                        }`}>
+                          {v.customerDecision || "PENDING"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 font-medium text-slate-500 max-w-xs truncate" title={v.meetingSummary || ""}>
+                        {v.meetingSummary || "No notes / in progress"}
+                        {v.rejectionReason && (
+                          <p className="text-[10px] text-red-600 font-bold mt-1">Rejection: {v.rejectionReason}</p>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

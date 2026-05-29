@@ -10,7 +10,7 @@ const PUBLIC_PATHS = [
 ];
 
 // Routes only customers can access
-const CUSTOMER_ONLY_PATHS = ["/customer/portal"];
+const CUSTOMER_ONLY_PATHS = ["/customer/portal", "/customer/support"];
 
 // Routes customers cannot access
 const INTERNAL_ONLY_PATHS = ["/dashboard", "/customer-master", "/subscription", "/marketing-log", "/visitor-management", "/follow-up", "/audit-logs", "/user-master", "/settings"];

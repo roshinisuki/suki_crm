@@ -164,3 +164,84 @@ export async function deleteVisitorAction(id: string) {
     return { success: false, message: "Failed to delete visitor" };
   }
 }
+
+export async function getUnifiedOfficeVisitsAction() {
+  try {
+    const userPayload = await verifyAuth();
+    if (!userPayload || !["Admin", "MarketingLead", "MarketingExecutive"].includes(userPayload.role)) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const userId = userPayload.id;
+    const isExecutive = userPayload.role === "MarketingExecutive";
+
+    // 1. Fetch general walk-in guests
+    const guests = await prisma.visitor.findMany({
+      where: isExecutive ? { hostUserId: userId } : {},
+      include: {
+        host: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { inTime: "desc" },
+    });
+
+    // 2. Fetch CRM customer inbound visits
+    const customerVisits = await prisma.customerVisit.findMany({
+      where: isExecutive ? { hostedBy: userId } : {},
+      include: {
+        customer: { select: { id: true, name: true, customerCode: true, phone: true } },
+        host: { select: { id: true, name: true } },
+      },
+      orderBy: { checkInTime: "desc" },
+    });
+
+    // 3. Normalize guests
+    const normalizedGuests = guests.map((g) => ({
+      id: g.id,
+      type: "Guest" as const,
+      name: g.visitorName,
+      contact: g.visitorPhone,
+      email: g.visitorEmail || null,
+      company: g.company || "",
+      purpose: g.purpose,
+      hostName: g.host?.name || "Unknown",
+      hostId: g.hostUserId,
+      checkInTime: g.inTime.toISOString(),
+      checkOutTime: g.outTime ? g.outTime.toISOString() : null,
+      status: g.outTime ? "CHECKED_OUT" : "CHECKED_IN",
+      outcome: "Walk-in Guest",
+      customerDecision: null,
+      rejectionReason: null,
+    }));
+
+    // 4. Normalize customer visits
+    const normalizedCustomers = customerVisits.map((cv) => ({
+      id: cv.id,
+      type: "Customer" as const,
+      name: cv.customer?.name || "Unknown Customer",
+      contact: cv.customer?.phone || "—",
+      email: null,
+      company: "",
+      purpose: cv.purpose,
+      hostName: cv.host?.name || "Unknown Host",
+      hostId: cv.hostedBy,
+      checkInTime: cv.checkInTime.toISOString(),
+      checkOutTime: cv.checkOutTime ? cv.checkOutTime.toISOString() : null,
+      status: cv.status, // "CHECKED_IN" | "CHECKED_OUT"
+      outcome: cv.outcome || "Pending Checkout",
+      customerDecision: cv.customerDecision || "Pending Decision",
+      rejectionReason: cv.rejectionReason || null,
+      customerCode: cv.customer?.customerCode || "—",
+      customerId: cv.customerId,
+    }));
+
+    // 5. Combine and sort
+    const combined = [...normalizedGuests, ...normalizedCustomers].sort(
+      (a, b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime()
+    );
+
+    return { success: true, data: combined };
+  } catch (error) {
+    console.error("GET Unified Office Visits Error:", error);
+    return { success: false, message: "Failed to fetch office visits logs" };
+  }
+}

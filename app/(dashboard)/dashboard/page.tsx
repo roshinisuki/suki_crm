@@ -74,6 +74,26 @@ export default function DashboardPage() {
   const inProgressOutbound = dashboardData?.outboundVisits?.filter((v: any) => v.status === "CHECKED_IN") || [];
   const totalLiveVisitors = inProgressInbound.length + inProgressOutbound.length;
 
+  const activeSubsVal = dashboardData?.stats?.activeSubs || 0;
+  const pendingPlansVal = dashboardData?.stats?.pendingPlans || 0;
+  const expiredPlansVal = dashboardData?.stats?.expiredPlans || 0;
+  const totalPlansVal = activeSubsVal + pendingPlansVal + expiredPlansVal || 0;
+
+  const r = 50;
+  const c = 2 * Math.PI * r;
+
+  const activePercent = totalPlansVal > 0 ? activeSubsVal / totalPlansVal : 0;
+  const pendingPercent = totalPlansVal > 0 ? pendingPlansVal / totalPlansVal : 0;
+  const expiredPercent = totalPlansVal > 0 ? expiredPlansVal / totalPlansVal : 0;
+
+  const activeStroke = c * activePercent;
+  const pendingStroke = c * pendingPercent;
+  const expiredStroke = c * expiredPercent;
+
+  const activeOffset = 0;
+  const pendingOffset = -activeStroke;
+  const expiredOffset = -(activeStroke + pendingStroke);
+
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto">
       
@@ -100,7 +120,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Banner Horizontal KPIs */}
-          <div className="pt-4 grid grid-cols-3 gap-4 lg:gap-8 max-w-lg border-t border-white/[0.08]">
+          <div className="pt-4 flex flex-wrap gap-x-8 gap-y-6 max-w-2xl border-t border-white/[0.08]">
             <div className="space-y-1">
               <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Active Engagement</p>
               {loading ? <Skeleton className="h-6 w-16 bg-white/10" /> : <p className="text-xl lg:text-2xl font-black text-[#5C8FFF]">{dashboardData?.stats?.activeEngagement}%</p>}
@@ -113,73 +133,57 @@ export default function DashboardPage() {
               <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Active Subs</p>
               {loading ? <Skeleton className="h-6 w-16 bg-white/10" /> : <p className="text-xl lg:text-2xl font-black text-white">{dashboardData?.stats?.activeSubs?.toLocaleString("en-IN")}</p>}
             </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Accounts</p>
+              {loading ? <Skeleton className="h-6 w-16 bg-white/10" /> : <p className="text-xl lg:text-2xl font-black text-white">{dashboardData?.stats?.totalCustomers?.toLocaleString("en-IN")}</p>}
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Visits Today</p>
+              {loading ? <Skeleton className="h-6 w-16 bg-white/10" /> : <p className="text-xl lg:text-2xl font-black text-white">{dashboardData?.stats?.visitsToday}</p>}
+            </div>
           </div>
         </div>
 
-        {/* Vertical Glowing Bar Chart */}
-        <div className="flex items-end justify-end gap-1.5 md:w-[220px] h-28 shrink-0">
-          {[
-            { h: "40%", glow: false },
-            { h: "55%", glow: false },
-            { h: "75%", glow: true }, // glowing bar
-            { h: "50%", glow: false },
-            { h: "82%", glow: false },
-            { h: "45%", glow: false },
-          ].map((bar, idx) => (
-            <div key={idx} className="flex flex-col items-center gap-1.5 w-7 h-full justify-end">
-              <div 
-                className={`w-full rounded-t-md transition-all duration-300 ${bar.glow ? "bg-gradient-to-t from-blue-600 to-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.6)]" : "bg-[#1E2E4A] hover:bg-[#283C5C]"}`} 
-                style={{ height: bar.h }} 
-              />
-            </div>
-          ))}
+        {/* Vertical Glowing Bar Chart & Action Buttons */}
+        <div className="flex flex-col items-end gap-3.5 shrink-0 self-end md:self-center">
+          {/* Vertical Glowing Bar Chart */}
+          <div className="flex items-end justify-end gap-1.5 md:w-[220px] h-20 shrink-0">
+            {[
+              { h: "40%", glow: false },
+              { h: "55%", glow: false },
+              { h: "75%", glow: true }, // glowing bar
+              { h: "50%", glow: false },
+              { h: "82%", glow: false },
+              { h: "45%", glow: false },
+            ].map((bar, idx) => (
+              <div key={idx} className="flex flex-col items-center gap-1.5 w-7 h-full justify-end">
+                <div 
+                  className={`w-full rounded-t-md transition-all duration-300 ${bar.glow ? "bg-gradient-to-t from-blue-600 to-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.6)]" : "bg-[#1E2E4A] hover:bg-[#283C5C]"}`} 
+                  style={{ height: bar.h }} 
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setIsInboundOpen(true)}
+              className="px-4 py-2 bg-white text-slate-900 hover:bg-slate-100 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all shadow-sm flex items-center gap-1 shrink-0"
+            >
+              + Office Visit
+            </button>
+            <button
+              onClick={() => setIsOutboundOpen(true)}
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all border border-white/10 flex items-center gap-1 shrink-0"
+            >
+              + Log Field
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* ── 2. Top-Level Alerts / Banners (Active Visits Checked-In Today) ── */}
-      {(inProgressInbound.length > 0 || inProgressOutbound.length > 0) && (
-        <div className="space-y-2">
-          {inProgressInbound.map((v: any) => (
-            <div key={v.id} className="p-4 rounded-2xl bg-amber-50 border border-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse shadow-sm">
-              <div className="flex items-center gap-3">
-                <span className="w-3.5 h-3.5 rounded-full bg-amber-500 flex items-center justify-center shrink-0 border-2 border-white shadow-sm">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
-                </span>
-                <div className="text-xs">
-                  <span className="font-bold text-slate-800">Inbound Visitor Checked In:</span>{" "}
-                  <strong className="text-amber-700">{v.customer?.name}</strong> arrived for a <span className="font-semibold">{v.purpose}</span>. Hosted by {v.host?.name || "you"}.
-                </div>
-              </div>
-              <button
-                onClick={() => handleOpenCheckout(v, "Inbound")}
-                className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shrink-0 transition-all shadow-sm"
-              >
-                Checkout Visitor
-              </button>
-            </div>
-          ))}
 
-          {inProgressOutbound.map((v: any) => (
-            <div key={v.id} className="p-4 rounded-2xl bg-indigo-50 border border-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse shadow-sm">
-              <div className="flex items-center gap-3">
-                <span className="w-3.5 h-3.5 rounded-full bg-indigo-600 flex items-center justify-center shrink-0 border-2 border-white shadow-sm">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
-                </span>
-                <div className="text-xs">
-                  <span className="font-bold text-slate-800">Outbound Field Onsite Check-In:</span>{" "}
-                  <strong className="text-indigo-700">{v.customer?.name}</strong> field meeting in progress for <span className="font-semibold">{v.purpose}</span>.
-                </div>
-              </div>
-              <button
-                onClick={() => handleOpenCheckout(v, "Outbound")}
-                className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shrink-0 transition-all shadow-sm"
-              >
-                Onsite Checkout
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* ── 3. Main Multi-Column Workspace ── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -187,66 +191,111 @@ export default function DashboardPage() {
         {/* ── LEFT COLUMN (WIDE): Stacked Chart & Log Lists ── */}
         <div className="xl:col-span-2 space-y-6">
 
-          {/* Visits vs. Engagement Stacked Bar Chart */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200/60 shadow-sm flex flex-col gap-5">
-            <div className="flex items-center justify-between">
+          {/* Marketing Visit Activity Line Chart Section */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200/60 shadow-sm flex flex-col gap-6 relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-10">
               <div>
-                <h2 className="text-sm font-bold text-slate-800">Marketing Visits vs. Engagement</h2>
-                <p className="text-xs text-slate-400 font-semibold mt-0.5">Traffic patterns for the last 30 days</p>
+                <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Marketing Visit Activity</h2>
+                <p className="text-xs font-semibold text-slate-400 mt-0.5">Total visits logged over the last 6 months</p>
               </div>
-
-              {/* Weekly/Monthly Toggle */}
-              <div className="flex p-0.5 bg-slate-100 rounded-xl">
-                <button
-                  onClick={() => setChartToggle("monthly")}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${chartToggle === "monthly" ? "bg-white text-slate-800 shadow-xs" : "text-slate-400 hover:text-slate-600"}`}
-                >
-                  Monthly
-                </button>
-                <button
-                  onClick={() => setChartToggle("weekly")}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${chartToggle === "weekly" ? "bg-white text-slate-800 shadow-xs" : "text-slate-400 hover:text-slate-600"}`}
-                >
-                  Weekly
-                </button>
-              </div>
+              <select className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none cursor-pointer hover:bg-slate-100 transition-colors">
+                <option>Last 6 months</option>
+                <option>30 days</option>
+              </select>
             </div>
 
-            {/* Custom SVG/HTML Stacked Bar Chart */}
-            <div className="flex items-end justify-between h-48 px-4 border-b border-slate-100 pb-2">
-              {[
-                { label: "12 Oct", val: 120, total: 180 },
-                { label: "19 Oct", val: 155, total: 240 },
-                { label: "26 Oct", val: 98, total: 150 },
-                { label: "02 Nov", val: 188, total: 290 },
-                { label: "09 Nov", val: 160, total: 260 },
-              ].map((bar, idx) => {
-                const activePct = (bar.val / 300) * 100;
-                const totalPct = (bar.total / 300) * 100;
-                return (
-                  <div key={idx} className="flex flex-col items-center gap-2 flex-1 max-w-[80px]">
-                    <div className="w-full relative h-36 flex flex-col justify-end rounded-lg overflow-hidden bg-slate-100">
-                      {/* Stack 2: Total Visits (light blue/lavender) */}
-                      <div className="absolute bottom-0 w-full bg-[#C7D2FE] transition-all hover:bg-[#b5c2fb]" style={{ height: `${totalPct}%` }} />
-                      {/* Stack 1: Active Engagement (dark indigo) */}
-                      <div className="absolute bottom-0 w-full bg-[#4F46E5] transition-all hover:bg-[#3f36cc]" style={{ height: `${activePct}%` }} />
+            <div className="flex w-full h-64 mt-2 gap-4">
+              {(() => {
+                const visitData = dashboardData?.stats?.monthlyVisitActivity || [];
+                if (visitData.length === 0) {
+                  return (
+                    <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold text-sm">
+                      No visit activity data available
                     </div>
-                    <span className="text-[10px] font-semibold text-slate-400">{bar.label}</span>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                }
 
-            {/* Chart Legend */}
-            <div className="flex items-center justify-center gap-6 text-[10px] font-bold">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-xs bg-[#4F46E5]" />
-                <span className="text-slate-500">Active Engagement</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-xs bg-[#C7D2FE]" />
-                <span className="text-slate-500">Total Visits</span>
-              </div>
+                const maxVisit = Math.max(...visitData.map((d: any) => d.count), 5);
+                const stepX = 800 / (visitData.length - 1 || 1);
+                const points = visitData.map((d: any, i: number) => ({
+                  x: i * stepX,
+                  y: 175 - ((d.count / maxVisit) * 150)
+                }));
+
+                let path = `M ${points[0].x},${points[0].y}`;
+                for (let i = 0; i < points.length - 1; i++) {
+                  const p1 = points[i];
+                  const p2 = points[i + 1];
+                  const midX = (p1.x + p2.x) / 2;
+                  path += ` C ${midX},${p1.y} ${midX},${p2.y} ${p2.x},${p2.y}`;
+                }
+
+                const fillPath = `${path} L 800,200 L 0,200 Z`;
+
+                const lastPoint = points[points.length - 1];
+                const lastMonthLabel = visitData[visitData.length - 1]?.month;
+                const lastCount = visitData[visitData.length - 1]?.count;
+                const tooltipTx = lastPoint.x > 700 ? -95 : lastPoint.x < 100 ? 5 : -45;
+
+                return (
+                  <>
+                    {/* Y-Axis Labels */}
+                    <div className="flex flex-col justify-between items-end text-[10px] font-bold text-slate-400 h-[calc(100%-24px)] pb-2 shrink-0 w-8">
+                      <span>{maxVisit}</span>
+                      <span>{Math.round((maxVisit * 3) / 4)}</span>
+                      <span>{Math.round(maxVisit / 2)}</span>
+                      <span>{Math.round(maxVisit / 4)}</span>
+                      <span>0</span>
+                    </div>
+                    
+                    {/* Chart Area */}
+                    <div className="relative w-full h-full flex flex-col">
+                      <div className="relative w-full flex-1">
+                        <svg viewBox="0 0 800 200" className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                          <defs>
+                            <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#818CF8" stopOpacity="0.5" />
+                              <stop offset="100%" stopColor="#818CF8" stopOpacity="0.05" />
+                            </linearGradient>
+                          </defs>
+                          
+                          {/* Horizontal Grid Lines */}
+                          {[0, 50, 100, 150, 200].map(y => (
+                            <line key={y} x1="0" y1={y} x2="800" y2={y} stroke="#F1F5F9" strokeWidth="1" strokeDasharray="4 4" />
+                          ))}
+
+                          {/* Dynamic smooth path */}
+                          <path d={fillPath} fill="url(#salesGrad)" />
+                          <path d={path} fill="none" stroke="#6366F1" strokeWidth="4" strokeLinecap="round" className="drop-shadow-sm" />
+
+                          {/* Tooltip on last element */}
+                          <g transform={`translate(${lastPoint.x}, ${lastPoint.y})`}>
+                            <circle cx="0" cy="0" r="5" fill="#fff" stroke="#6366F1" strokeWidth="3" className="drop-shadow-md" />
+                            <line x1="0" y1="5" x2="0" y2={200 - lastPoint.y} stroke="#6366F1" strokeWidth="1" strokeDasharray="4 4" />
+                            <g transform={`translate(${tooltipTx}, -55)`}>
+                              <rect x="0" y="0" width="90" height="40" rx="8" fill="#0D2137" className="drop-shadow-lg" />
+                              <text x="45" y="17" fill="#94A3B8" fontSize="10" fontWeight="600" textAnchor="middle">{lastMonthLabel}</text>
+                              <text x="45" y="32" fill="#fff" fontSize="11" fontWeight="800" textAnchor="middle">{lastCount} visits</text>
+                            </g>
+                          </g>
+
+                          {/* Data points */}
+                          {points.map((p: any, i: number) => (
+                            <circle key={i} cx={p.x} cy={p.y} r="4" fill="#fff" stroke="#6366F1" strokeWidth="2.5" className="hover:r-6 cursor-pointer transition-all" />
+                          ))}
+                        </svg>
+                      </div>
+                      
+                      {/* X-Axis Labels */}
+                      <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 mt-2 px-1">
+                        {visitData.map((d: any, i: number) => (
+                          <span key={i}>{d.month}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
@@ -290,7 +339,7 @@ export default function DashboardPage() {
                       <th className="px-6 py-3">Customer</th>
                       <th className="px-4 py-3">Purpose</th>
                       <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Checked In</th>
+                      <th className="px-4 py-3">Visit Started</th>
                       <th className="px-6 py-3 text-right">Action</th>
                     </tr>
                   </thead>
@@ -317,10 +366,10 @@ export default function DashboardPage() {
                               onClick={() => handleOpenCheckout(v, "Inbound")}
                               className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-bold text-[10px]"
                             >
-                              Check-Out
+                              End Visit
                             </button>
                           ) : (
-                            <span className="text-slate-400 font-bold">Checked out</span>
+                            <span className="text-slate-400 font-bold">Visit ended</span>
                           )}
                         </td>
                       </tr>
@@ -414,102 +463,77 @@ export default function DashboardPage() {
         {/* ── RIGHT COLUMN (SIDEBAR): KPI Cards, Overdues, Snapshot ── */}
         <div className="space-y-6">
 
-          {/* 4 Mini KPI Cards Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            
-            {/* Card 1: Team Members */}
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/60 shadow-sm flex flex-col justify-between h-[120px] hover:shadow-md transition-shadow relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
-                  {icons.users}
-                </div>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                  +12%
-                </span>
-              </div>
-              <div>
-                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Team Members</p>
-                {loading ? <Skeleton className="h-5 w-10 mt-1" /> : <p className="text-xl font-black text-slate-800 mt-0.5">{dashboardData?.stats?.teamCount}</p>}
-              </div>
-            </div>
+          {/* Top Selling Products / Subscription Pie Chart Section */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200/60 shadow-sm flex flex-col gap-6">
+            <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Subscriptions</h2>
 
-            {/* Card 2: Accounts */}
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/60 shadow-sm flex flex-col justify-between h-[120px] hover:shadow-md transition-shadow relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <div className="w-9 h-9 bg-purple-50 rounded-xl flex items-center justify-center">
-                  {icons.building}
-                </div>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                  +8%
-                </span>
-              </div>
-              <div>
-                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Accounts</p>
-                {loading ? <Skeleton className="h-5 w-14 mt-1" /> : <p className="text-xl font-black text-slate-800 mt-0.5">{dashboardData?.stats?.totalCustomers?.toLocaleString("en-IN")}</p>}
-              </div>
-            </div>
+            <div className="flex flex-col items-center justify-center pt-4 pb-2 w-full">
+              {/* Donut Chart with External Percentages */}
+              <div className="relative w-48 h-48 flex items-center justify-center">
+                {(() => {
+                  const total = (activeSubsVal || 0) + (pendingPlansVal || 0) + (expiredPlansVal || 0);
+                  if (total === 0) return <div className="text-slate-400 font-bold text-sm">No data</div>;
 
-            {/* Card 3: Live Subs */}
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/60 shadow-sm flex flex-col justify-between h-[120px] hover:shadow-md transition-shadow relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
-                  {icons.tag}
-                </div>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                  +15%
-                </span>
-              </div>
-              <div>
-                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Live Subs</p>
-                {loading ? <Skeleton className="h-5 w-14 mt-1" /> : <p className="text-xl font-black text-slate-800 mt-0.5">{dashboardData?.stats?.activeSubs?.toLocaleString("en-IN")}</p>}
-              </div>
-            </div>
+                  const pActive = activeSubsVal / total;
+                  const pPending = pendingPlansVal / total;
+                  const pExpired = expiredPlansVal / total;
 
-            {/* Card 4: Visits Today */}
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/60 shadow-sm flex flex-col justify-between h-[120px] hover:shadow-md transition-shadow relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <div className="w-9 h-9 bg-pink-50 rounded-xl flex items-center justify-center">
-                  {icons.lightning}
-                </div>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                  Today
-                </span>
-              </div>
-              <div>
-                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Visits Today</p>
-                {loading ? <Skeleton className="h-5 w-10 mt-1" /> : <p className="text-xl font-black text-slate-800 mt-0.5">{dashboardData?.stats?.visitsToday}</p>}
-              </div>
-            </div>
+                  const c = 2 * Math.PI * 50;
+                  const activeStroke = pActive * c;
+                  const pendingStroke = pPending * c;
+                  const expiredStroke = pExpired * c;
 
-            {/* Card 5: Inbound Checked-In */}
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/60 shadow-sm flex flex-col justify-between h-[120px] hover:shadow-md transition-shadow relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center">
-                  <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
-                </div>
-                <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
-                  Live
-                </span>
-              </div>
-              <div>
-                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Inbound (Walk-ins)</p>
-                {loading ? <Skeleton className="h-5 w-10 mt-1" /> : <p className="text-xl font-black text-slate-800 mt-0.5">{dashboardData?.stats?.inboundWalkIns ?? 0}</p>}
-              </div>
-            </div>
+                  const activeOffset = 0;
+                  const pendingOffset = -activeStroke;
+                  const expiredOffset = pendingOffset - pendingStroke;
 
-            {/* Card 6: Outbound Checked-Out */}
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/60 shadow-sm flex flex-col justify-between h-[120px] hover:shadow-md transition-shadow relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center">
-                  <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                </div>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                  Completed
-                </span>
+                  return (
+                    <>
+                      <svg width="200" height="200" className="transform -rotate-90 overflow-visible">
+                        {activeSubsVal > 0 && (
+                          <circle cx="100" cy="100" r="50" fill="transparent" stroke="#A855F7" strokeWidth="16" strokeDasharray={`${activeStroke} ${c}`} strokeDashoffset={activeOffset} strokeLinecap="butt" />
+                        )}
+                        {pendingPlansVal > 0 && (
+                          <circle cx="100" cy="100" r="50" fill="transparent" stroke="#FBBF24" strokeWidth="16" strokeDasharray={`${pendingStroke} ${c}`} strokeDashoffset={pendingOffset} strokeLinecap="butt" />
+                        )}
+                        {expiredPlansVal > 0 && (
+                          <circle cx="100" cy="100" r="50" fill="transparent" stroke="#38BDF8" strokeWidth="16" strokeDasharray={`${expiredStroke} ${c}`} strokeDashoffset={expiredOffset} strokeLinecap="butt" />
+                        )}
+                      </svg>
+                      
+                      {/* Floating Percentages (Mock positions for visual fidelity to image) */}
+                      {pActive > 0 && (
+                        <span className="absolute top-2 right-4 text-[10px] font-bold text-slate-500">{(pActive * 100).toFixed(1)}%</span>
+                      )}
+                      {pPending > 0 && (
+                        <span className="absolute bottom-6 right-2 text-[10px] font-bold text-slate-500">{(pPending * 100).toFixed(1)}%</span>
+                      )}
+                      {pExpired > 0 && (
+                        <span className="absolute bottom-10 left-0 text-[10px] font-bold text-slate-500">{(pExpired * 100).toFixed(1)}%</span>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
-              <div>
-                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Outbound (Checkouts)</p>
-                {loading ? <Skeleton className="h-5 w-10 mt-1" /> : <p className="text-xl font-black text-slate-800 mt-0.5">{dashboardData?.stats?.outboundWalkIns ?? 0}</p>}
+
+              {/* 2-Column Grid Legend */}
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3 w-full mt-8 px-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#A855F7]" />
+                  <span className="text-[10px] font-bold text-slate-500 lowercase">active subs</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FBBF24]" />
+                  <span className="text-[10px] font-bold text-slate-500 lowercase">pending</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8]" />
+                  <span className="text-[10px] font-bold text-slate-500 lowercase">expired</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80]" />
+                  <span className="text-[10px] font-bold text-slate-500 lowercase">others</span>
+                </div>
               </div>
             </div>
           </div>
@@ -551,43 +575,7 @@ export default function DashboardPage() {
             </a>
           </div>
 
-          {/* Visitor Snapshot / Actions Card */}
-          <div className="bg-[#4F46E5] rounded-3xl p-6 text-white shadow-xl flex flex-col justify-between h-[210px] relative overflow-hidden">
-            
-            {/* Visual soundwave design matching the mockup */}
-            <div className="absolute bottom-4 right-4 flex items-end gap-1 w-16 h-12 justify-end opacity-40">
-              {[60, 40, 80, 50, 95, 70].map((h, i) => (
-                <div key={i} className="bg-white rounded-t-xs w-1.5 transition-all duration-300 animate-pulse" style={{ height: `${h}%` }} />
-              ))}
-            </div>
 
-            <div>
-              <p className="text-[10px] font-extrabold text-white/50 uppercase tracking-widest flex items-center gap-1.5 leading-none">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                Visitor Snapshot
-              </p>
-              <div className="mt-4">
-                <p className="text-3xl font-black">{loading ? "—" : totalLiveVisitors}</p>
-                <p className="text-[11px] font-bold text-white/60 uppercase tracking-wider mt-0.5">Current Live Visitors</p>
-              </div>
-            </div>
-
-            {/* Inbound & Outbound Launch Buttons */}
-            <div className="grid grid-cols-2 gap-2 mt-4">
-              <button
-                onClick={() => setIsInboundOpen(true)}
-                className="py-2.5 px-2 bg-white text-slate-800 hover:bg-slate-100 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all shadow-sm shrink-0 truncate"
-              >
-                + Office Visit
-              </button>
-              <button
-                onClick={() => setIsOutboundOpen(true)}
-                className="py-2.5 px-2 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all shrink-0 truncate"
-              >
-                + Log Field
-              </button>
-            </div>
-          </div>
 
         </div>
       </div>

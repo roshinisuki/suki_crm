@@ -26,6 +26,7 @@ function StatusBadge({ status }: { status: string }) {
     "Active": "bg-emerald-50 text-emerald-700 border-emerald-200",
     "Expiring": "bg-amber-50 text-amber-700 border-amber-200",
     "Expired": "bg-red-50 text-red-600 border-red-200",
+    "Pending": "bg-blue-50 text-blue-700 border-blue-200",
   };
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${styles[status] || "bg-slate-100"}`}>
@@ -73,6 +74,13 @@ export default function SubscriptionsPage() {
 
   useEffect(() => {
     loadData();
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("add") === "true") {
+      setTimeout(() => {
+        openCreateModal();
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }, 100);
+    }
   }, []);
 
   const openCreateModal = () => {
@@ -83,6 +91,21 @@ export default function SubscriptionsPage() {
       planName: "",
       startDate: "",
       endDate: "",
+      status: "Active",
+      notes: "",
+    });
+    setErrorMsg("");
+    setIsModalOpen(true);
+  };
+
+  const handleCreateForApproved = (cId: string) => {
+    setIsEdit(false);
+    setSelectedSub(null);
+    setFormData({
+      customerId: cId,
+      planName: "",
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
       status: "Active",
       notes: "",
     });
@@ -130,7 +153,33 @@ export default function SubscriptionsPage() {
     setFormLoading(false);
   };
 
-  const filtered = subscriptions.filter((s) => {
+  const approvedPendingSubs: Subscription[] = customers
+    .filter(c => c.status === "APPROVED")
+    .map(c => ({
+      id: `virtual-pending-${c.id}`,
+      customerId: c.id,
+      planName: "— (Plan Not Assigned)",
+      startDate: "",
+      endDate: "",
+      status: "Pending" as any,
+      notes: "Customer is approved. Click '+ Setup Plan' to establish their subscription.",
+      createdAt: c.createdAt || "",
+      updatedAt: c.updatedAt || "",
+      customer: {
+        id: c.id,
+        name: c.name,
+        customerCode: c.customerCode,
+      } as any
+    }));
+
+  // Sort "Pending" subscriptions to the very top so they are instantly visible & actionable
+  const allSubs = [...subscriptions, ...approvedPendingSubs].sort((a, b) => {
+    if (a.status === "Pending" && b.status !== "Pending") return -1;
+    if (a.status !== "Pending" && b.status === "Pending") return 1;
+    return 0;
+  });
+
+  const filtered = allSubs.filter((s) => {
     const custName = s.customer?.name.toLowerCase() || "";
     const plan = s.planName.toLowerCase();
     const term = search.toLowerCase();
@@ -163,7 +212,7 @@ export default function SubscriptionsPage() {
           </div>
           <div>
             <p className="text-2xl font-bold text-slate-800 tracking-tight">
-              {subscriptions.filter(s => s.status === "Active").length}
+              {allSubs.filter(s => s.status === "Active").length}
             </p>
             <p className="text-xs font-semibold text-slate-500">Active Subs</p>
           </div>
@@ -174,7 +223,7 @@ export default function SubscriptionsPage() {
           </div>
           <div>
             <p className="text-2xl font-bold text-slate-800 tracking-tight">
-              {subscriptions.filter(s => s.status === "Pending").length}
+              {allSubs.filter(s => s.status === "Pending").length}
             </p>
             <p className="text-xs font-semibold text-slate-500">Pending Plans</p>
           </div>
@@ -185,7 +234,7 @@ export default function SubscriptionsPage() {
           </div>
           <div>
             <p className="text-2xl font-bold text-slate-800 tracking-tight">
-              {subscriptions.filter(s => s.status === "Expired").length}
+              {allSubs.filter(s => s.status === "Expired").length}
             </p>
             <p className="text-xs font-semibold text-slate-500">Expired Plans</p>
           </div>
@@ -195,11 +244,13 @@ export default function SubscriptionsPage() {
             <Ico d={icons.chart} size={20} className="text-indigo-600" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-slate-800 tracking-tight">{subscriptions.length}</p>
-            <p className="text-xs font-semibold text-slate-500">Total Plans</p>
+            <p className="text-2xl font-bold text-slate-800 tracking-tight">{allSubs.length}</p>
+            <p className="text-[10px] font-semibold text-slate-500">Total Plans</p>
           </div>
         </div>
       </div>
+
+
 
       {/* Table */}
       <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col">
@@ -266,10 +317,19 @@ export default function SubscriptionsPage() {
                       <p className="text-[11px] text-slate-400 font-mono mt-0.5">{s.id}</p>
                     </td>
                     <td className="px-6 py-4 text-xs text-slate-600">
-                      <div className="flex flex-col gap-1">
-                        <span>Start: <span className="font-semibold text-slate-700">{new Date(s.startDate).toLocaleDateString()}</span></span>
-                        <span>End: <span className="font-semibold text-slate-700">{new Date(s.endDate).toLocaleDateString()}</span></span>
-                      </div>
+                      {s.startDate ? (
+                        <div className="flex flex-col gap-1">
+                          <span>Start: <span className="font-semibold text-slate-700">{new Date(s.startDate).toLocaleDateString()}</span></span>
+                          <span>End: <span className="font-semibold text-slate-700">{new Date(s.endDate).toLocaleDateString()}</span></span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleCreateForApproved(s.customerId)}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] rounded-lg shadow-sm transition-colors uppercase tracking-wider shrink-0"
+                        >
+                          + Setup Plan
+                        </button>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <StatusBadge status={s.status} />

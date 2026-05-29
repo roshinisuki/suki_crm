@@ -100,7 +100,7 @@ export async function getDashboardDataAction() {
       where: {
         assignedUserId: isExecutive ? userId : undefined,
         nextMeetingDate: { lt: startOfToday },
-        status: "Pending"
+        status: { in: ["Pending", "Overdue"] }
       },
       include: {
         customer: { select: { id: true, name: true, customerCode: true } }
@@ -187,15 +187,118 @@ export async function getDashboardDataAction() {
       }
     });
 
-    // Calculate Engagement Rate
+    const approvedCount = await prisma.customer.count({
+      where: {
+        status: "APPROVED",
+        assignedUserId: isExecutive ? userId : undefined
+      }
+    });
+
+    const rejectedCount = await prisma.customer.count({
+      where: {
+        status: "REJECTED",
+        assignedUserId: isExecutive ? userId : undefined
+      }
+    });
+
+    const pendingCount = await prisma.customer.count({
+      where: {
+        status: "PENDING",
+        assignedUserId: isExecutive ? userId : undefined
+      }
+    });
+
     const conversionRate = totalCustomers > 0 
-      ? Math.round((await prisma.customer.count({
-          where: {
-            status: "APPROVED",
-            assignedUserId: isExecutive ? userId : undefined
-          }
-        }) / totalCustomers) * 1000) / 10
+      ? Math.round((approvedCount / totalCustomers) * 100)
       : 0;
+
+    // Subscription metrics for dashboard concentric ring chart
+    const totalPlans = await prisma.subscription.count({
+      where: isExecutive ? { customer: { assignedUserId: userId } } : {}
+    });
+
+    const pendingPlans = await prisma.subscription.count({
+      where: {
+        status: "Pending",
+        customer: isExecutive ? { assignedUserId: userId } : {}
+      }
+    });
+
+    const expiredPlans = await prisma.subscription.count({
+      where: {
+        status: "Expired",
+        customer: isExecutive ? { assignedUserId: userId } : {}
+      }
+    });
+
+    // Calculate customer growth over the last 6 months
+    const allCustomersObj = await prisma.customer.findMany({
+      where: isExecutive ? { assignedUserId: userId } : {},
+      select: { createdAt: true }
+    });
+
+    const monthlyCounts: Record<string, number> = {};
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    
+    const todayDate = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(todayDate.getFullYear(), todayDate.getMonth() - i, 1);
+      const label = `${monthNames[d.getMonth()]} ${d.getFullYear().toString().substring(2)}`;
+      monthlyCounts[label] = 0;
+    }
+
+    allCustomersObj.forEach(c => {
+      const d = new Date(c.createdAt);
+      const label = `${monthNames[d.getMonth()]} ${d.getFullYear().toString().substring(2)}`;
+      if (monthlyCounts[label] !== undefined) {
+        monthlyCounts[label]++;
+      }
+    });
+
+    const monthlyGrowth = Object.entries(monthlyCounts).map(([month, count]) => ({ month, count }));
+
+    // Calculate Marketing Visit Activity over the last 6 months
+    const marketingVisits = await prisma.marketingVisit.findMany({
+      where: {
+        checkIn: { gte: new Date(todayDate.getFullYear(), todayDate.getMonth() - 5, 1) },
+        executiveId: isExecutive ? userId : undefined
+      },
+      select: { checkIn: true }
+    });
+
+    const customerVisits = await prisma.customerVisit.findMany({
+      where: {
+        checkInTime: { gte: new Date(todayDate.getFullYear(), todayDate.getMonth() - 5, 1) },
+        hostedBy: isExecutive ? userId : undefined
+      },
+      select: { checkInTime: true }
+    });
+
+    const visitCounts: Record<string, number> = {};
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(todayDate.getFullYear(), todayDate.getMonth() - i, 1);
+      const label = `${monthNames[d.getMonth()]} ${d.getFullYear().toString().substring(2)}`;
+      visitCounts[label] = 0;
+    }
+
+    marketingVisits.forEach(v => {
+      const d = new Date(v.checkIn);
+      const label = `${monthNames[d.getMonth()]} ${d.getFullYear().toString().substring(2)}`;
+      if (visitCounts[label] !== undefined) {
+        visitCounts[label]++;
+      }
+    });
+
+    customerVisits.forEach(v => {
+      const d = new Date(v.checkInTime);
+      const label = `${monthNames[d.getMonth()]} ${d.getFullYear().toString().substring(2)}`;
+      if (visitCounts[label] !== undefined) {
+        visitCounts[label]++;
+      }
+    });
+
+    const monthlyVisitActivity = Object.entries(visitCounts).map(([month, count]) => ({ month, count }));
+
 
     const serializeVisit = (v: any) => ({
       ...v,
@@ -237,7 +340,15 @@ export async function getDashboardDataAction() {
           totalCustomers: totalCustomers || 0,
           visitsToday: visitsToday || 0,
           inboundWalkIns,
-          outboundWalkIns
+          outboundWalkIns,
+          approvedCount,
+          rejectedCount,
+          pendingCount,
+          totalPlans,
+          pendingPlans,
+          expiredPlans,
+          monthlyGrowth: monthlyGrowth || [],
+          monthlyVisitActivity: monthlyVisitActivity || []
         }
       }
     };
@@ -299,6 +410,28 @@ export async function checkInInboundAction(data: {
       }
     });
 
+    // Notify admins, leads, and the executive about inbound check-in
+    const adminsAndLeads = await prisma.user.findMany({
+      where: { isActive: true, role: { in: ["Admin", "MarketingLead"] } }
+    });
+    const notifyUsers = Array.from(new Set([...adminsAndLeads.map(u => u.id), userPayload.id]));
+
+    const customerObj = await prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { name: true }
+    });
+
+    if (notifyUsers.length > 0 && customerObj) {
+      await prisma.notification.createMany({
+        data: notifyUsers.map(uid => ({
+          userId: uid,
+          title: "Customer Inbound Check-In",
+          message: `Inbound Customer Checked In: ${customerObj.name} arrived for ${purpose}. Hosted by ${userPayload.name}.`,
+          type: "visit"
+        }))
+      });
+    }
+
     await logAudit(userPayload.id, "VISIT", "INBOUND_CHECK_IN", `Walk-in registered: Checked in customer ${customerId}`);
     revalidatePath("/dashboard");
     return { success: true, message: "Check-in successful", data: { ...visit, checkInTime: visit.checkInTime.toISOString(), checkOutTime: visit.checkOutTime?.toISOString() ?? null, createdAt: visit.createdAt.toISOString(), updatedAt: visit.updatedAt.toISOString() } };
@@ -342,27 +475,51 @@ export async function checkOutInboundAction(data: {
 
     // Update Customer Status & Triggers based on decision
     let portalMsg = "";
-    if (customerDecision === "APPROVED") {
-      await prisma.customer.update({
-        where: { id: visit.customerId },
-        data: { status: "APPROVED" as any }
-      });
-      // Send Portal Activation Email
-      const emailRes = await activateCustomerPortal(visit.customerId);
-      if (emailRes.success) {
-        portalMsg = " Portal activation link emailed.";
-      }
-    } else if (customerDecision === "REJECTED") {
-      await prisma.customer.update({
-        where: { id: visit.customerId },
-        data: { status: "REJECTED" as any }
-      });
-      await logAudit(userPayload.id, "CUSTOMER", "REJECT", `Customer ${visit.customer.name} rejected. Reason: ${rejectionReason || "None"}`);
+    if (visit.customer?.status === "Active") {
+      // If customer is already Active, protect their portal access and do not send redundant activation emails
+      portalMsg = " Customer is already active. Portal login preserved.";
     } else {
-      await prisma.customer.update({
-        where: { id: visit.customerId },
-        data: { status: "PENDING" as any }
-      });
+      if (customerDecision === "APPROVED") {
+        await prisma.customer.update({
+          where: { id: visit.customerId },
+          data: { status: "APPROVED" as any }
+        });
+        // Send Portal Activation Email
+        const emailRes = await activateCustomerPortal(visit.customerId);
+        if (emailRes.success) {
+          portalMsg = " Portal activation link emailed.";
+        }
+      } else if (customerDecision === "REJECTED") {
+        await prisma.customer.update({
+          where: { id: visit.customerId },
+          data: { status: "REJECTED" as any }
+        });
+        await logAudit(userPayload.id, "CUSTOMER", "REJECT", `Customer ${visit.customer.name} rejected. Reason: ${rejectionReason || "None"}`);
+      } else {
+        await prisma.customer.update({
+          where: { id: visit.customerId },
+          data: { status: "PENDING" as any }
+        });
+      }
+    }
+
+    // Trigger Notification back to Customer if they submitted support/renewal requests and employee updates it
+    if (["Support", "Subscription Discussion"].includes(visit.purpose)) {
+      if (visit.customer?.email) {
+        const customerUser = await prisma.user.findFirst({
+          where: { email: visit.customer.email, role: "Customer" }
+        });
+        if (customerUser) {
+          await prisma.notification.create({
+            data: {
+              userId: customerUser.id,
+              title: visit.purpose === "Support" ? "Support Ticket Update" : "Renewal Request Update",
+              message: `Your ${visit.purpose === "Support" ? "support request" : "renewal request"} status has been updated to: ${outcome}.`,
+              type: "visit"
+            }
+          });
+        }
+      }
     }
 
     // Create follow-up reminder if next date is provided
@@ -394,6 +551,23 @@ export async function checkOutInboundAction(data: {
         status: "CHECKED_OUT"
       }
     });
+
+    // Notify admins, leads, and the executive about inbound check-out
+    const adminsAndLeads = await prisma.user.findMany({
+      where: { isActive: true, role: { in: ["Admin", "MarketingLead"] } }
+    });
+    const notifyUsers = Array.from(new Set([...adminsAndLeads.map(u => u.id), userPayload.id]));
+
+    if (notifyUsers.length > 0) {
+      await prisma.notification.createMany({
+        data: notifyUsers.map(uid => ({
+          userId: uid,
+          title: "Customer Inbound Check-Out",
+          message: `Inbound Customer Checked Out: ${visit.customer.name} visit completed. Outcome: ${outcome}.`,
+          type: "visit"
+        }))
+      });
+    }
 
     await logAudit(userPayload.id, "VISIT", "INBOUND_CHECK_OUT", `Checked out customer from inbound visit ${id}`);
     revalidatePath("/dashboard");
@@ -520,26 +694,30 @@ export async function checkOutOutboundAction(data: {
 
     // Update Customer Status & Portal Email
     let portalMsg = "";
-    if (customerDecision === "APPROVED") {
-      await prisma.customer.update({
-        where: { id: visit.customerId },
-        data: { status: "APPROVED" as any }
-      });
-      const emailRes = await activateCustomerPortal(visit.customerId);
-      if (emailRes.success) {
-        portalMsg = " Portal activation link emailed.";
-      }
-    } else if (customerDecision === "REJECTED") {
-      await prisma.customer.update({
-        where: { id: visit.customerId },
-        data: { status: "REJECTED" as any }
-      });
-      await logAudit(userPayload.id, "CUSTOMER", "REJECT", `Customer ${visit.customer.name} rejected during field check-out.`);
+    if (visit.customer?.status === "Active") {
+      portalMsg = " Customer is already active. Portal login preserved.";
     } else {
-      await prisma.customer.update({
-        where: { id: visit.customerId },
-        data: { status: "PENDING" as any }
-      });
+      if (customerDecision === "APPROVED") {
+        await prisma.customer.update({
+          where: { id: visit.customerId },
+          data: { status: "APPROVED" as any }
+        });
+        const emailRes = await activateCustomerPortal(visit.customerId);
+        if (emailRes.success) {
+          portalMsg = " Portal activation link emailed.";
+        }
+      } else if (customerDecision === "REJECTED") {
+        await prisma.customer.update({
+          where: { id: visit.customerId },
+          data: { status: "REJECTED" as any }
+        });
+        await logAudit(userPayload.id, "CUSTOMER", "REJECT", `Customer ${visit.customer.name} rejected during field check-out.`);
+      } else {
+        await prisma.customer.update({
+          where: { id: visit.customerId },
+          data: { status: "PENDING" as any }
+        });
+      }
     }
 
     // Create follow-up reminder if next date is provided
@@ -573,6 +751,23 @@ export async function checkOutOutboundAction(data: {
         status: "CHECKED_OUT"
       }
     });
+
+    // Notify admins, leads, and the executive about outbound check-out
+    const adminsAndLeads = await prisma.user.findMany({
+      where: { isActive: true, role: { in: ["Admin", "MarketingLead"] } }
+    });
+    const notifyUsers = Array.from(new Set([...adminsAndLeads.map(u => u.id), userPayload.id]));
+
+    if (notifyUsers.length > 0) {
+      await prisma.notification.createMany({
+        data: notifyUsers.map(uid => ({
+          userId: uid,
+          title: "Outbound Visit Check-Out",
+          message: `${userPayload.name} checked out from field visit with ${visit.customer.name}. Outcome: ${outcome}.`,
+          type: "visit"
+        }))
+      });
+    }
 
     await logAudit(userPayload.id, "VISIT", "OUTBOUND_CHECK_OUT", `Executive checked out from field visit ${id}`);
     revalidatePath("/dashboard");
@@ -875,6 +1070,18 @@ export async function getCustomerDecisionSummaryAction() {
       orderBy: { updatedAt: "desc" }
     });
 
+    const visitHistory = await prisma.customerVisit.findMany({
+      include: {
+        customer: {
+          select: { id: true, name: true, customerCode: true, status: true, email: true, phone: true }
+        },
+        host: {
+          select: { id: true, name: true }
+        }
+      },
+      orderBy: { checkInTime: "desc" }
+    });
+
     return {
       success: true,
       data: {
@@ -883,7 +1090,8 @@ export async function getCustomerDecisionSummaryAction() {
         rejectedCount,
         pendingCount,
         conversionRate,
-        pendingCustomersList
+        pendingCustomersList,
+        visitHistory
       }
     };
   } catch (error) {
@@ -919,5 +1127,149 @@ export async function updateCustomerStatusAction(params: { id: string; status: s
   } catch (error) {
     console.error("Update Customer Status Error:", error);
     return { success: false, message: "Failed to update customer status." };
+  }
+}
+
+export async function createCustomerSupportAction(data: { subject: string; description: string; severity: string }) {
+  try {
+    const userPayload = await verifyAuth();
+    if (!userPayload || userPayload.role !== "Customer") {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const { subject, description, severity } = data;
+    if (!subject || !description || !severity) {
+      return { success: false, message: "Subject, description, and severity are required" };
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { email: userPayload.email },
+    });
+    if (!customer) return { success: false, message: "Customer profile not found." };
+
+    let hostId = customer.assignedUserId;
+    if (!hostId) {
+      const firstAdmin = await prisma.user.findFirst({
+        where: { role: "Admin", isActive: true }
+      });
+      hostId = firstAdmin?.id || "";
+    }
+
+    if (!hostId) {
+      return { success: false, message: "System error: No employee is available to host this request." };
+    }
+
+    const visit = await prisma.customerVisit.create({
+      data: {
+        customerId: customer.id,
+        hostedBy: hostId,
+        purpose: "Support",
+        meetingSummary: `Support Ticket Subject: ${subject}. Description: ${description}`,
+        outcome: "Enquired to IT",
+        customerDecision: "PENDING",
+        status: "CHECKED_IN"
+      }
+    });
+
+    const internalUsers = await prisma.user.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { role: { in: ["Admin", "MarketingLead"] } },
+          { id: hostId }
+        ]
+      }
+    });
+
+    if (internalUsers.length > 0) {
+      await prisma.notification.createMany({
+        data: internalUsers.map(u => ({
+          userId: u.id,
+          title: "New Support Request",
+          message: `${customer.name} submitted a Support Ticket: '${subject}' (Severity: ${severity})`,
+          type: "visit"
+        }))
+      });
+    }
+
+    await logAudit(userPayload.id, "CUSTOMER_PORTAL", "SUPPORT_REQUESTED", `Customer filed support ticket: ${subject}`);
+    revalidatePath("/dashboard");
+    revalidatePath("/marketing-log");
+    return { success: true, message: "Support ticket registered successfully." };
+  } catch (error) {
+    console.error("Create Customer Support Error:", error);
+    return { success: false, message: "Failed to submit support ticket." };
+  }
+}
+
+export async function createCustomerRenewalRequestAction(data: { planName: string; notes: string; startDate: string }) {
+  try {
+    const userPayload = await verifyAuth();
+    if (!userPayload || userPayload.role !== "Customer") {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const { planName, notes, startDate } = data;
+    if (!planName || !startDate) {
+      return { success: false, message: "Plan name and start date are required" };
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { email: userPayload.email },
+    });
+    if (!customer) return { success: false, message: "Customer profile not found." };
+
+    let hostId = customer.assignedUserId;
+    if (!hostId) {
+      const firstAdmin = await prisma.user.findFirst({
+        where: { role: "Admin", isActive: true }
+      });
+      hostId = firstAdmin?.id || "";
+    }
+
+    if (!hostId) {
+      return { success: false, message: "System error: No employee is available to host this request." };
+    }
+
+    const visit = await prisma.customerVisit.create({
+      data: {
+        customerId: customer.id,
+        hostedBy: hostId,
+        purpose: "Subscription Discussion",
+        meetingSummary: `Renewal requested for plan: ${planName}. Notes: ${notes || "None"}`,
+        outcome: "Renewal Requested",
+        customerDecision: "PENDING",
+        status: "CHECKED_IN"
+      }
+    });
+
+    const internalUsers = await prisma.user.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { role: { in: ["Admin", "MarketingLead"] } },
+          { id: hostId }
+        ]
+      }
+    });
+
+    if (internalUsers.length > 0) {
+      await prisma.notification.createMany({
+        data: internalUsers.map(u => ({
+          userId: u.id,
+          title: "Renewal Requested",
+          message: `${customer.name} requested renewal for: '${planName}'`,
+          type: "visit"
+        }))
+      });
+    }
+
+    await logAudit(userPayload.id, "CUSTOMER_PORTAL", "RENEWAL_REQUESTED", `Customer requested renewal for: ${planName}`);
+    revalidatePath("/dashboard");
+    revalidatePath("/marketing-log");
+    return { success: true, message: "Renewal request submitted successfully." };
+  } catch (error) {
+    console.error("Create Customer Renewal Request Error:", error);
+    return { success: false, message: "Failed to submit renewal request." };
   }
 }

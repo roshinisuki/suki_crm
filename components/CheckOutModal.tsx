@@ -18,6 +18,43 @@ interface CheckOutModalProps {
   } | null;
 }
 
+const getOutcomeOptions = (purpose: string) => {
+  const p = purpose ? purpose.toLowerCase() : "";
+  if (p.includes("support")) {
+    return [
+      { value: "Enquired to IT", label: "Enquired to IT" },
+      { value: "Resolving", label: "Resolving" },
+      { value: "Resolved", label: "Resolved" }
+    ];
+  }
+  if (p.includes("subscription discussion") || p.includes("renewal") || p.includes("subscription")) {
+    return [
+      { value: "Renewal Requested", label: "Renewal Requested" },
+      { value: "Renewal Processing", label: "Renewal Processing" },
+      { value: "Renewed", label: "Renewed" }
+    ];
+  }
+  if (p.includes("sales")) {
+    return [
+      { value: "Interested", label: "Interested" },
+      { value: "Not Interested", label: "Not Interested" },
+      { value: "Follow-up Required", label: "Follow-up Required" },
+      { value: "Pending Decision", label: "Pending Decision" },
+      { value: "Converted", label: "Converted" }
+    ];
+  }
+  if (p.includes("demo")) {
+    return [
+      { value: "Demo Scheduled", label: "Demo Scheduled" },
+      { value: "Demo Completed", label: "Demo Completed" }
+    ];
+  }
+  return [
+    { value: "Interested", label: "Interested" },
+    { value: "Not Interested", label: "Not Interested" }
+  ];
+};
+
 export default function CheckOutModal({
   isOpen,
   onClose,
@@ -45,7 +82,13 @@ export default function CheckOutModal({
     if (isOpen && visit) {
       setErrorMsg("");
       setMeetingNotes("");
-      setOutcome("Interested");
+      
+      const options = getOutcomeOptions(visit.purpose);
+      if (options.length > 0) {
+        setOutcome(options[0].value);
+      } else {
+        setOutcome("Interested");
+      }
       setCustomerDecision("PENDING");
       setRejectionReason("");
       setNextMeetingDate("");
@@ -144,8 +187,12 @@ export default function CheckOutModal({
           {/* Header */}
           <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
             <div>
-              <h2 className="text-base font-bold text-slate-800">Check-Out Visit / Log Meeting</h2>
-              <p className="text-[11px] text-slate-400 mt-0.5">Capturing meeting summary, outcomes and portal decision</p>
+              <h2 className="text-base font-bold text-slate-800">
+                {visit.visitType === "Inbound" ? "End Customer Visit" : "Check-Out Field Visit"} / Log Meeting
+              </h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                {visit.visitType === "Inbound" ? "Capturing visit end, summary, and portal decision" : "Capturing meeting summary, outcomes and portal decision"}
+              </p>
             </div>
             <button 
               onClick={onClose}
@@ -169,7 +216,9 @@ export default function CheckOutModal({
                   <p className="text-xs text-slate-500 font-semibold">{visit.customerCode} • {visit.visitType} Visit ({visit.purpose})</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Checked In At</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    {visit.visitType === "Inbound" ? "Visit Started At" : "Checked In At"}
+                  </p>
                   <p className="text-xs font-bold text-slate-600 mt-1">{new Date(visit.checkInTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</p>
                 </div>
               </div>
@@ -206,11 +255,11 @@ export default function CheckOutModal({
                     onChange={(e) => setOutcome(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-sm focus:outline-none text-slate-700 font-semibold"
                   >
-                    <option value="Interested">Interested</option>
-                    <option value="Not Interested">Not Interested</option>
-                    <option value="Follow-up Required">Follow-up Required</option>
-                    <option value="Pending Decision">Pending Decision</option>
-                    <option value="Converted">Converted</option>
+                    {getOutcomeOptions(visit.purpose).map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -301,7 +350,9 @@ export default function CheckOutModal({
                 disabled={formLoading}
                 className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-75"
               >
-                {formLoading ? "Recording Checkout..." : "Submit Check-Out"}
+                {formLoading 
+                  ? (visit.visitType === "Inbound" ? "Ending Visit..." : "Recording Checkout...") 
+                  : (visit.visitType === "Inbound" ? "End Visit" : "Submit Check-Out")}
               </button>
             </div>
           </form>

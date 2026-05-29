@@ -73,7 +73,7 @@ export default function UserMasterPage() {
     try {
       const [usersRes, custRes] = await Promise.all([
         getUsersAction(),
-        getCustomersAction({ status: "Active" }),
+        getCustomersAction(),
       ]);
       if (usersRes.success && usersRes.data) setUsers(usersRes.data as User[]);
       if (custRes.success && custRes.data)   setCustomers(custRes.data);
@@ -277,6 +277,31 @@ export default function UserMasterPage() {
         ))}
       </div>
 
+      {/* ⚠️ APPROVED Pending Subscriptions Banners */}
+      {activeTab === "customer" && customers.filter(c => c.status === "APPROVED").length > 0 && (
+        <div className="space-y-2">
+          {customers.filter(c => c.status === "APPROVED").map((c) => (
+            <div key={c.id} className="p-4 rounded-2xl bg-amber-50 border border-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-pulse">
+              <div className="flex items-center gap-3">
+                <span className="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 text-sm">
+                  ⚠️
+                </span>
+                <div className="text-xs">
+                  <span className="font-bold text-slate-800">Approved Customer (Subscription Pending):</span>{" "}
+                  <strong className="text-amber-700">{c.name} ({c.customerCode})</strong> is recently approved but has no active subscription. You must add a subscription plan first to activate their account and enable customer portal creation.
+                </div>
+              </div>
+              <a
+                href="/subscription"
+                className="px-4 py-1.5 bg-[#0D2137] hover:bg-[#1a365d] text-white font-bold text-xs rounded-xl shrink-0 text-center transition-all shadow-sm"
+              >
+                Go to Subscriptions ➡️
+              </a>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Main table card */}
       <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
 
@@ -450,6 +475,7 @@ export default function UserMasterPage() {
                   <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-xs text-emerald-700">
                     <strong>Customer Portal User</strong> — select an active customer. Their registered email will receive
                     a portal activation link to set their password and access the customer portal.
+                    <p className="mt-1 font-bold text-[10px] uppercase text-emerald-800">💡 Only ACTIVE customers (with active subscriptions) are eligible and shown below.</p>
                   </div>
 
                   <div>
@@ -460,15 +486,15 @@ export default function UserMasterPage() {
                       className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-700"
                     >
                       <option value="">Select an active customer…</option>
-                      {customers.map(c => (
+                      {customers.filter(c => c.status === "Active").map(c => (
                         <option key={c.id} value={c.id}>
                           {c.name} ({c.customerCode}) — {c.email || "no email on file"}
                         </option>
                       ))}
                     </select>
-                    {customers.length === 0 && (
+                    {customers.filter(c => c.status === "Active").length === 0 && (
                       <p className="text-[11px] text-amber-600 mt-1 font-semibold">
-                        No active customers found. A customer must be ACTIVE before a portal account can be created.
+                        No active customers found. A customer must be ACTIVE (with an active subscription) before a portal account can be created.
                       </p>
                     )}
                   </div>

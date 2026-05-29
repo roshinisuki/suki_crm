@@ -1,6 +1,7 @@
 import { getMeAction } from "@/app/actions/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import RenewalRequestButton from "./RenewalRequestButton";
 
 export default async function CustomerPortalPage() {
   const userRes = await getMeAction();
@@ -39,14 +40,14 @@ export default async function CustomerPortalPage() {
           ) : (
             <div className="space-y-4">
               {subscriptions.map(sub => (
-                <div key={sub.id} className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex items-center justify-between">
-                  <div>
+                <div key={sub.id} className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="space-y-1">
                     <h3 className="font-bold text-slate-800">{sub.planName}</h3>
-                    <p className="text-xs font-medium text-slate-500 mt-1">
+                    <p className="text-xs font-medium text-slate-500">
                       {new Date(sub.startDate).toLocaleDateString()} - {new Date(sub.endDate).toLocaleDateString()}
                     </p>
                   </div>
-                  <div>
+                  <div className="flex items-center gap-3">
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
                       sub.status === 'Active' ? 'bg-emerald-100 text-emerald-700' :
                       sub.status === 'Pending' ? 'bg-amber-100 text-amber-700' :
@@ -54,6 +55,9 @@ export default async function CustomerPortalPage() {
                     }`}>
                       {sub.status}
                     </span>
+                    {sub.status === 'Active' && (
+                      <RenewalRequestButton planName={sub.planName} />
+                    )}
                   </div>
                 </div>
               ))}

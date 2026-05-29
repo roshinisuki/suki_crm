@@ -76,6 +76,14 @@ export async function createSubscriptionAction(data: any) {
       },
     });
 
+    // Automatically update customer status to Active if subscription is Active
+    if (status === "Active" || !status) {
+      await prisma.customer.update({
+        where: { id: customerId },
+        data: { status: "Active" }
+      });
+    }
+
     await logAudit(
       userPayload.id,
       "subscription",

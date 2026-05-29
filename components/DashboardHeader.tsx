@@ -31,6 +31,15 @@ export default function DashboardHeader({
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const [toast, setToast] = useState<{ visible: boolean; title: string; message: string } | null>(null);
+
+  const showToast = (title: string, message: string) => {
+    setToast({ visible: true, title, message });
+    // Auto-hide toast after 5.5 seconds
+    setTimeout(() => {
+      setToast(prev => prev ? { ...prev, visible: false } : null);
+    }, 5500);
+  };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -48,16 +57,48 @@ export default function DashboardHeader({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch Notifications
+
+
+  // Fetch Notifications periodically and trigger toast alert popups
+  // Use a ref to track which notification IDs have already triggered a toast in this session
+  const seenToastIds = useRef<Set<string>>(new Set());
+
   useEffect(() => {
-    if (user) {
+    if (!user) return;
+
+    let isFirstLoad = true;
+
+    const fetchNotifs = () => {
       fetch("/api/notifications")
         .then(res => res.json())
         .then(data => {
-          if (data.success) setNotifications(data.data);
+          if (data.success) {
+            setNotifications(prev => {
+              const newUnreads = data.data.filter((n: any) => !n.isRead);
+              
+              // Only consider it "new" for toasting if we've never seen this ID before
+              const trulyNewForToast = newUnreads.filter((n: any) => !seenToastIds.current.has(n.id));
+
+              if (trulyNewForToast.length > 0 && !isFirstLoad) {
+                // Toast the first newly seen notification
+                const latest = trulyNewForToast[0];
+                showToast(latest?.title || "Notification Received", latest?.message || "New activity logged.");
+              }
+              
+              // Mark all currently fetched unreads as "seen" so they don't toast again
+              newUnreads.forEach((n: any) => seenToastIds.current.add(n.id));
+
+              return data.data;
+            });
+            isFirstLoad = false;
+          }
         })
         .catch(console.error);
-    }
+    };
+
+    fetchNotifs();
+    const interval = setInterval(fetchNotifs, 8000); // Check every 8 seconds
+    return () => clearInterval(interval);
   }, [user]);
 
   // Handle Search Debounce
@@ -94,6 +135,16 @@ export default function DashboardHeader({
     try {
       await fetch(`/api/notifications/${id}`, { method: "PATCH" });
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const clearAll = async () => {
+    try {
+      await fetch("/api/notifications", { method: "DELETE" });
+      // Filter out non-virtual notifications from state instantly
+      setNotifications(prev => prev.filter(n => n.id.startsWith("virtual-")));
     } catch (e) {
       console.error(e);
     }
@@ -201,11 +252,18 @@ export default function DashboardHeader({
             <div className="absolute top-full mt-2 w-72 md:w-80 right-0 bg-white border border-slate-200 shadow-xl rounded-3xl overflow-hidden z-50 flex flex-col">
               <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
                 <h3 className="text-sm font-bold text-slate-800">Notifications</h3>
-                {unreadCount > 0 && (
-                  <button onClick={markAllRead} className="text-[10px] font-bold text-[#1a6bff] hover:text-blue-800 flex items-center gap-1 transition-colors">
-                    {icons.check} Mark all read
-                  </button>
-                )}
+                <div className="flex items-center gap-2.5">
+                  {unreadCount > 0 && (
+                    <button onClick={markAllRead} className="text-[10px] font-bold text-[#1a6bff] hover:text-blue-800 flex items-center gap-1 transition-colors shrink-0">
+                      {icons.check} Mark read
+                    </button>
+                  )}
+                  {notifications.filter(n => !n.id.startsWith("virtual-")).length > 0 && (
+                    <button onClick={clearAll} className="text-[10px] font-bold text-red-500 hover:text-red-750 flex items-center gap-1 transition-colors shrink-0">
+                      ✕ Clear all
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="max-h-80 overflow-y-auto">
                 {notifications.length === 0 ? (
@@ -215,7 +273,16 @@ export default function DashboardHeader({
                     {notifications.map(n => (
                       <div 
                         key={n.id} 
-                        onClick={() => markAsRead(n.id)}
+                        onClick={() => {
+                          if (n.id.startsWith("virtual-pending-sub-")) {
+                            router.push("/subscription");
+                          } else if (n.id.startsWith("virtual-inbound-visit-") || n.id.startsWith("virtual-outbound-visit-")) {
+                            router.push("/dashboard");
+                          } else {
+                            markAsRead(n.id);
+                          }
+                          setIsNotifOpen(false);
+                        }}
                         className={`p-4 hover:bg-slate-50 cursor-pointer transition-colors ${n.isRead ? "opacity-60" : "bg-blue-50/20"}`}
                       >
                         <div className="flex items-start justify-between gap-3">
@@ -239,14 +306,63 @@ export default function DashboardHeader({
           )}
         </div>
 
-        {/* User Profile Thumbnail */}
-        <img 
-          src={user?.profilePhoto || `https://i.pravatar.cc/150?u=${user?.email || "admin"}`} 
-          alt="User" 
+        {/* User Profile Initials Avatar */}
+        <div 
           onClick={() => router.push("/profile")}
-          className="w-8 h-8 md:w-9 md:h-9 rounded-xl object-cover border-2 border-slate-200 cursor-pointer hover:border-[#0D2137] transition-all" 
-        />
+          className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-gradient-to-br from-[#0D2137] to-[#1E3A5F] text-white flex items-center justify-center text-xs md:text-sm font-black tracking-wider cursor-pointer border border-slate-200 hover:scale-105 active:scale-95 transition-all shadow-sm shrink-0"
+          title={user?.name || "User Profile"}
+        >
+          {(() => {
+            const name = user?.name || "System Admin";
+            const cleanName = name.replace(/[^a-zA-Z\s]/g, " ").trim();
+            const parts = cleanName.split(/\s+/);
+            if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+            return (parts[0][0] + (parts[parts.length - 1][0] || "")).toUpperCase();
+          })()}
+        </div>
       </div>
+      {/* 🔔 Beautiful Modern Notification Toast Popup */}
+      {toast?.visible && (
+        <div 
+          onClick={() => {
+            setIsNotifOpen(true);
+            setToast(prev => prev ? { ...prev, visible: false } : null);
+          }}
+          className="fixed top-4 left-4 right-4 md:left-auto md:w-96 z-[9999] bg-slate-900 text-white rounded-3xl p-4 shadow-[0_12px_40px_rgba(0,0,0,0.3)] border border-slate-800 flex items-start gap-3.5 animate-toast-slide-in cursor-pointer hover:bg-slate-850 hover:translate-y-[-2px] active:scale-95 transition-all duration-300"
+        >
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center shrink-0 shadow-md">
+            <svg className="w-5 h-5 text-white animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-[10px] font-black tracking-widest text-indigo-400 uppercase">One message arrived</h4>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setToast(prev => prev ? { ...prev, visible: false } : null);
+                }}
+                className="text-slate-400 hover:text-white transition-colors text-xs font-bold leading-none p-1 rounded-full hover:bg-white/10"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs font-bold text-white mt-1.5 truncate">{toast.title}</p>
+            <p className="text-[10px] text-slate-300 mt-0.5 line-clamp-2 leading-relaxed">{toast.message}</p>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes toastSlideIn {
+          0% { transform: translateY(-40px) scale(0.95); opacity: 0; }
+          100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        .animate-toast-slide-in {
+          animation: toastSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}</style>
     </header>
   );
 }

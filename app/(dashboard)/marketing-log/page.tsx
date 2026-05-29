@@ -15,6 +15,74 @@ const icons = {
   x: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>,
 };
 
+function LogPurposeStatusBadge({ purpose, status, outcome }: { purpose: string; status: string; outcome: string }) {
+  const isCheckedIn = status === "CHECKED_IN";
+  
+  if (isCheckedIn) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
+        In Premises
+      </span>
+    );
+  }
+
+  const p = purpose ? purpose.toLowerCase() : "";
+  const o = outcome || "";
+
+  // Support Tailored Pipeline
+  if (p.includes("support")) {
+    if (o.includes("Resolved") || o.includes("resolved")) {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Resolved</span>;
+    } else if (o.includes("Resolving") || o.includes("resolving")) {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Resolving</span>;
+    } else {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Enquired to IT</span>;
+    }
+  }
+
+  // Renewal Tailored Pipeline
+  if (p.includes("subscription discussion") || p.includes("renewal") || p.includes("subscription")) {
+    if (o.includes("Renewed") || o.includes("renewed")) {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Renewed</span>;
+    } else if (o.includes("Renewal Processing") || o.includes("processing")) {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Renewal Processing</span>;
+    } else {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Renewal Requested</span>;
+    }
+  }
+
+  // Sales Meeting Tailored Pipeline
+  if (p.includes("sales")) {
+    if (o === "Converted") {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Converted</span>;
+    } else if (o === "Not Interested") {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">Not Interested</span>;
+    } else if (o === "Follow-up Required" || o === "Pending Decision") {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">{o}</span>;
+    } else {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">{o || "Interested"}</span>;
+    }
+  }
+
+  // Demo Tailored Pipeline
+  if (p.includes("demo")) {
+    if (o.includes("Completed")) {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Demo Completed</span>;
+    } else {
+      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Demo Scheduled</span>;
+    }
+  }
+
+  // Walk-in Guest
+  if (o.includes("Walk-in Guest")) {
+    return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">Walk-in Guest</span>;
+  }
+
+  // Default
+  if (!o) return null;
+  return <span className="font-semibold text-slate-600">{o}</span>;
+}
+
 export default function MarketingLogPage() {
   const { user } = useAuth();
   const [logs, setLogs] = useState<any[]>([]);
@@ -344,12 +412,6 @@ export default function MarketingLogPage() {
             📍 Field Check-In
           </button>
           <button
-            onClick={() => openCheckIn("Inbound")}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors"
-          >
-            🏢 Walk-in Log
-          </button>
-          <button
             onClick={handleExportCSV}
             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
           >
@@ -391,6 +453,9 @@ export default function MarketingLogPage() {
               <option value="Follow-up Required">Follow-up Required</option>
               <option value="Pending Decision">Pending Decision</option>
               <option value="Converted">Converted</option>
+              <option value="Renewal Requested">Renewal Requested</option>
+              <option value="Renewal Processing">Renewal Processing</option>
+              <option value="Renewed">Renewed</option>
             </select>
           </div>
           <div>
@@ -458,8 +523,12 @@ export default function MarketingLogPage() {
                   return (
                     <tr key={l.id} className="hover:bg-slate-50/40 transition-colors">
                       <td className="px-6 py-4">
-                        <p className="font-bold text-slate-800">{l.customerName}</p>
-                        <p className="text-[10px] text-slate-400 font-bold mt-0.5">{l.customerCode} • {l.executiveName}</p>
+                        <p className="font-bold text-slate-800">
+                          {l.executiveName}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+                          {l.customerCode} • {l.customerName}
+                        </p>
                       </td>
                       <td className="px-4 py-4">
                         <span className={`px-2 py-0.5 rounded-md font-bold text-[9px] ${l.visitType === "Inbound" ? "bg-amber-100 text-amber-800" : "bg-indigo-100 text-indigo-800"}`}>
@@ -470,10 +539,18 @@ export default function MarketingLogPage() {
                       <td className="px-4 py-4 font-medium text-slate-500">
                         <p>{checkInText}</p>
                         <p className={`text-[10px] mt-0.5 font-bold ${isActive ? "text-amber-500" : "text-slate-400"}`}>
-                          {isActive ? "🟡 Active" : `Out: ${checkOutText}`}
+                          {isActive 
+                            ? `🟡 Active${l.visitType === "Outbound" ? ` (by ${l.executiveName})` : ""}` 
+                            : (l.visitType === "Inbound" 
+                                ? `Ended: ${checkOutText}` 
+                                : `Out: ${checkOutText} (by ${l.executiveName})`
+                              )
+                          }
                         </p>
                       </td>
-                      <td className="px-4 py-4 font-bold text-slate-700">{l.outcome}</td>
+                      <td className="px-4 py-4">
+                        <LogPurposeStatusBadge purpose={l.purpose} status={l.status} outcome={l.outcome} />
+                      </td>
                       <td className="px-4 py-4">
                         <span className={`inline-flex px-2 py-0.5 rounded-full font-black text-[9px] border ${
                           l.customerDecision === "APPROVED"
@@ -586,7 +663,9 @@ export default function MarketingLogPage() {
               <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-50">
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Outcome</p>
-                  <p className="text-xs font-bold text-slate-700 mt-1">{selectedVisit.outcome}</p>
+                  <div className="mt-1">
+                    <LogPurposeStatusBadge purpose={selectedVisit.purpose} status={selectedVisit.status} outcome={selectedVisit.outcome} />
+                  </div>
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Customer Decision</p>
