@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import SupportClient from "./SupportClient";
 
-export const revalidate = 0; // Disable server component caching
+// Mark as dynamic since getMeAction() uses cookies() which requires server-side rendering
+export const dynamic = 'force-dynamic';
 
 export default async function CustomerSupportPage() {
   const userRes = await getMeAction();

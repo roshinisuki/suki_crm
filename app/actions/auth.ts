@@ -34,9 +34,9 @@ const passwordSchema = z
 
 // ─── JWT Cookie Setter ────────────────────────────────────────────────────────
 async function issueAuthCookie(user: { id: string; email: string; role: string }, rememberMe = false) {
-  // rememberMe=true → 7 days; default → 30 minutes (inactivity timeout enforced client-side)
-  const expiresIn = rememberMe ? "7d" : "30m";
-  const maxAge = rememberMe ? 7 * 24 * 60 * 60 : 30 * 60;
+  // rememberMe=true → 7 days; default → 8 hours
+  const expiresIn = rememberMe ? "7d" : "8h";
+  const maxAge = rememberMe ? 7 * 24 * 60 * 60 : 8 * 60 * 60;
 
   const token = jwt.sign(
     { id: user.id, email: user.email, role: user.role },
@@ -817,8 +817,8 @@ export async function createCustomerPortalUser(customerId: string) {
 export async function resendInvitation(userId: string) {
   try {
     const adminPayload = await verifyAuth();
-    if (!adminPayload || adminPayload.role !== "Admin") {
-      return { success: false, message: "Unauthorized: Admin only." };
+    if (!adminPayload || !["Admin", "MarketingLead"].includes(adminPayload.role)) {
+      return { success: false, message: "Unauthorized: Admin or Marketing Lead only." };
     }
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -948,4 +948,70 @@ export async function createUserByAdmin(data: {
     return createInternalUserByAdmin({ name: data.name, email: data.email, role: data.role });
   }
   return { success: false, message: "Use the split creation flow (createInternalUserByAdmin / createCustomerPortalUser)." };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SELF-SERVICE: REQUEST NEW ACTIVATION LINK (for expired links)
+// ═══════════════════════════════════════════════════════════════
+export async function requestNewActivationLink(email: string) {
+  try {
+    if (!email?.trim()) {
+      return { success: false, message: "Please provide your email address." };
+    }
+
+    const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+
+    // Always return success to prevent email enumeration
+    if (!user || !user.isFirstLogin) {
+      return { success: true, message: "If that email is registered and pending activation, a new link has been sent." };
+    }
+
+    // Find linked customer to use activateCustomerPortal flow
+    const customer = await prisma.customer.findFirst({ where: { email: user.email } });
+
+    if (customer) {
+      // Customer portal user — regenerate via activateCustomerPortal-style flow
+      const activationToken = jwt.sign(
+        { userId: user.id, purpose: "CUSTOMER_ACTIVATION" },
+        JWT_SECRET,
+        { expiresIn: `${ACTIVATION_EXPIRY_HRS}h` }
+      );
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          activationToken,
+          activationTokenExpiry: new Date(Date.now() + ACTIVATION_EXPIRY_HRS * 60 * 60 * 1000),
+          isActive: true,
+          isFirstLogin: true,
+        },
+      });
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const activationUrl = `${appUrl}/activate-account?token=${activationToken}`;
+      await sendEmail(user.email, "Your New Suki Portal Activation Link", buildCustomerActivationEmail(customer.name, activationUrl));
+    } else {
+      // Internal user — regenerate internal activation
+      const activationToken = jwt.sign(
+        { email: user.email, purpose: "ACCOUNT_ACTIVATION" },
+        JWT_SECRET,
+        { expiresIn: `${ACTIVATION_EXPIRY_HRS}h` }
+      );
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          activationToken,
+          activationTokenExpiry: new Date(Date.now() + ACTIVATION_EXPIRY_HRS * 60 * 60 * 1000),
+        },
+      });
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const activationUrl = `${appUrl}/activate-account?token=${activationToken}`;
+      await sendEmail(user.email, "Your New Suki CRM Activation Link", buildInternalActivationEmail(user.name, activationUrl, "Suki CRM Admin"));
+    }
+
+    return { success: true, message: "If that email is registered and pending activation, a new link has been sent." };
+  } catch (error) {
+    console.error("requestNewActivationLink error:", error);
+    return { success: false, message: "Something went wrong. Please try again." };
+  }
 }

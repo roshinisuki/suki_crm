@@ -3,13 +3,10 @@ const prisma = new PrismaClient();
 
 async function main() {
   const logs = await prisma.auditLog.findMany({
-    where: {
-      action: 'RESET_LINK_SENT'
-    },
     orderBy: {
       timestamp: 'desc'
     },
-    take: 5
+    take: 20
   });
   console.log("Recent Audit Logs:", logs);
 }

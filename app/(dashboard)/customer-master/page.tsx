@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { getCustomersAction, createCustomerAction, updateCustomerAction, deleteCustomersAction } from "@/app/actions/customers";
 import { getUsersAction } from "@/app/actions/users";
-import { activateCustomerPortal } from "@/app/actions/auth";
 import { Customer, User } from "@/types";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -31,7 +31,7 @@ function StatusBadge({ status }: { status: string }) {
     Prospect: "bg-amber-50 text-amber-700 border-amber-200",
   };
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${styles[status] || "bg-slate-100"}`}>
+    <span className={`inline-flex items-center justify-center w-24 px-2 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${styles[status] || "bg-slate-100"}`}>
       {status}
     </span>
   );
@@ -44,13 +44,13 @@ export default function CustomerMasterPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { user } = useAuth();
+  const router = useRouter();
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [executives, setExecutives] = useState<User[]>([]);
   const [errorMsg, setErrorMsg] = useState("");
   const [formLoading, setFormLoading] = useState(false);
-  const [activatingId, setActivatingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const showToast = (type: "success" | "error", msg: string) => {
     setToast({ type, msg });
@@ -64,7 +64,7 @@ export default function CustomerMasterPage() {
     email: "",
     phone: "",
     city: "",
-    status: "Prospect" as "Active" | "Inactive" | "Prospect",
+    status: "Prospect" as "Active" | "Inactive" | "Prospect" | "APPROVED" | "REJECTED" | "PENDING",
     assignedUserId: "",
   });
 
@@ -188,17 +188,20 @@ export default function CustomerMasterPage() {
     }
   };
 
-  const handleActivatePortal = async (customerId: string, customerName: string) => {
-    if (!confirm(`Send a portal activation email to the contact for "${customerName}"?`)) return;
-    setActivatingId(customerId);
-    const res = await activateCustomerPortal(customerId);
-    setActivatingId(null);
+  const handleDeleteOne = async (c: Customer) => {
+    if (!confirm(`Delete "${c.name}" (${c.customerCode})?\n\nThis will permanently erase ALL their visits, subscriptions, and portal access.\n\nThis action CANNOT be undone.`)) return;
+    setIsDeleting(true);
+    const res = await deleteCustomersAction([c.id]);
+    setIsDeleting(false);
     if (res.success) {
-      showToast("success", res.message || "Activation email sent.");
+      showToast("success", `"${c.name}" has been deleted.`);
+      setSelectedIds(prev => prev.filter(x => x !== c.id));
+      loadCustomers();
     } else {
-      showToast("error", res.message || "Failed to send activation.");
+      showToast("error", res.message || "Failed to delete customer.");
     }
   };
+
 
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto">
@@ -327,7 +330,7 @@ export default function CustomerMasterPage() {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-slate-50/50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200/60">
-                <th className="px-6 py-4 w-10">
+                <th className="px-6 py-4 w-10 whitespace-nowrap">
                   <input 
                     type="checkbox" 
                     className="rounded border-slate-300 text-[#0b1f3a] focus:ring-[#0b1f3a]"
@@ -335,11 +338,11 @@ export default function CustomerMasterPage() {
                     onChange={toggleAll}
                   />
                 </th>
-                <th className="px-6 py-4">Customer Code</th>
-                <th className="px-6 py-4">Company details</th>
-                <th className="px-6 py-4">City</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-4 whitespace-nowrap">Customer Code</th>
+                <th className="px-6 py-4 whitespace-nowrap">Company details</th>
+                <th className="px-6 py-4 whitespace-nowrap">City</th>
+                <th className="px-6 py-4 whitespace-nowrap">Status</th>
+                <th className="px-6 py-4 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -358,7 +361,7 @@ export default function CustomerMasterPage() {
               ) : (
                 customers.map(c => (
                   <tr key={c.id} className={`hover:bg-slate-50/80 transition-colors group ${selectedIds.includes(c.id) ? 'bg-blue-50/50' : ''}`}>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <input 
                         type="checkbox" 
                         className="rounded border-slate-300 text-[#0b1f3a] focus:ring-[#0b1f3a]"
@@ -366,8 +369,8 @@ export default function CustomerMasterPage() {
                         onChange={() => toggleOne(c.id)}
                       />
                     </td>
-                    <td className="px-6 py-4 text-sm font-medium text-slate-700">{c.customerCode}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-sm font-medium text-slate-700 whitespace-nowrap">{c.customerCode}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
                           {c.name.charAt(0)}
@@ -378,9 +381,9 @@ export default function CustomerMasterPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{c.city || "-"}</td>
-                    <td className="px-6 py-4"><StatusBadge status={c.status} /></td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap">{c.city || "-"}</td>
+                    <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={c.status} /></td>
+                    <td className="px-6 py-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => openEditModal(c)}
@@ -390,17 +393,23 @@ export default function CustomerMasterPage() {
                         </button>
                         {(user?.role === "Admin" || user?.role === "MarketingLead") && c.email && c.status === "Active" && !c.hasActivatedPortal && (
                           <button
-                            onClick={() => handleActivatePortal(c.id, c.name)}
-                            disabled={activatingId === c.id}
-                            title={`Send portal activation email to ${c.email}`}
-                            className="text-xs font-semibold text-violet-700 px-3 py-1.5 rounded-lg bg-violet-50 hover:bg-violet-100 border border-violet-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
+                            onClick={() => router.push("/user-master")}
+                            title="Go to Users page to activate portal for this customer"
+                            className="text-xs font-semibold text-violet-700 px-3 py-1.5 rounded-lg bg-violet-50 hover:bg-violet-100 border border-violet-200 transition-colors flex items-center gap-1.5"
                           >
-                            {activatingId === c.id ? (
-                              <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                            ) : (
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                            )}
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                             Activate Portal
+                          </button>
+                        )}
+                        {(user?.role === "Admin" || user?.role === "MarketingLead") && (
+                          <button
+                            onClick={() => handleDeleteOne(c)}
+                            disabled={isDeleting}
+                            title="Delete this customer"
+                            className="text-xs font-semibold text-red-600 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                          >
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            Delete
                           </button>
                         )}
                       </div>

@@ -2,9 +2,13 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
+import { ToastProvider } from "@/components/ToastProvider";
 import { getMeAction } from "@/app/actions/auth";
 
 const inter = Inter({ subsets: ["latin"] });
+
+// Mark as dynamic since getMeAction() uses cookies() which requires server-side rendering
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: "Suki Marketing CRM",
@@ -22,7 +26,9 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <AuthProvider initialUser={initialUser as any}>{children}</AuthProvider>
+        <ToastProvider>
+          <AuthProvider initialUser={initialUser as any}>{children}</AuthProvider>
+        </ToastProvider>
       </body>
     </html>
   );

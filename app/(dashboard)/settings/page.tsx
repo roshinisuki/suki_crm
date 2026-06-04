@@ -18,8 +18,14 @@ const icons = {
   check: "M5 13l4 4L19 7",
 };
 
-interface ToggleProps { label: string; description?: string; checked: boolean; onChange: (checked: boolean) => void }
-function Toggle({ label, description, checked, onChange }: ToggleProps) {
+interface ToggleProps { label: string; description?: string; checked?: boolean; onChange?: (checked: boolean) => void; defaultChecked?: boolean }
+function Toggle({ label, description, checked: controlledChecked, onChange, defaultChecked }: ToggleProps) {
+  const [internalChecked, setInternalChecked] = useState(defaultChecked ?? false);
+  const isChecked = controlledChecked !== undefined ? controlledChecked : internalChecked;
+  const handleToggle = () => {
+    if (onChange) onChange(!isChecked);
+    else setInternalChecked(!isChecked);
+  };
   return (
     <div className="flex items-center justify-between py-3.5 border-b border-slate-100 last:border-0">
       <div>
@@ -27,13 +33,13 @@ function Toggle({ label, description, checked, onChange }: ToggleProps) {
         {description && <p className="text-xs text-slate-500 mt-0.5">{description}</p>}
       </div>
       <button
-        onClick={() => onChange(!checked)}
-        className={`relative w-10 h-5 rounded-full transition-colors duration-200 focus:outline-none ${checked ? "bg-[#0D2137]" : "bg-slate-200"}`}
-        aria-checked={checked}
+        onClick={handleToggle}
+        className={`relative w-10 h-5 rounded-full transition-colors duration-200 focus:outline-none ${isChecked ? "bg-[#0D2137]" : "bg-slate-200"}`}
+        aria-checked={isChecked}
         role="switch"
       >
         <span
-          className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-200 ${checked ? "translate-x-5" : "translate-x-0"}`}
+          className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-200 ${isChecked ? "translate-x-5" : "translate-x-0"}`}
         />
       </button>
     </div>

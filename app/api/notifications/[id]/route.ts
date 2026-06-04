@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const userPayload = await verifyAuth();
     if (!userPayload) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
 
-    const { id } = params;
+    const { id } = await params;
 
     const notification = await prisma.notification.findUnique({ where: { id } });
     if (!notification || notification.userId !== userPayload.id) {

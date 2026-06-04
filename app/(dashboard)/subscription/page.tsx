@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getSubscriptionsAction, createSubscriptionAction, updateSubscriptionAction } from "@/app/actions/subscriptions";
+import { getSubscriptionsAction, createSubscriptionAction, updateSubscriptionAction, renewSubscriptionAction } from "@/app/actions/subscriptions";
 import { getCustomersAction } from "@/app/actions/customers";
 import { Subscription, Customer } from "@/types";
 
@@ -26,10 +26,17 @@ function StatusBadge({ status }: { status: string }) {
     "Active": "bg-emerald-50 text-emerald-700 border-emerald-200",
     "Expiring": "bg-amber-50 text-amber-700 border-amber-200",
     "Expired": "bg-red-50 text-red-600 border-red-200",
+    "Renewed": "bg-slate-100 text-slate-600 border-slate-300",
     "Pending": "bg-blue-50 text-blue-700 border-blue-200",
   };
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${styles[status] || "bg-slate-100"}`}>
+    <span className={`inline-flex items-center justify-center w-24 px-2 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${styles[status] || "bg-slate-100"}`}>
+      {status === "Expiring" && (
+        <span className="relative flex h-1.5 w-1.5 mr-1.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+        </span>
+      )}
       {status}
     </span>
   );
@@ -46,6 +53,13 @@ export default function SubscriptionsPage() {
   const [formLoading, setFormLoading] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [selectedSub, setSelectedSub] = useState<Subscription | null>(null);
+
+  // Renewal states
+  const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
+  const [renewPlanName, setRenewPlanName] = useState("");
+  const [renewStartDate, setRenewStartDate] = useState("");
+  const [renewEndDate, setRenewEndDate] = useState("");
+  const [renewNotes, setRenewNotes] = useState("");
 
   const [formData, setFormData] = useState({
     customerId: "",
@@ -153,8 +167,64 @@ export default function SubscriptionsPage() {
     setFormLoading(false);
   };
 
+  const openRenewModal = (sub: Subscription) => {
+    setSelectedSub(sub);
+    setRenewPlanName(sub.planName);
+    const nextStart = new Date(sub.endDate);
+    nextStart.setDate(nextStart.getDate() + 1);
+    setRenewStartDate(nextStart.toISOString().split('T')[0]);
+    const nextEnd = new Date(nextStart);
+    nextEnd.setFullYear(nextEnd.getFullYear() + 1);
+    setRenewEndDate(nextEnd.toISOString().split('T')[0]);
+    setRenewNotes("");
+    setErrorMsg("");
+    setIsRenewModalOpen(true);
+  };
+
+  const handleRenewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormLoading(true);
+    setErrorMsg("");
+
+    if (!selectedSub || !renewPlanName || !renewStartDate || !renewEndDate) {
+      setErrorMsg("Plan name, start and end date are required.");
+      setFormLoading(false);
+      return;
+    }
+
+    if (new Date(renewEndDate) <= new Date(renewStartDate)) {
+      setErrorMsg("End date must be after start date.");
+      setFormLoading(false);
+      return;
+    }
+
+    const res = await renewSubscriptionAction({
+      oldSubscriptionId: selectedSub.id,
+      planName: renewPlanName,
+      startDate: renewStartDate,
+      endDate: renewEndDate,
+      notes: renewNotes,
+    });
+
+    if (res.success) {
+      setIsRenewModalOpen(false);
+      loadData();
+    } else {
+      setErrorMsg(res.message || "Failed to renew subscription.");
+    }
+    setFormLoading(false);
+  };
+
+
+  const existingSubCustomerIds = new Set(subscriptions.map(s => s.customerId));
+  const activeCustomerIds = new Set(
+    subscriptions
+      .filter(s => s.status === "Active" || s.status === "Expiring")
+      .map(s => s.customerId)
+  );
+
   const approvedPendingSubs: Subscription[] = customers
-    .filter(c => c.status === "APPROVED")
+    .filter(c => c.status === "APPROVED" && !existingSubCustomerIds.has(c.id))
     .map(c => ({
       id: `virtual-pending-${c.id}`,
       customerId: c.id,
@@ -180,7 +250,7 @@ export default function SubscriptionsPage() {
   });
 
   const filtered = allSubs.filter((s) => {
-    const custName = s.customer?.name.toLowerCase() || "";
+    const custName = s.customer?.name?.toLowerCase() || "";
     const plan = s.planName.toLowerCase();
     const term = search.toLowerCase();
     const matchesSearch = custName.includes(term) || plan.includes(term) || s.customerId.includes(term);
@@ -218,14 +288,15 @@ export default function SubscriptionsPage() {
           </div>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center shrink-0 relative">
+            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
             <Ico d={icons.clock} size={20} className="text-amber-600" />
           </div>
           <div>
             <p className="text-2xl font-bold text-slate-800 tracking-tight">
-              {allSubs.filter(s => s.status === "Pending").length}
+              {allSubs.filter(s => s.status === "Expiring").length}
             </p>
-            <p className="text-xs font-semibold text-slate-500">Pending Plans</p>
+            <p className="text-xs font-semibold text-slate-500">Expiring Soon</p>
           </div>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm flex items-center gap-4">
@@ -240,12 +311,14 @@ export default function SubscriptionsPage() {
           </div>
         </div>
         <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-            <Ico d={icons.chart} size={20} className="text-indigo-600" />
+          <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+            <Ico d={icons.chart} size={20} className="text-blue-600" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-slate-800 tracking-tight">{allSubs.length}</p>
-            <p className="text-[10px] font-semibold text-slate-500">Total Plans</p>
+            <p className="text-2xl font-bold text-slate-800 tracking-tight">
+              {allSubs.filter(s => s.status === "Pending").length}
+            </p>
+            <p className="text-xs font-semibold text-slate-500">Pending Plans</p>
           </div>
         </div>
       </div>
@@ -275,8 +348,10 @@ export default function SubscriptionsPage() {
             >
               <option value="">All Statuses</option>
               <option value="Active">Active</option>
-              <option value="Expiring">Expiring</option>
+              <option value="Expiring">Expiring Soon</option>
               <option value="Expired">Expired</option>
+              <option value="Renewed">Renewed</option>
+              <option value="Pending">Pending Setup</option>
             </select>
           </div>
         </div>
@@ -285,57 +360,74 @@ export default function SubscriptionsPage() {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-slate-50/50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200/60">
-                <th className="px-6 py-4">Customer</th>
-                <th className="px-6 py-4">Plan Details</th>
-                <th className="px-6 py-4">Timeline</th>
-                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 whitespace-nowrap">Customer</th>
+                <th className="px-6 py-4 whitespace-nowrap">Plan Details</th>
+                <th className="px-6 py-4 whitespace-nowrap">Timeline</th>
+                <th className="px-6 py-4 whitespace-nowrap">Status</th>
                 <th className="px-6 py-4">Notes</th>
+                <th className="px-6 py-4 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-8 text-sm text-slate-500">
+                  <td colSpan={6} className="text-center py-8 text-sm text-slate-500">
                     Loading subscription entries...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-8 text-sm text-slate-500">
+                  <td colSpan={6} className="text-center py-8 text-sm text-slate-500">
                     No subscriptions logged.
                   </td>
                 </tr>
               ) : (
                 filtered.map(s => (
                   <tr key={s.id} className="hover:bg-slate-50/80 transition-colors group">
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <p className="text-sm font-bold text-slate-800">{s.customer?.name || "Unknown Customer"}</p>
                       <p className="text-xs text-slate-500">{s.customer?.customerCode || s.customerId}</p>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <p className="text-sm font-medium text-slate-700">{s.planName}</p>
                       <p className="text-[11px] text-slate-400 font-mono mt-0.5">{s.id}</p>
                     </td>
-                    <td className="px-6 py-4 text-xs text-slate-600">
+                    <td className="px-6 py-4 text-xs text-slate-600 whitespace-nowrap">
                       {s.startDate ? (
                         <div className="flex flex-col gap-1">
-                          <span>Start: <span className="font-semibold text-slate-700">{new Date(s.startDate).toLocaleDateString()}</span></span>
-                          <span>End: <span className="font-semibold text-slate-700">{new Date(s.endDate).toLocaleDateString()}</span></span>
+                          <span>Start: <span className="font-semibold text-slate-750">{new Date(s.startDate).toLocaleDateString()}</span></span>
+                          <span>End: <span className="font-semibold text-slate-750">{new Date(s.endDate).toLocaleDateString()}</span></span>
                         </div>
                       ) : (
-                        <button
-                          onClick={() => handleCreateForApproved(s.customerId)}
-                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] rounded-lg shadow-sm transition-colors uppercase tracking-wider shrink-0"
-                        >
-                          + Setup Plan
-                        </button>
+                        <span className="inline-flex px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md text-[10px] font-bold uppercase border border-blue-100">Setup Required</span>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <StatusBadge status={s.status} />
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-500 italic">
+                    <td className="px-6 py-4 text-sm text-slate-500 italic max-w-xs truncate" title={s.notes || ""}>
                       {s.notes || "—"}
+                    </td>
+                    <td className="px-6 py-4 text-right whitespace-nowrap">
+                      {(s.status === "Expiring" || (s.status === "Expired" && !activeCustomerIds.has(s.customerId))) && (
+                        <button
+                          onClick={() => openRenewModal(s)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 rounded-xl text-xs font-bold transition-all shadow-xs"
+                        >
+                          🔄 Renew
+                        </button>
+                      )}
+                      {s.status === "Active" && (
+                        <span className="text-xs text-slate-400 font-semibold italic">Current Plan</span>
+                      )}
+                      {s.status === "Pending" && !s.startDate && (
+                        <button
+                          onClick={() => handleCreateForApproved(s.customerId)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-xl text-xs font-bold transition-all shadow-xs"
+                        >
+                          ⚙️ Setup Plan
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -374,12 +466,15 @@ export default function SubscriptionsPage() {
                     className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none"
                   >
                     <option value="">Select a customer...</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.customerCode})
-                      </option>
-                    ))}
+                    {customers
+                      .filter((c) => c.status === "Active" || c.status === "APPROVED")
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.customerCode}){c.status === "APPROVED" ? " — Approved" : ""}
+                        </option>
+                      ))}
                   </select>
+                  <p className="text-xs text-slate-400 mt-1">Showing <span className="font-semibold text-emerald-600">Active</span> and <span className="font-semibold text-blue-600">Approved</span> customers. Prospect or Inactive customers will not appear.</p>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1.5">
@@ -467,6 +562,120 @@ export default function SubscriptionsPage() {
           </div>
         </div>
       )}
+
+      {/* Subscription Renewal Modal */}
+      {isRenewModalOpen && selectedSub && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/40">
+              <div>
+                <h2 className="text-lg font-bold text-slate-800">🔄 Renew Subscription</h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">Extend customer subscription lifecycle</p>
+              </div>
+              <button 
+                onClick={() => setIsRenewModalOpen(false)} 
+                className="text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                <Ico d={icons.x} size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleRenewSubmit}>
+              <div className="p-6 overflow-y-auto space-y-4">
+                {errorMsg && (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-xs font-semibold text-red-600 text-center">
+                    {errorMsg}
+                  </div>
+                )}
+
+                {/* Info Card */}
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/60 flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Client Account</span>
+                    <span className="text-xs font-bold text-slate-750">{selectedSub.customer?.name}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Previous Expiry</span>
+                    <span className="text-xs font-bold text-red-600">
+                      {selectedSub.endDate ? new Date(selectedSub.endDate).toLocaleDateString() : "—"}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">
+                    Plan Name <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    required
+                    value={renewPlanName}
+                    onChange={(e) => setRenewPlanName(e.target.value)}
+                    placeholder="e.g. Enterprise Premium Annual" 
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-slate-700 font-semibold" 
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">
+                      New Start Date <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="date" 
+                      required
+                      value={renewStartDate}
+                      onChange={(e) => setRenewStartDate(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none text-slate-700 font-semibold" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">
+                      New End Date <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="date" 
+                      required
+                      value={renewEndDate}
+                      onChange={(e) => setRenewEndDate(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none text-slate-700 font-semibold" 
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Notes (optional)</label>
+                  <textarea
+                    rows={3}
+                    value={renewNotes}
+                    onChange={(e) => setRenewNotes(e.target.value)}
+                    placeholder="Provide details about payment terms, revised pricing, or contract adjustments..."
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none resize-none font-medium text-slate-700"
+                  />
+                </div>
+              </div>
+
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
+                <button 
+                  type="button" 
+                  onClick={() => setIsRenewModalOpen(false)} 
+                  className="px-5 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={formLoading}
+                  className="px-6 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 transition-colors shadow-sm disabled:opacity-75"
+                >
+                  {formLoading ? "Renewing..." : "Confirm Renewal"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

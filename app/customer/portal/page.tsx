@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import RenewalRequestButton from "./RenewalRequestButton";
 
+// Mark as dynamic since getMeAction() uses cookies() which requires server-side rendering
+export const dynamic = 'force-dynamic';
+
 export default async function CustomerPortalPage() {
   const userRes = await getMeAction();
   if (!userRes.success || !userRes.data || userRes.data.role !== "Customer") {

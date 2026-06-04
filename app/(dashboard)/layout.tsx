@@ -6,6 +6,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { logoutAction } from "@/app/actions/auth";
 import { useEffect, useState } from "react";
 import DashboardHeader from "@/components/DashboardHeader";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 type NavItem = { href: string; label: string; icon: React.ReactNode };
 
@@ -80,8 +81,7 @@ function SidebarContent({ pathname, user, loading, handleLogout, onNavClick }: {
             <img src="/logo.png" alt="Suki ERP" className="w-full h-full object-contain" />
           </div>
           <div>
-            <p className="text-white text-base font-bold leading-tight">Suki ERP</p>
-            <p className="text-white/40 text-[11px] leading-tight mt-0.5">Marketing CRM</p>
+            <p className="text-white text-lg font-bold leading-tight tracking-wide">Suki CRM</p>
           </div>
         </div>
       </div>
@@ -227,9 +227,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <DashboardHeader pageTitle={pageTitle} user={user} setDrawerOpen={setDrawerOpen} />
 
         {/* Page content */}
-        <div className="flex-1 overflow-auto p-4 md:p-5 lg:p-7 pb-8">
+        <div className="flex-1 overflow-auto p-4 md:p-5 lg:p-7 pb-24 md:pb-8">
           {children}
         </div>
+        
+        {/* Mobile Bottom Navigation for Executives and Leads */}
+        {user && ["MarketingExecutive", "MarketingLead"].includes(user.role) && (
+          <MobileBottomNav setDrawerOpen={setDrawerOpen} />
+        )}
       </main>
     </div>
   );

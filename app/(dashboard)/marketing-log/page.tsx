@@ -5,6 +5,8 @@ import { useAuth } from "@/components/AuthProvider";
 import { getVisitHistoryAction, editVisitRemarksAction, deleteVisitAction, checkInOutboundAction, checkOutOutboundAction, checkInInboundAction, checkOutInboundAction } from "@/app/actions/visits";
 import { getUsersAction } from "@/app/actions/users";
 import { getCustomersAction } from "@/app/actions/customers";
+import CheckOutModal from "@/components/CheckOutModal";
+import OutboundCheckInModal from "@/components/OutboundCheckInModal";
 
 const icons = {
   search: <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
@@ -29,58 +31,36 @@ function LogPurposeStatusBadge({ purpose, status, outcome }: { purpose: string; 
   const p = purpose ? purpose.toLowerCase() : "";
   const o = outcome || "";
 
-  // Support Tailored Pipeline
+  let badge = null;
   if (p.includes("support")) {
-    if (o.includes("Resolved") || o.includes("resolved")) {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Resolved</span>;
-    } else if (o.includes("Resolving") || o.includes("resolving")) {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Resolving</span>;
-    } else {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Enquired to IT</span>;
-    }
+    if (o.toLowerCase().includes("resolved")) badge = { text: "Resolved", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+    else if (o.toLowerCase().includes("resolving")) badge = { text: "Resolving", color: "bg-amber-50 text-amber-700 border-amber-200" };
+    else badge = { text: "Enquired to IT", color: "bg-blue-50 text-blue-700 border-blue-200" };
+  } else if (p.includes("subscription discussion") || p.includes("renewal") || p.includes("subscription")) {
+    if (o.toLowerCase().includes("renewed")) badge = { text: "Renewed", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+    else if (o.toLowerCase().includes("processing")) badge = { text: "Renewal Processing", color: "bg-amber-50 text-amber-700 border-amber-200" };
+    else badge = { text: "Renewal Requested", color: "bg-blue-50 text-blue-700 border-blue-200" };
+  } else if (p.includes("sales")) {
+    if (o === "Converted") badge = { text: "Converted", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+    else if (o === "Not Interested") badge = { text: "Not Interested", color: "bg-red-50 text-red-700 border-red-200" };
+    else if (o === "Follow-up Required" || o === "Pending Decision") badge = { text: o, color: "bg-amber-50 text-amber-700 border-amber-200" };
+    else badge = { text: o || "Interested", color: "bg-blue-50 text-blue-700 border-blue-200" };
+  } else if (p.includes("demo")) {
+    if (o.toLowerCase().includes("completed")) badge = { text: "Demo Completed", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+    else badge = { text: "Demo Scheduled", color: "bg-blue-50 text-blue-700 border-blue-200" };
+  } else if (o.includes("Walk-in Guest")) {
+    badge = { text: "Walk-in Guest", color: "bg-slate-100 text-slate-600 border-slate-200" };
+  } else if (o) {
+    badge = { text: o, color: "bg-slate-100 text-slate-600 border-slate-200" };
   }
 
-  // Renewal Tailored Pipeline
-  if (p.includes("subscription discussion") || p.includes("renewal") || p.includes("subscription")) {
-    if (o.includes("Renewed") || o.includes("renewed")) {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Renewed</span>;
-    } else if (o.includes("Renewal Processing") || o.includes("processing")) {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Renewal Processing</span>;
-    } else {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Renewal Requested</span>;
-    }
-  }
+  if (!badge) return null;
 
-  // Sales Meeting Tailored Pipeline
-  if (p.includes("sales")) {
-    if (o === "Converted") {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Converted</span>;
-    } else if (o === "Not Interested") {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">Not Interested</span>;
-    } else if (o === "Follow-up Required" || o === "Pending Decision") {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">{o}</span>;
-    } else {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">{o || "Interested"}</span>;
-    }
-  }
-
-  // Demo Tailored Pipeline
-  if (p.includes("demo")) {
-    if (o.includes("Completed")) {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Demo Completed</span>;
-    } else {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Demo Scheduled</span>;
-    }
-  }
-
-  // Walk-in Guest
-  if (o.includes("Walk-in Guest")) {
-    return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">Walk-in Guest</span>;
-  }
-
-  // Default
-  if (!o) return null;
-  return <span className="font-semibold text-slate-600">{o}</span>;
+  return (
+    <span className={`inline-flex items-center justify-center w-32 px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border ${badge.color} truncate`}>
+      {badge.text}
+    </span>
+  );
 }
 
 export default function MarketingLogPage() {
@@ -110,25 +90,10 @@ export default function MarketingLogPage() {
   const [remarksInput, setRemarksInput] = useState("");
 
   // Check-In modal state
-  const [isCheckInOpen, setIsCheckInOpen] = useState(false);
-  const [checkInType, setCheckInType] = useState<"Inbound" | "Outbound">("Outbound");
-  const [ciCustomerId, setCiCustomerId] = useState("");
-  const [ciPurpose, setCiPurpose] = useState("");
-  const [ciNotes, setCiNotes] = useState("");
-  const [ciLat, setCiLat] = useState<number | null>(null);
-  const [ciLng, setCiLng] = useState<number | null>(null);
+  const [isOutboundOpen, setIsOutboundOpen] = useState(false);
 
-  // Check-Out modal state
   const [isCheckOutOpen, setIsCheckOutOpen] = useState(false);
   const [checkoutVisit, setCheckoutVisit] = useState<any>(null);
-  const [coMeetingSummary, setCoMeetingSummary] = useState("");
-  const [coOutcome, setCoOutcome] = useState("");
-  const [coDecision, setCoDecision] = useState("PENDING");
-  const [coRejectionReason, setCoRejectionReason] = useState("");
-  const [coNextDate, setCoNextDate] = useState("");
-  const [coNextNotes, setCoNextNotes] = useState("");
-  const [coLat, setCoLat] = useState<number | null>(null);
-  const [coLng, setCoLng] = useState<number | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -229,134 +194,20 @@ export default function MarketingLogPage() {
     }
   };
 
-  // ── Check-In handlers ─────────────────────────────────────────────
-  const openCheckIn = (type: "Inbound" | "Outbound") => {
-    setCheckInType(type);
-    setCiCustomerId("");
-    setCiPurpose("");
-    setCiNotes("");
-    setCiLat(null);
-    setCiLng(null);
-    setErrorMsg("");
 
-    if (type === "Outbound" && navigator.geolocation) {
-      setFormLoading(true);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setCiLat(pos.coords.latitude);
-          setCiLng(pos.coords.longitude);
-          setFormLoading(false);
-          setIsCheckInOpen(true);
-        },
-        (err) => {
-          alert("Could not fetch GPS location: " + err.message + "\nYou can still check in manually without it.");
-          setFormLoading(false);
-          setIsCheckInOpen(true);
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    } else {
-      setIsCheckInOpen(true);
-    }
-  };
-
-  const handleCheckInSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormLoading(true);
-    setErrorMsg("");
-    try {
-      let res;
-      if (checkInType === "Inbound") {
-        res = await checkInInboundAction({ customerId: ciCustomerId, purpose: ciPurpose, notes: ciNotes });
-      } else {
-        res = await checkInOutboundAction({
-          customerId: ciCustomerId,
-          purpose: ciPurpose,
-          notes: ciNotes,
-          checkInLat: ciLat ?? undefined,
-          checkInLng: ciLng ?? undefined,
-        });
-      }
-      if (res.success) {
-        setIsCheckInOpen(false);
-        loadData();
-      } else {
-        setErrorMsg(res.message ?? "Check-in failed.");
-      }
-    } catch {
-      setErrorMsg("Failed to check in.");
-    } finally {
-      setFormLoading(false);
-    }
-  };
 
   // ── Check-Out handlers ────────────────────────────────────────────
   const openCheckOut = (visit: any) => {
-    setCheckoutVisit(visit);
-    setCoMeetingSummary(visit.notes || "");
-    setCoOutcome("");
-    setCoDecision("PENDING");
-    setCoRejectionReason("");
-    setCoNextDate("");
-    setCoNextNotes("");
-    setCoLat(null);
-    setCoLng(null);
-    setErrorMsg("");
-
-    if (visit.visitType === "Outbound" && navigator.geolocation) {
-      setFormLoading(true);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setCoLat(pos.coords.latitude);
-          setCoLng(pos.coords.longitude);
-          setFormLoading(false);
-          setIsCheckOutOpen(true);
-        },
-        () => {
-          setFormLoading(false);
-          setIsCheckOutOpen(true);
-        }
-      );
-    } else {
-      setIsCheckOutOpen(true);
-    }
-  };
-
-  const handleCheckOutSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormLoading(true);
-    setErrorMsg("");
-    try {
-      const base = {
-        id: checkoutVisit.id,
-        outcome: coOutcome,
-        customerDecision: coDecision,
-        rejectionReason: coRejectionReason || undefined,
-        nextMeetingDate: coNextDate || undefined,
-        nextMeetingNotes: coNextNotes || undefined,
-      };
-      let res;
-      if (checkoutVisit.visitType === "Inbound") {
-        res = await checkOutInboundAction({ ...base, meetingSummary: coMeetingSummary });
-      } else {
-        res = await checkOutOutboundAction({
-          ...base,
-          meetingDescription: coMeetingSummary,
-          checkOutLat: coLat ?? undefined,
-          checkOutLng: coLng ?? undefined,
-        });
-      }
-      if (res.success) {
-        setIsCheckOutOpen(false);
-        loadData();
-      } else {
-        setErrorMsg(res.message ?? "Checkout failed.");
-      }
-    } catch {
-      setErrorMsg("Checkout failed.");
-    } finally {
-      setFormLoading(false);
-    }
+    setCheckoutVisit({
+      id: visit.id,
+      customerId: visit.customerId,
+      customerName: visit.customerName,
+      customerCode: visit.customerCode,
+      visitType: visit.visitType,
+      purpose: visit.purpose,
+      checkInTime: visit.checkInTime,
+    });
+    setIsCheckOutOpen(true);
   };
 
   // ── Search filter (client-side) ───────────────────────────────────
@@ -392,7 +243,7 @@ export default function MarketingLogPage() {
     document.body.removeChild(link);
   };
 
-  const needsFollowUp = ["Interested", "Follow-up Required", "Pending Decision"].includes(coOutcome);
+
 
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto animate-in fade-in duration-200">
@@ -405,7 +256,7 @@ export default function MarketingLogPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => openCheckIn("Outbound")}
+            onClick={() => setIsOutboundOpen(true)}
             disabled={formLoading}
             className="flex items-center gap-2 px-4 py-2 bg-[#0D2137] text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50"
           >
@@ -497,13 +348,13 @@ export default function MarketingLogPage() {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-200/60">
-                <th className="px-6 py-4">Customer</th>
-                <th className="px-4 py-4">Type</th>
-                <th className="px-4 py-4">Purpose</th>
-                <th className="px-4 py-4">Timings</th>
-                <th className="px-4 py-4">Outcome</th>
-                <th className="px-4 py-4">Decision</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-4 whitespace-nowrap">Customer</th>
+                <th className="px-4 py-4 whitespace-nowrap">Type</th>
+                <th className="px-4 py-4 whitespace-nowrap">Purpose</th>
+                <th className="px-4 py-4 whitespace-nowrap">Timings</th>
+                <th className="px-4 py-4 whitespace-nowrap">Outcome</th>
+                <th className="px-4 py-4 whitespace-nowrap">Decision</th>
+                <th className="px-6 py-4 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
@@ -522,7 +373,7 @@ export default function MarketingLogPage() {
 
                   return (
                     <tr key={l.id} className="hover:bg-slate-50/40 transition-colors">
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <p className="font-bold text-slate-800">
                           {l.executiveName}
                         </p>
@@ -530,13 +381,13 @@ export default function MarketingLogPage() {
                           {l.customerCode} • {l.customerName}
                         </p>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <span className={`px-2 py-0.5 rounded-md font-bold text-[9px] ${l.visitType === "Inbound" ? "bg-amber-100 text-amber-800" : "bg-indigo-100 text-indigo-800"}`}>
                           {l.visitType}
                         </span>
                       </td>
-                      <td className="px-4 py-4 font-semibold text-slate-600">{l.purpose}</td>
-                      <td className="px-4 py-4 font-medium text-slate-500">
+                      <td className="px-4 py-4 font-semibold text-slate-600 whitespace-nowrap">{l.purpose}</td>
+                      <td className="px-4 py-4 font-medium text-slate-500 whitespace-nowrap">
                         <p>{checkInText}</p>
                         <p className={`text-[10px] mt-0.5 font-bold ${isActive ? "text-amber-500" : "text-slate-400"}`}>
                           {isActive 
@@ -548,21 +399,21 @@ export default function MarketingLogPage() {
                           }
                         </p>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <LogPurposeStatusBadge purpose={l.purpose} status={l.status} outcome={l.outcome} />
                       </td>
-                      <td className="px-4 py-4">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full font-black text-[9px] border ${
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center justify-center w-20 px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
                           l.customerDecision === "APPROVED"
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                             : l.customerDecision === "REJECTED"
                               ? "bg-red-50 text-red-700 border-red-200"
-                              : "bg-slate-100 text-slate-700 border-slate-200"
+                              : "bg-slate-100 text-slate-600 border-slate-200"
                         }`}>
                           {l.customerDecision}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
                           {isActive && (
                             <button
@@ -748,201 +599,20 @@ export default function MarketingLogPage() {
       )}
 
       {/* ── Check-In Modal ────────────────────────────────────────── */}
-      {isCheckInOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
-              <div>
-                <h3 className="text-base font-bold text-slate-800">
-                  {checkInType === "Outbound" ? "📍 New Field Check-In" : "🏢 New Walk-in Check-In"}
-                </h3>
-                <p className="text-[10px] text-slate-400 font-bold mt-0.5">Start a new visit — timer begins now</p>
-              </div>
-              <button onClick={() => setIsCheckInOpen(false)} className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700">
-                {icons.x}
-              </button>
-            </div>
-            <form onSubmit={handleCheckInSubmit} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-6 overflow-y-auto space-y-4 flex-1">
-                {errorMsg && (
-                  <div className="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl border border-red-100">{errorMsg}</div>
-                )}
-                {checkInType === "Outbound" && (
-                  <div className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${ciLat && ciLng ? "bg-emerald-50 border border-emerald-100 text-emerald-700" : "bg-amber-50 border border-amber-100 text-amber-700"}`}>
-                    {ciLat && ciLng
-                      ? `✅ GPS Captured: (${ciLat.toFixed(4)}, ${ciLng.toFixed(4)})`
-                      : "⚠️ GPS not captured — visit will be logged without coordinates"}
-                  </div>
-                )}
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Customer *</label>
-                  <select
-                    required
-                    value={ciCustomerId}
-                    onChange={(e) => setCiCustomerId(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold text-slate-700"
-                  >
-                    <option value="">Select Customer...</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.customerCode})</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Purpose of Visit *</label>
-                  <select
-                    required
-                    value={ciPurpose}
-                    onChange={(e) => setCiPurpose(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-semibold text-slate-700"
-                  >
-                    <option value="">Select Purpose...</option>
-                    <option value="Sales Pitch">Sales Pitch</option>
-                    <option value="Follow-up Meeting">Follow-up Meeting</option>
-                    <option value="Subscription Renewal">Subscription Renewal</option>
-                    <option value="Demo">Demo / Presentation</option>
-                    <option value="Support Visit">Support / Training</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Initial Notes (Optional)</label>
-                  <textarea
-                    rows={3}
-                    value={ciNotes}
-                    onChange={(e) => setCiNotes(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-medium resize-none text-slate-700"
-                    placeholder="Meeting objectives, agenda..."
-                  />
-                </div>
-              </div>
-              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
-                <button type="button" onClick={() => setIsCheckInOpen(false)} className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-200">
-                  Cancel
-                </button>
-                <button type="submit" disabled={formLoading} className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50">
-                  {formLoading ? "Processing..." : "✓ Confirm Check-In"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <OutboundCheckInModal
+        isOpen={isOutboundOpen}
+        onClose={() => setIsOutboundOpen(false)}
+        onSuccess={loadData}
+        loggedInUser={user ? { name: user.name, id: user.id } : null}
+      />
 
-      {/* ── Check-Out Modal ───────────────────────────────────────── */}
-      {isCheckOutOpen && checkoutVisit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
-              <div>
-                <h3 className="text-base font-bold text-slate-800">Complete Check-Out</h3>
-                <p className="text-[10px] text-slate-400 font-bold mt-0.5">
-                  {checkoutVisit.visitType} visit • {checkoutVisit.customerName}
-                </p>
-              </div>
-              <button onClick={() => setIsCheckOutOpen(false)} className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700">
-                {icons.x}
-              </button>
-            </div>
-            <form onSubmit={handleCheckOutSubmit} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-6 overflow-y-auto space-y-4 flex-1">
-                {errorMsg && (
-                  <div className="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl border border-red-100">{errorMsg}</div>
-                )}
-                {checkoutVisit.visitType === "Outbound" && (
-                  <div className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${coLat && coLng ? "bg-emerald-50 border border-emerald-100 text-emerald-700" : "bg-amber-50 border border-amber-100 text-amber-700"}`}>
-                    {coLat && coLng
-                      ? `✅ Check-out GPS Captured: (${coLat.toFixed(4)}, ${coLng.toFixed(4)})`
-                      : "⚠️ GPS not captured — checkout will be logged without coordinates"}
-                  </div>
-                )}
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Meeting Summary *</label>
-                  <textarea
-                    required
-                    rows={3}
-                    value={coMeetingSummary}
-                    onChange={(e) => setCoMeetingSummary(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium focus:ring-2 focus:outline-none text-slate-700 resize-none"
-                    placeholder="What was discussed? Key takeaways..."
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Outcome *</label>
-                    <select
-                      required
-                      value={coOutcome}
-                      onChange={(e) => setCoOutcome(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 text-slate-700"
-                    >
-                      <option value="">Select...</option>
-                      <option value="Interested">Interested</option>
-                      <option value="Not Interested">Not Interested</option>
-                      <option value="Follow-up Required">Follow-up Required</option>
-                      <option value="Pending Decision">Pending Decision</option>
-                      <option value="Converted">Converted</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Decision *</label>
-                    <select
-                      required
-                      value={coDecision}
-                      onChange={(e) => setCoDecision(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 text-slate-700"
-                    >
-                      <option value="PENDING">Pending</option>
-                      <option value="APPROVED">Approved ✓ (Activates Portal)</option>
-                      <option value="REJECTED">Rejected</option>
-                    </select>
-                  </div>
-                </div>
-                {coDecision === "REJECTED" && (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Rejection Reason *</label>
-                    <input
-                      required
-                      type="text"
-                      value={coRejectionReason}
-                      onChange={(e) => setCoRejectionReason(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 text-slate-700"
-                      placeholder="Why did the customer decline?"
-                    />
-                  </div>
-                )}
-                {needsFollowUp && (
-                  <div className="p-4 bg-blue-50/60 border border-blue-100 rounded-xl space-y-3">
-                    <p className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">📅 Schedule Next Follow-Up</p>
-                    <input
-                      required
-                      type="datetime-local"
-                      value={coNextDate}
-                      onChange={(e) => setCoNextDate(e.target.value)}
-                      className="w-full px-4 py-2 rounded-lg border border-slate-200 text-xs font-medium focus:outline-none"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Follow-up notes or agenda..."
-                      value={coNextNotes}
-                      onChange={(e) => setCoNextNotes(e.target.value)}
-                      className="w-full px-4 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none text-slate-700"
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
-                <button type="button" onClick={() => setIsCheckOutOpen(false)} className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-200">
-                  Cancel
-                </button>
-                <button type="submit" disabled={formLoading} className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50">
-                  {formLoading ? "Processing..." : "✓ Complete Check-Out"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Shared Check-Out Modal */}
+      <CheckOutModal
+        isOpen={isCheckOutOpen}
+        onClose={() => setIsCheckOutOpen(false)}
+        onSuccess={loadData}
+        visit={checkoutVisit}
+      />
 
     </div>
   );

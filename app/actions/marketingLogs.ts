@@ -41,7 +41,7 @@ export async function getMarketingLogsAction(params?: { customerId?: string }) {
       userId:       v.executiveId,
       user:         v.executive,
       createdAt:    v.createdAt.toISOString(),
-      updatedAt:    v.updatedAt.toISOString(),
+      updatedAt:    v.updatedAt?.toISOString() ?? null,
       nextMeetingDate: v.nextMeetingDate?.toISOString() ?? null,
     }));
 

@@ -15,9 +15,7 @@ export async function getCustomersAction(params?: { search?: string; city?: stri
     const { search = "", city = "", status = "" } = params || {};
 
     let rbacFilter = {};
-    if (userPayload.role === "MarketingExecutive") {
-      rbacFilter = { assignedUserId: userPayload.id };
-    } else if (userPayload.role === "Customer") {
+    if (userPayload.role === "Customer") {
       rbacFilter = { email: userPayload.email };
     }
 
@@ -58,10 +56,11 @@ export async function getCustomersAction(params?: { search?: string; city?: stri
       }
     });
 
-    // A portal is considered "activated" if the user exists, is active, and has either logged in or set a password.
+    // A portal is considered "activated" if the user exists and is active, even if they haven't set a password yet.
+    // This prevents the "Activate Portal" button from showing up repeatedly after the invite is sent.
     const activatedEmails = new Set(
       portalUsers
-        .filter(u => u.isActive && (!u.isFirstLogin || u.passwordSetAt !== null))
+        .filter(u => u.isActive)
         .map(u => u.email)
     );
 

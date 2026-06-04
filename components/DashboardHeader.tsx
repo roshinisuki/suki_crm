@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ToastProvider";
 
 const icons = {
   search: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
@@ -31,15 +32,7 @@ export default function DashboardHeader({
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
-  const [toast, setToast] = useState<{ visible: boolean; title: string; message: string } | null>(null);
-
-  const showToast = (title: string, message: string) => {
-    setToast({ visible: true, title, message });
-    // Auto-hide toast after 5.5 seconds
-    setTimeout(() => {
-      setToast(prev => prev ? { ...prev, visible: false } : null);
-    }, 5500);
-  };
+  const toast = useToast();
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -82,7 +75,7 @@ export default function DashboardHeader({
               if (trulyNewForToast.length > 0 && !isFirstLoad) {
                 // Toast the first newly seen notification
                 const latest = trulyNewForToast[0];
-                showToast(latest?.title || "Notification Received", latest?.message || "New activity logged.");
+                toast.info(latest?.message || "New activity logged.", latest?.title || "Notification Received");
               }
               
               // Mark all currently fetched unreads as "seen" so they don't toast again
@@ -143,8 +136,7 @@ export default function DashboardHeader({
   const clearAll = async () => {
     try {
       await fetch("/api/notifications", { method: "DELETE" });
-      // Filter out non-virtual notifications from state instantly
-      setNotifications(prev => prev.filter(n => n.id.startsWith("virtual-")));
+      setNotifications([]);
     } catch (e) {
       console.error(e);
     }
@@ -249,58 +241,107 @@ export default function DashboardHeader({
           </button>
 
           {isNotifOpen && (
-            <div className="absolute top-full mt-2 w-72 md:w-80 right-0 bg-white border border-slate-200 shadow-xl rounded-3xl overflow-hidden z-50 flex flex-col">
-              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                <h3 className="text-sm font-bold text-slate-800">Notifications</h3>
-                <div className="flex items-center gap-2.5">
-                  {unreadCount > 0 && (
-                    <button onClick={markAllRead} className="text-[10px] font-bold text-[#1a6bff] hover:text-blue-800 flex items-center gap-1 transition-colors shrink-0">
-                      {icons.check} Mark read
+            <div className="absolute top-full mt-3 w-[340px] md:w-[400px] right-0 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl overflow-hidden z-50 flex flex-col border border-slate-200">
+              {/* Header */}
+              <div className="bg-[#0D2137] text-white p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-bold tracking-wide">Notifications</h3>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span className="text-[10px] text-indigo-100 uppercase tracking-widest font-semibold">Live - Real-time connected</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button className="w-7 h-7 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+                      <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                     </button>
-                  )}
-                  {notifications.filter(n => !n.id.startsWith("virtual-")).length > 0 && (
-                    <button onClick={clearAll} className="text-[10px] font-bold text-red-500 hover:text-red-750 flex items-center gap-1 transition-colors shrink-0">
-                      ✕ Clear all
-                    </button>
-                  )}
+                    {unreadCount > 0 && (
+                      <button onClick={markAllRead} className="px-2.5 py-1.5 rounded bg-white/10 hover:bg-white/20 text-[10px] font-bold text-white flex items-center gap-1.5 transition-colors border border-white/10">
+                        {icons.check} MARK ALL READ
+                      </button>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Tabs */}
+                <div className="flex items-center gap-6 text-xs font-bold uppercase tracking-wider">
+                  <div className="relative pb-2 cursor-pointer">
+                    <span className="text-white">ALL ({notifications.length})</span>
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white rounded-t-full"></div>
+                  </div>
+                  <div className="relative pb-2 cursor-pointer text-indigo-200 hover:text-white transition-colors">
+                    UNREAD ({unreadCount})
+                  </div>
                 </div>
               </div>
-              <div className="max-h-80 overflow-y-auto">
+
+              {/* List */}
+              <div className="max-h-[380px] overflow-y-auto bg-slate-50">
                 {notifications.length === 0 ? (
                   <div className="p-8 text-center text-slate-400 text-xs font-semibold">No notifications</div>
                 ) : (
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-slate-100 bg-white">
                     {notifications.map(n => (
                       <div 
                         key={n.id} 
                         onClick={() => {
-                          if (n.id.startsWith("virtual-pending-sub-")) {
-                            router.push("/subscription");
-                          } else if (n.id.startsWith("virtual-inbound-visit-") || n.id.startsWith("virtual-outbound-visit-")) {
-                            router.push("/dashboard");
-                          } else {
-                            markAsRead(n.id);
-                          }
+                          markAsRead(n.id);
                           setIsNotifOpen(false);
                         }}
-                        className={`p-4 hover:bg-slate-50 cursor-pointer transition-colors ${n.isRead ? "opacity-60" : "bg-blue-50/20"}`}
+                        className="p-4 hover:bg-slate-50 cursor-pointer transition-colors group relative"
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-xs truncate ${n.isRead ? "font-semibold text-slate-600" : "font-bold text-slate-800"}`}>
+                        <div className="flex gap-4">
+                          {/* Icon logic: choose icon based on title */}
+                          <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center shrink-0">
+                            {n.title.toLowerCase().includes("renewal") ? (
+                              <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            ) : n.title.toLowerCase().includes("ticket") || n.title.toLowerCase().includes("support") ? (
+                              <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
+                            ) : (
+                              <svg className="w-5 h-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                            )}
+                          </div>
+                          
+                          <div className="flex-1 min-w-0 pt-0.5">
+                            <p className={`text-[13px] truncate ${n.isRead ? "font-semibold text-slate-700" : "font-bold text-slate-900"}`}>
                               {n.title}
                             </p>
-                            <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">{n.message}</p>
-                            <p className="text-[9px] font-bold text-slate-400 mt-2 uppercase tracking-widest">
-                              {new Date(n.createdAt).toLocaleDateString()}
+                            <p className="text-[11px] text-slate-500 mt-1 line-clamp-2 leading-snug">
+                              {n.message}
                             </p>
+                            <div className="flex items-center gap-1.5 mt-2">
+                              <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                                {new Date(n.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
                           </div>
-                          {!n.isRead && <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-1" />}
+
+                          {/* Unread indicator */}
+                          {!n.isRead && (
+                            <div className="flex flex-col items-end gap-2 shrink-0 mt-1">
+                              <span className="w-2 h-2 rounded-full bg-[#3b82f6]" />
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                <button 
+                  onClick={() => { router.push("/subscription"); setIsNotifOpen(false); }}
+                  className="text-[10px] font-bold text-[#4F46E5] hover:text-indigo-800 uppercase tracking-wider flex items-center gap-1"
+                >
+                  View Renewals <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                </button>
+                <div className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">
+                  Suki CRM System
+                </div>
               </div>
             </div>
           )}
@@ -321,48 +362,6 @@ export default function DashboardHeader({
           })()}
         </div>
       </div>
-      {/* 🔔 Beautiful Modern Notification Toast Popup */}
-      {toast?.visible && (
-        <div 
-          onClick={() => {
-            setIsNotifOpen(true);
-            setToast(prev => prev ? { ...prev, visible: false } : null);
-          }}
-          className="fixed top-4 left-4 right-4 md:left-auto md:w-96 z-[9999] bg-slate-900 text-white rounded-3xl p-4 shadow-[0_12px_40px_rgba(0,0,0,0.3)] border border-slate-800 flex items-start gap-3.5 animate-toast-slide-in cursor-pointer hover:bg-slate-850 hover:translate-y-[-2px] active:scale-95 transition-all duration-300"
-        >
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center shrink-0 shadow-md">
-            <svg className="w-5 h-5 text-white animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <h4 className="text-[10px] font-black tracking-widest text-indigo-400 uppercase">One message arrived</h4>
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setToast(prev => prev ? { ...prev, visible: false } : null);
-                }}
-                className="text-slate-400 hover:text-white transition-colors text-xs font-bold leading-none p-1 rounded-full hover:bg-white/10"
-              >
-                ✕
-              </button>
-            </div>
-            <p className="text-xs font-bold text-white mt-1.5 truncate">{toast.title}</p>
-            <p className="text-[10px] text-slate-300 mt-0.5 line-clamp-2 leading-relaxed">{toast.message}</p>
-          </div>
-        </div>
-      )}
-
-      <style>{`
-        @keyframes toastSlideIn {
-          0% { transform: translateY(-40px) scale(0.95); opacity: 0; }
-          100% { transform: translateY(0) scale(1); opacity: 1; }
-        }
-        .animate-toast-slide-in {
-          animation: toastSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-      `}</style>
     </header>
   );
 }

@@ -188,25 +188,25 @@ export default function UserMasterPage() {
           </div>
         </div>
       </td>
-      <td className="px-6 py-4">
+      <td className="px-6 py-4 whitespace-nowrap">
         <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold ${ROLE_BADGE[u.role] || "bg-slate-100 text-slate-600"}`}>
           {ROLE_LABELS[u.role] || u.role}
         </span>
       </td>
-      <td className="px-6 py-4">
+      <td className="px-6 py-4 whitespace-nowrap">
         <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${u.isActive ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500 border border-slate-200"}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${u.isActive ? "bg-emerald-500" : "bg-slate-400"}`} />
           {u.isActive ? "Active" : "Inactive"}
         </span>
       </td>
-      <td className="px-6 py-4 text-xs text-slate-500">
+      <td className="px-6 py-4 text-xs text-slate-500 whitespace-nowrap">
         {u.isFirstLogin ? (
           <span className="inline-flex px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-bold border border-amber-200 text-[10px]">Pending Setup</span>
         ) : (
           <span className="text-slate-400">Activated</span>
         )}
       </td>
-      <td className="px-6 py-4 text-right">
+      <td className="px-6 py-4 text-right whitespace-nowrap">
         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           {u.isFirstLogin && (
             <button
@@ -277,31 +277,6 @@ export default function UserMasterPage() {
         ))}
       </div>
 
-      {/* ⚠️ APPROVED Pending Subscriptions Banners */}
-      {activeTab === "customer" && customers.filter(c => c.status === "APPROVED").length > 0 && (
-        <div className="space-y-2">
-          {customers.filter(c => c.status === "APPROVED").map((c) => (
-            <div key={c.id} className="p-4 rounded-2xl bg-amber-50 border border-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-pulse">
-              <div className="flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 text-sm">
-                  ⚠️
-                </span>
-                <div className="text-xs">
-                  <span className="font-bold text-slate-800">Approved Customer (Subscription Pending):</span>{" "}
-                  <strong className="text-amber-700">{c.name} ({c.customerCode})</strong> is recently approved but has no active subscription. You must add a subscription plan first to activate their account and enable customer portal creation.
-                </div>
-              </div>
-              <a
-                href="/subscription"
-                className="px-4 py-1.5 bg-[#0D2137] hover:bg-[#1a365d] text-white font-bold text-xs rounded-xl shrink-0 text-center transition-all shadow-sm"
-              >
-                Go to Subscriptions ➡️
-              </a>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Main table card */}
       <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
 
@@ -351,13 +326,13 @@ export default function UserMasterPage() {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-slate-50/50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200/60">
-                <th className="px-6 py-4">
+                <th className="px-6 py-4 whitespace-nowrap">
                   {activeTab === "internal" ? "Team Member" : "Customer Account"}
                 </th>
-                <th className="px-6 py-4">Role</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Setup</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-4 whitespace-nowrap">Role</th>
+                <th className="px-6 py-4 whitespace-nowrap">Status</th>
+                <th className="px-6 py-4 whitespace-nowrap">Setup</th>
+                <th className="px-6 py-4 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -486,15 +461,15 @@ export default function UserMasterPage() {
                       className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-700"
                     >
                       <option value="">Select an active customer…</option>
-                      {customers.filter(c => c.status === "Active").map(c => (
+                      {customers.filter(c => c.status === "Active" && !c.hasActivatedPortal && c.email).map(c => (
                         <option key={c.id} value={c.id}>
-                          {c.name} ({c.customerCode}) — {c.email || "no email on file"}
+                          {c.name} ({c.customerCode}) — {c.email}
                         </option>
                       ))}
                     </select>
-                    {customers.filter(c => c.status === "Active").length === 0 && (
+                    {customers.filter(c => c.status === "Active" && !c.hasActivatedPortal && c.email).length === 0 && (
                       <p className="text-[11px] text-amber-600 mt-1 font-semibold">
-                        No active customers found. A customer must be ACTIVE (with an active subscription) before a portal account can be created.
+                        All active customers already have a portal activated. No pending activations needed.
                       </p>
                     )}
                   </div>

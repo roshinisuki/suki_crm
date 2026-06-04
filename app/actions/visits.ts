@@ -8,12 +8,7 @@ import { revalidatePath } from "next/cache";
 
 /** Helper: checks if user has permission for a specific customer */
 async function validateCustomerAccess(customerId: string, userId: string, role: string) {
-  if (role === "MarketingExecutive") {
-    const customer = await prisma.customer.findUnique({
-      where: { id: customerId },
-    });
-    return customer?.assignedUserId === userId;
-  }
+  // Requirement: Remove authorized customer rule for employees
   return true;
 }
 
@@ -95,12 +90,13 @@ export async function getDashboardDataAction() {
       orderBy: { nextMeetingDate: "asc" }
     });
 
-    // 4. Overdue Follow-ups
+    // 4. Overdue Follow-ups — exclude completed/cancelled ones
     const overdueFollowUps = await prisma.followUp.findMany({
       where: {
         assignedUserId: isExecutive ? userId : undefined,
         nextMeetingDate: { lt: startOfToday },
-        status: { in: ["Pending", "Overdue"] }
+        status: { in: ["Pending", "Overdue"] },
+        NOT: { status: "Completed" }
       },
       include: {
         customer: { select: { id: true, name: true, customerCode: true } }
@@ -108,17 +104,59 @@ export async function getDashboardDataAction() {
       orderBy: { nextMeetingDate: "asc" }
     });
 
-    // 5. Pending Customer Approvals (Waiting for decision)
-    const pendingApprovals = await prisma.customer.findMany({
+    // 5. Pending Visit Approvals (visits flagged as requiresApproval and not yet approved)
+    const pendingInboundApprovals = await prisma.customerVisit.findMany({
       where: {
-        status: "PENDING",
-        assignedUserId: isExecutive ? userId : undefined,
+        approvalStatus: "PENDING_APPROVAL",
+        hostedBy: isExecutive ? userId : undefined,
       },
       include: {
-        assignedUser: { select: { id: true, name: true } }
+        customer: { select: { id: true, name: true, customerCode: true } },
+        host: { select: { id: true, name: true } }
       },
       orderBy: { createdAt: "desc" }
     });
+
+    const pendingOutboundApprovals = await prisma.marketingVisit.findMany({
+      where: {
+        approvalStatus: "PENDING_APPROVAL",
+        executiveId: isExecutive ? userId : undefined,
+      },
+      include: {
+        customer: { select: { id: true, name: true, customerCode: true } },
+        executive: { select: { id: true, name: true } }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    const pendingApprovals = [
+      ...pendingInboundApprovals.map(v => ({
+        id: v.id,
+        visitType: "Inbound" as const,
+        customerName: v.customer.name,
+        customerCode: v.customer.customerCode,
+        customerId: v.customerId,
+        purpose: v.purpose,
+        submittedBy: v.host.name,
+        submittedById: v.hostedBy,
+        priority: v.priority,
+        checkInTime: v.checkInTime.toISOString(),
+        createdAt: v.createdAt.toISOString(),
+      })),
+      ...pendingOutboundApprovals.map(v => ({
+        id: v.id,
+        visitType: "Outbound" as const,
+        customerName: v.customer.name,
+        customerCode: v.customer.customerCode,
+        customerId: v.customerId,
+        purpose: v.purpose || "Field Visit",
+        submittedBy: v.executive.name,
+        submittedById: v.executiveId,
+        priority: "Normal",
+        checkInTime: v.checkIn.toISOString(),
+        createdAt: v.createdAt.toISOString(),
+      }))
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     // Compute Engagement Metrics (for the top mock banner)
     // Counts for this billing month
@@ -331,7 +369,7 @@ export async function getDashboardDataAction() {
         outboundVisits: outboundVisits.map(serializeVisit),
         upcomingFollowUps: upcomingFollowUps.map(serializeFollowUp),
         overdueFollowUps: overdueFollowUps.map(serializeFollowUp),
-        pendingApprovals: pendingApprovals.map(serializeCustomer),
+        pendingApprovals: pendingApprovals,
         stats: {
           activeEngagement: conversionRate || 0,
           monthlyVisits: monthlyVisits || 0,
@@ -365,6 +403,15 @@ export async function checkInInboundAction(data: {
   customerId: string;
   purpose: string;
   notes?: string;
+  // Extended Office Visit fields
+  priority?: string;
+  meetingType?: string;
+  source?: string;
+  agenda?: string;
+  expectedDuration?: number;
+  department?: string;
+  requiresApproval?: boolean;
+  visitMetadata?: Record<string, any>;
 }) {
   try {
     const userPayload = await verifyAuth();
@@ -372,10 +419,13 @@ export async function checkInInboundAction(data: {
       return { success: false, message: "Unauthorized" };
     }
 
-    const { customerId, purpose, notes } = data;
+    const { customerId, purpose, notes, priority, meetingType, source, agenda, expectedDuration, department, requiresApproval, visitMetadata } = data;
     if (!customerId || !purpose) {
       return { success: false, message: "Customer ID and Purpose are required" };
     }
+
+    const dbUser = await prisma.user.findUnique({ where: { id: userPayload.id }, select: { name: true } });
+    const userName = dbUser?.name || "Employee";
 
     // 1. Validate executive customer assignment
     const hasAccess = await validateCustomerAccess(customerId, userPayload.id, userPayload.role);
@@ -384,14 +434,8 @@ export async function checkInInboundAction(data: {
     }
 
     // 2. Prevent duplicate check-in today
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-
     const activeVisit = await prisma.customerVisit.findFirst({
-      where: {
-        customerId,
-        status: "CHECKED_IN"
-      }
+      where: { customerId, status: "CHECKED_IN" }
     });
 
     if (activeVisit) {
@@ -399,6 +443,7 @@ export async function checkInInboundAction(data: {
     }
 
     // 3. Create Inbound Visit
+    const needsApproval = requiresApproval === true;
     const visit = await prisma.customerVisit.create({
       data: {
         customerId,
@@ -406,7 +451,16 @@ export async function checkInInboundAction(data: {
         purpose,
         meetingSummary: notes || null,
         status: "CHECKED_IN",
-        checkInTime: new Date()
+        checkInTime: new Date(),
+        priority: priority || "Normal",
+        meetingType: meetingType || null,
+        source: source || null,
+        agenda: agenda || null,
+        expectedDuration: expectedDuration || null,
+        department: department || null,
+        requiresApproval: needsApproval,
+        approvalStatus: needsApproval ? "PENDING_APPROVAL" : "NOT_REQUIRED",
+        visitMetadata: visitMetadata ? JSON.parse(JSON.stringify(visitMetadata)) : undefined,
       }
     });
 
@@ -422,19 +476,21 @@ export async function checkInInboundAction(data: {
     });
 
     if (notifyUsers.length > 0 && customerObj) {
+      const approvalNote = needsApproval ? " ⚠️ Approval Required." : "";
       await prisma.notification.createMany({
         data: notifyUsers.map(uid => ({
           userId: uid,
           title: "Customer Inbound Check-In",
-          message: `Inbound Customer Checked In: ${customerObj.name} arrived for ${purpose}. Hosted by ${userPayload.name}.`,
+          message: `${customerObj.name} arrived for ${purpose}. Hosted by ${userName}.${approvalNote}`,
           type: "visit"
         }))
       });
     }
 
-    await logAudit(userPayload.id, "VISIT", "INBOUND_CHECK_IN", `Walk-in registered: Checked in customer ${customerId}`);
+    await logAudit(userPayload.id, "VISIT", "INBOUND_CHECK_IN", `Office visit registered: ${customerId} — ${purpose}${needsApproval ? " (Approval Required)" : ""}`);
     revalidatePath("/dashboard");
-    return { success: true, message: "Check-in successful", data: { ...visit, checkInTime: visit.checkInTime.toISOString(), checkOutTime: visit.checkOutTime?.toISOString() ?? null, createdAt: visit.createdAt.toISOString(), updatedAt: visit.updatedAt.toISOString() } };
+    revalidatePath("/visitor-management");
+    return { success: true, message: "Check-in successful", data: { id: visit.id } };
   } catch (error) {
     console.error("Inbound Checkin Error:", error);
     return { success: false, message: "Failed to register inbound check-in" };
@@ -462,8 +518,12 @@ export async function checkOutInboundAction(data: {
       return { success: false, message: "Missing required checkout fields." };
     }
 
-    // Validate next meeting requirement (Removed per user request)
-    const isNextMeetingRequired = !["Converted", "Not Interested"].includes(outcome);
+    // Outcomes that require a follow-up next meeting date
+    const followUpOutcomes = ["Follow-up Required", "Follow-up Needed", "Pending Decision", "Interested", "Negotiation Ongoing", "Budget Hold", "Discount Requested", "Renewal Pending", "Churn Risk", "Revisit Needed", "Qualified Lead", "Proposal Needed", "Trial Requested"];
+    // Outcomes that close a deal won — update customer to Active
+    const closedWonOutcomes = ["Converted", "Closed Won", "Renewed", "Demo Completed"];
+    // Outcomes that close a deal lost
+    const closedLostOutcomes = ["Closed Lost", "Not Interested", "Not Qualified"];
 
     const visit = await prisma.customerVisit.findUnique({
       where: { id },
@@ -473,13 +533,20 @@ export async function checkOutInboundAction(data: {
     if (!visit) return { success: false, message: "Visit not found." };
     if (visit.status === "CHECKED_OUT") return { success: false, message: "Visit has already been checked out." };
 
-    // Update Customer Status & Triggers based on decision
+    // Update Customer Status & Triggers based on decision + outcome
     let portalMsg = "";
     if (visit.customer?.status === "Active") {
-      // If customer is already Active, protect their portal access and do not send redundant activation emails
+      // If customer is already Active, protect their portal access
       portalMsg = " Customer is already active. Portal login preserved.";
     } else {
-      if (customerDecision === "APPROVED") {
+      // Outcome-driven customer status update (takes priority over portal decision for won/lost)
+      if (closedWonOutcomes.includes(outcome)) {
+        await prisma.customer.update({
+          where: { id: visit.customerId },
+          data: { status: "Active" as any }
+        });
+        portalMsg = " Customer promoted to Active (deal closed won).";
+      } else if (customerDecision === "APPROVED") {
         await prisma.customer.update({
           where: { id: visit.customerId },
           data: { status: "APPROVED" as any }
@@ -489,12 +556,12 @@ export async function checkOutInboundAction(data: {
         if (emailRes.success) {
           portalMsg = " Portal activation link emailed.";
         }
-      } else if (customerDecision === "REJECTED") {
+      } else if (customerDecision === "REJECTED" || closedLostOutcomes.includes(outcome)) {
         await prisma.customer.update({
           where: { id: visit.customerId },
           data: { status: "REJECTED" as any }
         });
-        await logAudit(userPayload.id, "CUSTOMER", "REJECT", `Customer ${visit.customer.name} rejected. Reason: ${rejectionReason || "None"}`);
+        await logAudit(userPayload.id, "CUSTOMER", "REJECT", `Customer ${visit.customer.name} rejected. Reason: ${rejectionReason || "None"}. Outcome: ${outcome}`);
       } else {
         await prisma.customer.update({
           where: { id: visit.customerId },
@@ -572,7 +639,7 @@ export async function checkOutInboundAction(data: {
     await logAudit(userPayload.id, "VISIT", "INBOUND_CHECK_OUT", `Checked out customer from inbound visit ${id}`);
     revalidatePath("/dashboard");
     revalidatePath("/marketing-log");
-    return { success: true, message: `Checked out successfully.${portalMsg}`, data: { ...updatedVisit, checkInTime: updatedVisit.checkInTime.toISOString(), checkOutTime: updatedVisit.checkOutTime?.toISOString() ?? null, createdAt: updatedVisit.createdAt.toISOString(), updatedAt: updatedVisit.updatedAt.toISOString(), nextMeetingDate: updatedVisit.nextMeetingDate?.toISOString() ?? null } };
+    return { success: true, message: `Checked out successfully.${portalMsg}`, data: { id: updatedVisit.id } };
   } catch (error) {
     console.error("Inbound Checkout Error:", error);
     return { success: false, message: "Failed to process checkout." };
@@ -588,6 +655,12 @@ export async function checkInOutboundAction(data: {
   notes?: string;
   checkInLat?: number;
   checkInLng?: number;
+  // Extended Log Field fields
+  travelMode?: string;
+  distanceTraveled?: number;
+  expenseAmount?: number;
+  requiresApproval?: boolean;
+  visitMetadata?: Record<string, any>;
 }) {
   try {
     const userPayload = await verifyAuth();
@@ -595,10 +668,13 @@ export async function checkInOutboundAction(data: {
       return { success: false, message: "Unauthorized" };
     }
 
-    const { customerId, purpose, notes, checkInLat, checkInLng } = data;
+    const { customerId, purpose, notes, checkInLat, checkInLng, travelMode, distanceTraveled, expenseAmount, requiresApproval, visitMetadata } = data;
     if (!customerId || !purpose) {
       return { success: false, message: "Customer ID and Purpose are required" };
     }
+
+    const dbUser = await prisma.user.findUnique({ where: { id: userPayload.id }, select: { name: true } });
+    const userName = dbUser?.name || "Employee";
 
     // 1. Validate customer access
     const hasAccess = await validateCustomerAccess(customerId, userPayload.id, userPayload.role);
@@ -608,10 +684,7 @@ export async function checkInOutboundAction(data: {
 
     // 2. Prevent duplicate check-in today
     const activeVisit = await prisma.marketingVisit.findFirst({
-      where: {
-        customerId,
-        status: "CHECKED_IN"
-      }
+      where: { customerId, status: "CHECKED_IN" }
     });
 
     if (activeVisit) {
@@ -619,6 +692,7 @@ export async function checkInOutboundAction(data: {
     }
 
     // 3. Log Outbound Visit
+    const needsApproval = requiresApproval === true;
     const newVisit = await prisma.marketingVisit.create({
       data: {
         executiveId: userPayload.id,
@@ -628,7 +702,13 @@ export async function checkInOutboundAction(data: {
         checkInLat: checkInLat || null,
         checkInLng: checkInLng || null,
         status: "CHECKED_IN",
-        checkIn: new Date()
+        checkIn: new Date(),
+        travelMode: travelMode || null,
+        distanceTraveled: distanceTraveled || null,
+        expenseAmount: expenseAmount || null,
+        requiresApproval: needsApproval,
+        approvalStatus: needsApproval ? "PENDING_APPROVAL" : "NOT_REQUIRED",
+        visitMetadata: visitMetadata ? JSON.parse(JSON.stringify(visitMetadata)) : undefined,
       },
       include: { customer: { select: { name: true } } }
     });
@@ -639,19 +719,21 @@ export async function checkInOutboundAction(data: {
     });
     
     if (adminsAndLeads.length > 0) {
+      const approvalNote = needsApproval ? " ⚠️ Approval Required." : "";
       await prisma.notification.createMany({
         data: adminsAndLeads.map(u => ({
           userId: u.id,
-          title: "New Outbound Visit",
-          message: `${userPayload.name} started a field visit with ${newVisit.customer.name} for ${purpose}`,
+          title: "New Outbound Field Visit",
+          message: `${userName} started a field visit with ${newVisit.customer.name} for ${purpose}${approvalNote}`,
           type: "visit"
         }))
       });
     }
 
-    await logAudit(userPayload.id, "VISITS", "OUTBOUND_CHECKIN", `Checked-in for outbound visit at ${newVisit.customer.name}`);
+    await logAudit(userPayload.id, "VISITS", "OUTBOUND_CHECKIN", `Field visit check-in: ${newVisit.customer.name} — ${purpose}${needsApproval ? " (Approval Required)" : ""}`);
     revalidatePath("/dashboard");
-    return { success: true, message: "Field Check-in successful", data: { ...newVisit, checkIn: newVisit.checkIn.toISOString(), checkOut: newVisit.checkOut?.toISOString() ?? null, createdAt: newVisit.createdAt.toISOString(), updatedAt: newVisit.updatedAt.toISOString() } };
+    revalidatePath("/marketing-log");
+    return { success: true, message: "Field Check-in successful", data: { id: newVisit.id } };
   } catch (error) {
     console.error("Outbound Checkin Error:", error);
     return { success: false, message: "Failed to register field visit check-in" };
@@ -677,12 +759,19 @@ export async function checkOutOutboundAction(data: {
 
     const { id, meetingDescription, outcome, customerDecision, rejectionReason, nextMeetingDate, nextMeetingNotes, checkOutLat, checkOutLng } = data;
 
+    const dbUser = await prisma.user.findUnique({ where: { id: userPayload.id }, select: { name: true } });
+    const userName = dbUser?.name || "Employee";
+
     if (!id || !meetingDescription || !outcome || !customerDecision) {
       return { success: false, message: "Missing required checkout fields." };
     }
 
-    // Validate next meeting requirement (Removed per user request)
-    const isNextMeetingRequired = !["Converted", "Not Interested"].includes(outcome);
+    // Outcomes that require a follow-up next meeting date
+    const followUpOutcomes = ["Follow-up Required", "Follow-up Needed", "Pending Decision", "Interested", "Negotiation Ongoing", "Budget Hold", "Discount Requested", "Renewal Pending", "Churn Risk", "Revisit Needed", "Qualified Lead", "Proposal Needed", "Trial Requested"];
+    // Outcomes that close a deal won — update customer to Active
+    const closedWonOutcomes = ["Converted", "Closed Won", "Renewed", "Demo Completed"];
+    // Outcomes that close a deal lost
+    const closedLostOutcomes = ["Closed Lost", "Not Interested", "Not Qualified"];
 
     const visit = await prisma.marketingVisit.findUnique({
       where: { id },
@@ -692,12 +781,18 @@ export async function checkOutOutboundAction(data: {
     if (!visit) return { success: false, message: "Field visit not found." };
     if (visit.status === "CHECKED_OUT") return { success: false, message: "Visit has already been checked out." };
 
-    // Update Customer Status & Portal Email
+    // Update Customer Status based on outcome + decision
     let portalMsg = "";
     if (visit.customer?.status === "Active") {
       portalMsg = " Customer is already active. Portal login preserved.";
     } else {
-      if (customerDecision === "APPROVED") {
+      if (closedWonOutcomes.includes(outcome)) {
+        await prisma.customer.update({
+          where: { id: visit.customerId },
+          data: { status: "Active" as any }
+        });
+        portalMsg = " Customer promoted to Active (deal closed won).";
+      } else if (customerDecision === "APPROVED") {
         await prisma.customer.update({
           where: { id: visit.customerId },
           data: { status: "APPROVED" as any }
@@ -706,12 +801,12 @@ export async function checkOutOutboundAction(data: {
         if (emailRes.success) {
           portalMsg = " Portal activation link emailed.";
         }
-      } else if (customerDecision === "REJECTED") {
+      } else if (customerDecision === "REJECTED" || closedLostOutcomes.includes(outcome)) {
         await prisma.customer.update({
           where: { id: visit.customerId },
           data: { status: "REJECTED" as any }
         });
-        await logAudit(userPayload.id, "CUSTOMER", "REJECT", `Customer ${visit.customer.name} rejected during field check-out.`);
+        await logAudit(userPayload.id, "CUSTOMER", "REJECT", `Customer ${visit.customer.name} outcome: ${outcome}. Rejection reason: ${rejectionReason || "None"}.`);
       } else {
         await prisma.customer.update({
           where: { id: visit.customerId },
@@ -763,7 +858,7 @@ export async function checkOutOutboundAction(data: {
         data: notifyUsers.map(uid => ({
           userId: uid,
           title: "Outbound Visit Check-Out",
-          message: `${userPayload.name} checked out from field visit with ${visit.customer.name}. Outcome: ${outcome}.`,
+          message: `${userName} checked out from field visit with ${visit.customer.name}. Outcome: ${outcome}.`,
           type: "visit"
         }))
       });
@@ -772,7 +867,7 @@ export async function checkOutOutboundAction(data: {
     await logAudit(userPayload.id, "VISIT", "OUTBOUND_CHECK_OUT", `Executive checked out from field visit ${id}`);
     revalidatePath("/dashboard");
     revalidatePath("/marketing-log");
-    return { success: true, message: `Checked out successfully.${portalMsg}`, data: { ...updatedVisit, checkIn: updatedVisit.checkIn.toISOString(), checkOut: updatedVisit.checkOut?.toISOString() ?? null, createdAt: updatedVisit.createdAt.toISOString(), updatedAt: updatedVisit.updatedAt.toISOString(), nextMeetingDate: updatedVisit.nextMeetingDate?.toISOString() ?? null } };
+    return { success: true, message: `Checked out successfully.${portalMsg}`, data: { id: updatedVisit.id } };
   } catch (error) {
     console.error("Outbound Checkout Error:", error);
     return { success: false, message: "Failed to process field check-out." };
@@ -809,7 +904,7 @@ export async function getVisitHistoryAction(filters?: {
     }
 
     // 1. Fetch Inbound visits (if type matches or is empty)
-    let inbound = [];
+    let inbound: any[] = [];
     if (!filters?.visitType || filters.visitType === "Inbound") {
       inbound = await prisma.customerVisit.findMany({
         where: {
@@ -827,7 +922,7 @@ export async function getVisitHistoryAction(filters?: {
     }
 
     // 2. Fetch Outbound visits
-    let outbound = [];
+    let outbound: any[] = [];
     if (!filters?.visitType || filters.visitType === "Outbound") {
       outbound = await prisma.marketingVisit.findMany({
         where: {
@@ -854,6 +949,7 @@ export async function getVisitHistoryAction(filters?: {
       purpose: v.purpose,
       checkInTime: v.checkInTime.toISOString(),
       checkOutTime: v.checkOutTime ? v.checkOutTime.toISOString() : null,
+      status: v.status, // Fix: include status for "In Premises" badge
       outcome: v.outcome || "Pending Checkout",
       customerDecision: v.customerDecision || "Pending Decision",
       rejectionReason: v.rejectionReason,
@@ -861,6 +957,9 @@ export async function getVisitHistoryAction(filters?: {
       notes: v.meetingSummary,
       executiveName: v.host.name,
       executiveId: v.hostedBy,
+      priority: v.priority,
+      approvalStatus: v.approvalStatus,
+      department: v.department,
       createdAt: v.createdAt.toISOString()
     }));
 
@@ -873,6 +972,7 @@ export async function getVisitHistoryAction(filters?: {
       purpose: v.purpose || "Field Visit",
       checkInTime: v.checkIn.toISOString(),
       checkOutTime: v.checkOut ? v.checkOut.toISOString() : null,
+      status: v.status, // Fix: include status for "In Premises" badge
       outcome: v.outcome || "Pending Checkout",
       customerDecision: v.customerDecision || "Pending Decision",
       rejectionReason: v.rejectionReason,
@@ -880,6 +980,9 @@ export async function getVisitHistoryAction(filters?: {
       notes: v.meetingDescription || v.remarks,
       executiveName: v.executive.name,
       executiveId: v.executiveId,
+      approvalStatus: v.approvalStatus,
+      travelMode: v.travelMode,
+      expenseAmount: v.expenseAmount,
       createdAt: v.createdAt.toISOString()
     }));
 
@@ -972,7 +1075,7 @@ export async function getFollowUpsListAction() {
     const followUps = await prisma.followUp.findMany({
       where: isExecutive ? { assignedUserId: userId } : {},
       include: {
-        customer: { select: { id: true, name: true, customerCode: true } },
+        customer: { select: { id: true, name: true, customerCode: true, status: true } },
         assignedUser: { select: { id: true, name: true } }
       },
       orderBy: { nextMeetingDate: "asc" }
@@ -1006,6 +1109,7 @@ export async function getFollowUpsListAction() {
         customerId: f.customerId,
         customerName: f.customer.name,
         customerCode: f.customer.customerCode,
+        customerStatus: f.customer.status,
         nextMeetingDate: f.nextMeetingDate.toISOString(),
         notes: f.remarks || f.notes,
         assignedToName: f.assignedUser.name,
@@ -1271,5 +1375,126 @@ export async function createCustomerRenewalRequestAction(data: { planName: strin
   } catch (error) {
     console.error("Create Customer Renewal Request Error:", error);
     return { success: false, message: "Failed to submit renewal request." };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 7. VISIT APPROVAL ACTIONS (Admin / Lead only)
+// ═══════════════════════════════════════════════════════════════
+export async function approveVisitAction(data: { visitId: string; visitType: "Inbound" | "Outbound"; comments?: string }) {
+  try {
+    const userPayload = await verifyAuth();
+    if (!userPayload || !["Admin", "MarketingLead"].includes(userPayload.role)) {
+      return { success: false, message: "Unauthorized: Admin or Marketing Lead only." };
+    }
+
+    const dbUser = await prisma.user.findUnique({ where: { id: userPayload.id }, select: { name: true } });
+    const userName = dbUser?.name || "Employee";
+
+    const { visitId, visitType, comments } = data;
+
+    if (visitType === "Inbound") {
+      const visit = await prisma.customerVisit.findUnique({ where: { id: visitId }, include: { host: true } });
+      if (!visit) return { success: false, message: "Visit not found." };
+      if (visit.approvalStatus !== "PENDING_APPROVAL") return { success: false, message: "This visit is not pending approval." };
+
+      await prisma.customerVisit.update({
+        where: { id: visitId },
+        data: { approvalStatus: "APPROVED", approvalComments: comments || null }
+      });
+
+      // Notify the host executive
+      await prisma.notification.create({
+        data: {
+          userId: visit.hostedBy,
+          title: "Visit Approved ✓",
+          message: `Your office visit (${visit.purpose}) has been approved by ${userName}.${comments ? ` Note: ${comments}` : ""}`,
+          type: "visit"
+        }
+      });
+    } else {
+      const visit = await prisma.marketingVisit.findUnique({ where: { id: visitId }, include: { executive: true } });
+      if (!visit) return { success: false, message: "Field visit not found." };
+      if (visit.approvalStatus !== "PENDING_APPROVAL") return { success: false, message: "This visit is not pending approval." };
+
+      await prisma.marketingVisit.update({
+        where: { id: visitId },
+        data: { approvalStatus: "APPROVED", approvalComments: comments || null }
+      });
+
+      // Notify the executive
+      await prisma.notification.create({
+        data: {
+          userId: visit.executiveId,
+          title: "Field Visit Approved ✓",
+          message: `Your field visit (${visit.purpose}) has been approved by ${userName}.${comments ? ` Note: ${comments}` : ""}`,
+          type: "visit"
+        }
+      });
+    }
+
+    await logAudit(userPayload.id, "VISIT", "APPROVE_VISIT", `Approved ${visitType} visit ${visitId}`);
+    revalidatePath("/dashboard");
+    revalidatePath("/marketing-log");
+    return { success: true, message: "Visit approved successfully." };
+  } catch (error) {
+    console.error("Approve Visit Error:", error);
+    return { success: false, message: "Failed to approve visit." };
+  }
+}
+
+export async function rejectVisitAction(data: { visitId: string; visitType: "Inbound" | "Outbound"; reason: string }) {
+  try {
+    const userPayload = await verifyAuth();
+    if (!userPayload || !["Admin", "MarketingLead"].includes(userPayload.role)) {
+      return { success: false, message: "Unauthorized: Admin or Marketing Lead only." };
+    }
+
+    const { visitId, visitType, reason } = data;
+    if (!reason?.trim()) return { success: false, message: "Rejection reason is required." };
+
+    if (visitType === "Inbound") {
+      const visit = await prisma.customerVisit.findUnique({ where: { id: visitId } });
+      if (!visit) return { success: false, message: "Visit not found." };
+
+      await prisma.customerVisit.update({
+        where: { id: visitId },
+        data: { approvalStatus: "REJECTED", approvalComments: reason }
+      });
+
+      await prisma.notification.create({
+        data: {
+          userId: visit.hostedBy,
+          title: "Visit Rejected",
+          message: `Your office visit (${visit.purpose}) was rejected. Reason: ${reason}`,
+          type: "visit"
+        }
+      });
+    } else {
+      const visit = await prisma.marketingVisit.findUnique({ where: { id: visitId } });
+      if (!visit) return { success: false, message: "Field visit not found." };
+
+      await prisma.marketingVisit.update({
+        where: { id: visitId },
+        data: { approvalStatus: "REJECTED", approvalComments: reason }
+      });
+
+      await prisma.notification.create({
+        data: {
+          userId: visit.executiveId,
+          title: "Field Visit Rejected",
+          message: `Your field visit (${visit.purpose || "Field Visit"}) was rejected. Reason: ${reason}`,
+          type: "visit"
+        }
+      });
+    }
+
+    await logAudit(userPayload.id, "VISIT", "REJECT_VISIT", `Rejected ${visitType} visit ${visitId}. Reason: ${reason}`);
+    revalidatePath("/dashboard");
+    revalidatePath("/marketing-log");
+    return { success: true, message: "Visit rejected." };
+  } catch (error) {
+    console.error("Reject Visit Error:", error);
+    return { success: false, message: "Failed to reject visit." };
   }
 }

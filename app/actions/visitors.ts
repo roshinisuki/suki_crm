@@ -194,6 +194,15 @@ export async function getUnifiedOfficeVisitsAction() {
       orderBy: { checkInTime: "desc" },
     });
 
+    // 2b. Fetch FollowUps for these visits
+    const followUps = await prisma.followUp.findMany({
+      where: {
+        visitId: { in: customerVisits.map(cv => cv.id) },
+        visitType: "INBOUND"
+      }
+    });
+    const followUpMap = new Map(followUps.map(f => [f.visitId, f.status]));
+
     // 3. Normalize guests
     const normalizedGuests = guests.map((g) => ({
       id: g.id,
@@ -232,6 +241,7 @@ export async function getUnifiedOfficeVisitsAction() {
       rejectionReason: cv.rejectionReason || null,
       customerCode: cv.customer?.customerCode || "—",
       customerId: cv.customerId,
+      followUpStatus: followUpMap.get(cv.id) || null,
     }));
 
     // 5. Combine and sort

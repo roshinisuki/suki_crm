@@ -29,7 +29,11 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
               <Link href="/customer/portal" className="text-xs font-semibold text-slate-600 hover:text-[#0b1f3a]">Subscriptions</Link>
               <Link href="/customer/support" className="text-xs font-semibold text-slate-600 hover:text-[#0b1f3a]">Support</Link>
             </div>
-            <form action={logoutAction}>
+            <form action={async () => {
+              "use server";
+              await logoutAction();
+              redirect("/login");
+            }}>
               <button className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
                 Sign Out
               </button>

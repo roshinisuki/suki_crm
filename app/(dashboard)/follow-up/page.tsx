@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { getFollowUpsListAction } from "@/app/actions/visits";
-import { updateFollowUpStatusAction, createFollowUpAction } from "@/app/actions/followUps";
+import { updateFollowUpStatusAction, createFollowUpAction, completeFollowUpWithStatusAction } from "@/app/actions/followUps";
 import { getCustomersAction } from "@/app/actions/customers";
 import { getUsersAction } from "@/app/actions/users";
 import { useAuth } from "@/components/AuthProvider";
@@ -35,6 +35,15 @@ export default function FollowUpsPage() {
   const [scheduledTime, setScheduledTime] = useState("");
   const [notes, setNotes] = useState("");
   const [assignedToId, setAssignedToId] = useState("");
+
+  // Complete follow-up state variables
+  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
+  const [activeFollowUp, setActiveFollowUp] = useState<any>(null);
+  const [newCustomerStatus, setNewCustomerStatus] = useState("Active");
+  const [outcomeRemarks, setOutcomeRemarks] = useState("");
+  const [scheduleNext, setScheduleNext] = useState(false);
+  const [nextFollowUpTime, setNextFollowUpTime] = useState("");
+  const [nextFollowUpNotes, setNextFollowUpNotes] = useState("");
 
   const loadData = async () => {
     setLoading(true);
@@ -112,6 +121,57 @@ export default function FollowUpsPage() {
         setErrorMsg(res.message || "Failed to create follow-up.");
       }
     } catch (err) {
+      setErrorMsg("Something went wrong.");
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const openCompleteModal = (followUpItem: any) => {
+    setActiveFollowUp(followUpItem);
+    setNewCustomerStatus(followUpItem.customerStatus || "Active");
+    setOutcomeRemarks("");
+    setScheduleNext(false);
+    setNextFollowUpTime("");
+    setNextFollowUpNotes("");
+    setErrorMsg("");
+    setFieldErrors({});
+    setIsCompleteModalOpen(true);
+  };
+
+  const handleCompleteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormLoading(true);
+    setErrorMsg("");
+    setFieldErrors({});
+
+    let errors: Record<string, string> = {};
+    if (!outcomeRemarks.trim()) errors.remarks = "Outcome remarks are required";
+    if (scheduleNext && !nextFollowUpTime) errors.nextDate = "Next follow-up date is required";
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setFormLoading(false);
+      return;
+    }
+
+    try {
+      const res = await completeFollowUpWithStatusAction({
+        id: activeFollowUp.id,
+        customerStatus: newCustomerStatus,
+        remarks: outcomeRemarks,
+        nextMeetingDate: scheduleNext ? nextFollowUpTime : undefined,
+        nextMeetingNotes: scheduleNext ? nextFollowUpNotes : undefined
+      });
+
+      if (res.success) {
+        setIsCompleteModalOpen(false);
+        alert(res.message);
+        loadData();
+      } else {
+        setErrorMsg(res.message || "Failed to complete follow-up.");
+      }
+    } catch {
       setErrorMsg("Something went wrong.");
     } finally {
       setFormLoading(false);
@@ -295,7 +355,13 @@ export default function FollowUpsPage() {
                     {user?.role === "Admin" ? (
                       <select
                         value={f.status}
-                        onChange={(e) => handleUpdateStatus(f.id, e.target.value)}
+                        onChange={(e) => {
+                          if (e.target.value === "Completed") {
+                            openCompleteModal(f);
+                          } else {
+                            handleUpdateStatus(f.id, e.target.value);
+                          }
+                        }}
                         className={`text-xs font-bold rounded-xl px-3 py-1.5 border shadow-sm focus:outline-none transition-colors cursor-pointer ${
                           f.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                           f.status === 'Cancelled' ? 'bg-red-50 text-red-700 border-red-200' :
@@ -309,7 +375,7 @@ export default function FollowUpsPage() {
                     ) : (
                       !isCompleted && f.status !== "Cancelled" ? (
                         <button
-                          onClick={() => handleUpdateStatus(f.id, "Completed")}
+                          onClick={() => openCompleteModal(f)}
                           className="flex items-center gap-1 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold transition-all shadow-xs"
                         >
                           {icons.check}
@@ -464,6 +530,199 @@ export default function FollowUpsPage() {
         </div>
       )}
 
+      {/* Complete Follow-up Modal */}
+      {isCompleteModalOpen && activeFollowUp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/40">
+              <div>
+                <h2 className="text-md font-bold text-slate-800">Complete Follow-Up</h2>
+                <p className="text-[10px] text-slate-500 font-bold mt-0.5 uppercase tracking-wider">
+                  Log customer sentiment & lifecycle stage
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCompleteModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                {icons.x}
+              </button>
+            </div>
+
+            <form onSubmit={handleCompleteSubmit} className="flex flex-col min-h-0 overflow-y-auto">
+              <div className="p-6 space-y-5">
+                {errorMsg && (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-xs font-semibold text-red-600 text-center">
+                    {errorMsg}
+                  </div>
+                )}
+
+                {/* Customer Details Summary Card */}
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/60 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Client</span>
+                      <p className="text-sm font-bold text-slate-800 leading-snug">{activeFollowUp.customerName}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">Current Status</span>
+                      <span className={`inline-block text-[9px] font-black uppercase px-2 py-0.5 rounded-md border leading-none mt-0.5 ${
+                        activeFollowUp.customerStatus === "Active" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                        activeFollowUp.customerStatus === "Prospect" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                        activeFollowUp.customerStatus === "APPROVED" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                        activeFollowUp.customerStatus === "REJECTED" ? "bg-red-50 text-red-700 border-red-200" :
+                        "bg-amber-50 text-amber-700 border-amber-200"
+                      }`}>
+                        {activeFollowUp.customerStatus || "Pending"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="border-t border-slate-200/50 my-1"></div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Touchpoint Agenda</span>
+                    <p className="text-xs font-semibold text-slate-600 leading-relaxed mt-0.5">
+                      {activeFollowUp.notes || "No specific agenda notes recorded."}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Updated Customer Status */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">
+                    Updated Customer Status <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={newCustomerStatus}
+                    onChange={(e) => setNewCustomerStatus(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-slate-700 font-semibold cursor-pointer"
+                  >
+                    <option value="Active">Active (Converted / Closed Won)</option>
+                    <option value="Prospect">Prospect (Interested / Lead)</option>
+                    <option value="APPROVED">APPROVED (Approve & Email Portal Link)</option>
+                    <option value="PENDING">PENDING (Still Considering / Decision Pending)</option>
+                    <option value="REJECTED">REJECTED (Closed Lost / Rejected)</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                  <div className="mt-2 p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl">
+                    <p className="text-[11px] text-emerald-800 font-medium leading-relaxed">
+                      {newCustomerStatus === "APPROVED" 
+                        ? "✨ Selecting APPROVED will automatically trigger an invitation email containing a secure customer portal activation link." 
+                        : newCustomerStatus === "Active"
+                        ? "🎉 Marking customer as Active sets them as a converted, closed-won account."
+                        : newCustomerStatus === "REJECTED"
+                        ? "⚠️ Sets client status to Rejected (Closed Lost)."
+                        : "Updates the client status in the system to reflect their current consideration level."}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Outcome Remarks */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">
+                    Outcome Remarks <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={outcomeRemarks}
+                    onChange={(e) => {
+                      setOutcomeRemarks(e.target.value);
+                      if (fieldErrors.remarks) setFieldErrors({ ...fieldErrors, remarks: "" });
+                    }}
+                    placeholder="Describe client feedback, what was discussed, and next actions..."
+                    className={`w-full px-4 py-2.5 rounded-xl bg-slate-50 border text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none text-slate-750 font-medium ${
+                      fieldErrors.remarks ? "border-red-300" : "border-slate-200"
+                    }`}
+                  ></textarea>
+                  {fieldErrors.remarks && (
+                    <p className="text-xs text-red-500 font-semibold mt-1">{fieldErrors.remarks}</p>
+                  )}
+                </div>
+
+                {/* Schedule Next Follow-up Switch */}
+                <div className="pt-2 border-t border-slate-100">
+                  <label className="flex items-center gap-3 cursor-pointer select-none group">
+                    <div
+                      onClick={() => setScheduleNext(!scheduleNext)}
+                      className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${
+                        scheduleNext ? "bg-emerald-600" : "bg-slate-200"
+                      }`}
+                    >
+                      <div
+                        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${
+                          scheduleNext ? "left-5" : "left-0.5"
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-700">Schedule another follow-up?</p>
+                      <p className="text-[10px] text-slate-400">Creates a new pending touchpoint reminder automatically</p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Optional next follow-up details */}
+                {scheduleNext && (
+                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                        Next Meeting Date & Time <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={nextFollowUpTime}
+                        onChange={(e) => {
+                          setNextFollowUpTime(e.target.value);
+                          if (fieldErrors.nextDate) setFieldErrors({ ...fieldErrors, nextDate: "" });
+                        }}
+                        className={`w-full px-4 py-2.5 rounded-xl bg-white border text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-slate-700 font-semibold ${
+                          fieldErrors.nextDate ? "border-red-300" : "border-slate-200"
+                        }`}
+                      />
+                      {fieldErrors.nextDate && (
+                        <p className="text-xs text-red-500 font-semibold mt-1">{fieldErrors.nextDate}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                        Next Follow-Up Agenda / Notes
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={nextFollowUpNotes}
+                        onChange={(e) => setNextFollowUpNotes(e.target.value)}
+                        placeholder="What needs to be discussed next..."
+                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm focus:outline-none resize-none text-slate-750 font-medium"
+                      ></textarea>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsCompleteModalOpen(false)}
+                  className="px-5 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="px-6 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                >
+                  {formLoading ? "Completing..." : "Complete Follow-up"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
+

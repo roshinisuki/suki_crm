@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 export async function PATCH(request: Request) {
   try {

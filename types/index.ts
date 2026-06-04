@@ -20,7 +20,7 @@ export interface Customer {
   email: string | null;
   phone: string | null;
   city: string | null;
-  status: "Active" | "Inactive" | "Prospect";
+  status: "Active" | "Inactive" | "Prospect" | "APPROVED" | "REJECTED" | "PENDING";
   assignedUserId: string | null;
   assignedUser?: Partial<User>;
   createdAt?: string;
@@ -36,7 +36,7 @@ export interface Subscription {
   planName: string;
   startDate: string | Date;
   endDate: string | Date;
-  status: "Active" | "Expired" | "Cancelled" | "Pending";
+  status: "Active" | "Expired" | "Cancelled" | "Pending" | "Expiring";
   notes: string | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;

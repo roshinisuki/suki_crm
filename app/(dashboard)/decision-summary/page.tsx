@@ -19,64 +19,43 @@ const icons = {
 };
 
 function DecisionPurposeStatusBadge({ purpose, outcome }: { purpose: string; outcome: string }) {
+  let badge = null;
   const p = purpose ? purpose.toLowerCase() : "";
   const o = outcome || "";
 
-  // Support Tailored Pipeline
   if (p.includes("support")) {
-    if (o.includes("Resolved") || o.includes("resolved")) {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Resolved</span>;
-    } else if (o.includes("Resolving") || o.includes("resolving")) {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Resolving</span>;
-    } else {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Enquired to IT</span>;
-    }
+    if (o.toLowerCase().includes("resolved")) badge = { text: "Resolved", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+    else if (o.toLowerCase().includes("resolving")) badge = { text: "Resolving", color: "bg-amber-50 text-amber-700 border-amber-200" };
+    else badge = { text: "Enquired to IT", color: "bg-blue-50 text-blue-700 border-blue-200" };
+  } else if (p.includes("subscription") || p.includes("renewal")) {
+    if (o.toLowerCase().includes("renewed")) badge = { text: "Renewed", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+    else if (o.toLowerCase().includes("processing")) badge = { text: "Renewal Processing", color: "bg-amber-50 text-amber-700 border-amber-200" };
+    else badge = { text: "Renewal Requested", color: "bg-blue-50 text-blue-700 border-blue-200" };
+  } else if (p.includes("sales")) {
+    if (o === "Converted") badge = { text: "Converted", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+    else if (o === "Not Interested") badge = { text: "Not Interested", color: "bg-red-50 text-red-700 border-red-200" };
+    else if (o === "Follow-up Required" || o === "Pending Decision") badge = { text: o, color: "bg-amber-50 text-amber-700 border-amber-200" };
+    else badge = { text: o || "Interested", color: "bg-blue-50 text-blue-700 border-blue-200" };
+  } else if (p.includes("demo")) {
+    if (o.toLowerCase().includes("completed")) badge = { text: "Demo Completed", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+    else badge = { text: "Demo Scheduled", color: "bg-blue-50 text-blue-700 border-blue-200" };
+  } else if (o) {
+    badge = { text: o, color: "bg-slate-100 text-slate-600 border-slate-200" };
   }
 
-  // Renewal Tailored Pipeline
-  if (p.includes("subscription discussion") || p.includes("renewal") || p.includes("subscription")) {
-    if (o.includes("Renewed") || o.includes("renewed")) {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Renewed</span>;
-    } else if (o.includes("Renewal Processing") || o.includes("processing")) {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Renewal Processing</span>;
-    } else {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Renewal Requested</span>;
-    }
-  }
+  if (!badge) return null;
 
-  // Sales Meeting Tailored Pipeline
-  if (p.includes("sales")) {
-    if (o === "Converted") {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Converted</span>;
-    } else if (o === "Not Interested") {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">Not Interested</span>;
-    } else if (o === "Follow-up Required" || o === "Pending Decision") {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">{o}</span>;
-    } else {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">{o || "Interested"}</span>;
-    }
-  }
-
-  // Demo Tailored Pipeline
-  if (p.includes("demo")) {
-    if (o.includes("Completed")) {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Demo Completed</span>;
-    } else {
-      return <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Demo Scheduled</span>;
-    }
-  }
-
-  // Default
-  if (!o) return null;
-  return <span className="font-semibold text-slate-600">{o}</span>;
+  return (
+    <span className={`inline-flex items-center justify-center w-32 px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border ${badge.color} truncate`}>
+      {badge.text}
+    </span>
+  );
 }
 
 export default function DecisionSummaryPage() {
   const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -114,59 +93,7 @@ export default function DecisionSummaryPage() {
     );
   }
 
-  const handleApprove = async (customerId: string) => {
-    const confirmApprove = window.confirm("Are you sure you want to APPROVE this customer? This will generate their password-set link and email it to them.");
-    if (!confirmApprove) return;
 
-    setActionLoading(customerId);
-    try {
-      // Trigger activation email
-      const res = await activateCustomerPortal(customerId);
-      if (res.success) {
-        alert("Success! Customer approved and activation email sent.");
-        loadData();
-      } else {
-        alert(res.message || "Failed to approve customer portal access.");
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleReject = async (customerId: string) => {
-    const reason = window.prompt("Please enter the reason for rejecting this customer:");
-    if (reason === null) return; // cancel
-    if (!reason.trim()) {
-      alert("Validation: A reason is required to reject a customer.");
-      return;
-    }
-
-    setActionLoading(customerId);
-    try {
-      const res = await updateCustomerStatusAction({ id: customerId, status: "REJECTED", reason: reason.trim() });
-      if (res.success) {
-        alert("Customer rejected and reason logged successfully.");
-        loadData();
-      } else {
-        alert(res.message || "Failed to update customer status.");
-      }
-    } catch (err) {
-      alert("Failed to process rejection.");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const pendingCustomers = data?.pendingCustomersList || [];
-  const searchedCustomers = pendingCustomers.filter((c: any) => {
-    const name = c.name.toLowerCase();
-    const code = c.customerCode.toLowerCase();
-    const email = (c.email || "").toLowerCase();
-    const term = search.toLowerCase();
-    return name.includes(term) || code.includes(term) || email.includes(term);
-  });
 
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto animate-in fade-in duration-200">
@@ -201,77 +128,6 @@ export default function DecisionSummaryPage() {
         </div>
       </div>
 
-      {/* Pending Customer Queue Panel */}
-      <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col">
-        <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-sm font-bold text-slate-800">Pending Customer Approval Queue</h2>
-            <p className="text-xs text-slate-400 font-medium mt-0.5">Approve access to generate customer portal logins automatically</p>
-          </div>
-
-          {/* Search bar */}
-          <div className="relative w-full sm:w-64">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">{icons.search}</span>
-            <input
-              type="text"
-              placeholder="Search queue..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/10 font-semibold text-slate-700 bg-white"
-            />
-          </div>
-        </div>
-
-        {/* Queue Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50/30 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-200/60">
-                <th className="px-6 py-4">Customer Name</th>
-                <th className="px-4 py-4">Customer Code</th>
-                <th className="px-4 py-4">Contact Info</th>
-                <th className="px-4 py-4">Assigned Executive</th>
-                <th className="px-6 py-4 text-right">Verification Decisions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
-              {loading ? (
-                <tr><td colSpan={5} className="text-center py-8 text-slate-400">Loading pending accounts...</td></tr>
-              ) : searchedCustomers.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-12 text-slate-400 font-medium">No customers currently in the pending verification queue</td></tr>
-              ) : (
-                searchedCustomers.map((c: any) => (
-                  <tr key={c.id} className="hover:bg-slate-50/40 transition-colors">
-                    <td className="px-6 py-4 font-bold text-slate-800">{c.name}</td>
-                    <td className="px-4 py-4 text-slate-500 font-mono">{c.customerCode}</td>
-                    <td className="px-4 py-4 font-medium text-slate-500">
-                      <p>{c.email || "No email"}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{c.phone || "No phone"}</p>
-                    </td>
-                    <td className="px-4 py-4 text-slate-600 font-semibold">{c.assignedUser?.name || "Unassigned"}</td>
-                    <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => handleApprove(c.id)}
-                        disabled={actionLoading === c.id}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-xl text-[10px] transition-all"
-                      >
-                        {icons.check} Approve Verify
-                      </button>
-                      <button
-                        onClick={() => handleReject(c.id)}
-                        disabled={actionLoading === c.id}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-xl text-[10px] transition-all"
-                      >
-                        {icons.x} Reject
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
       {/* Customer Inbound Start & End Visit History */}
       <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col mt-6">
@@ -287,12 +143,12 @@ export default function DecisionSummaryPage() {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-slate-50/30 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-200/60">
-                <th className="px-6 py-4">Customer</th>
-                <th className="px-4 py-4">Purpose</th>
-                <th className="px-4 py-4">Host Name</th>
-                <th className="px-4 py-4">Visit Timings</th>
-                <th className="px-4 py-4">Outcome</th>
-                <th className="px-4 py-4">Portal Decision</th>
+                <th className="px-6 py-4 whitespace-nowrap">Customer</th>
+                <th className="px-4 py-4 whitespace-nowrap">Purpose</th>
+                <th className="px-4 py-4 whitespace-nowrap">Host Name</th>
+                <th className="px-4 py-4 whitespace-nowrap">Visit Timings</th>
+                <th className="px-4 py-4 whitespace-nowrap">Outcome</th>
+                <th className="px-4 py-4 whitespace-nowrap">Portal Decision</th>
                 <th className="px-6 py-4">Meeting Notes / Details</th>
               </tr>
             </thead>
@@ -310,19 +166,19 @@ export default function DecisionSummaryPage() {
                   
                   return (
                     <tr key={v.id} className="hover:bg-slate-50/40 transition-colors">
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <p className="font-bold text-slate-800">{v.customer?.name}</p>
                         <p className="text-[10px] text-slate-400 font-bold mt-0.5">{v.customer?.customerCode}</p>
                       </td>
-                      <td className="px-4 py-4 text-slate-650">{v.purpose}</td>
-                      <td className="px-4 py-4 text-slate-600">{v.host?.name || "System Admin"}</td>
-                      <td className="px-4 py-4 text-slate-500 font-medium">
+                      <td className="px-4 py-4 text-slate-650 whitespace-nowrap">{v.purpose}</td>
+                      <td className="px-4 py-4 text-slate-600 whitespace-nowrap">{v.host?.name || "System Admin"}</td>
+                      <td className="px-4 py-4 text-slate-500 font-medium whitespace-nowrap">
                         <p>Started: {checkIn}</p>
                         <p className={`text-[10px] font-bold mt-0.5 ${!checkOut ? "text-amber-500 animate-pulse" : "text-slate-400"}`}>
                           {!checkOut ? "● In Office" : `Ended: ${checkOut}`}
                         </p>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         {v.status === "CHECKED_IN" ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                             In Premises
@@ -331,13 +187,13 @@ export default function DecisionSummaryPage() {
                           <DecisionPurposeStatusBadge purpose={v.purpose} outcome={v.outcome} />
                         )}
                       </td>
-                      <td className="px-4 py-4">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-black border ${
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center justify-center w-20 px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
                           v.customerDecision === "APPROVED"
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                             : v.customerDecision === "REJECTED"
                               ? "bg-red-50 text-red-700 border-red-200"
-                              : "bg-slate-100 text-slate-700 border-slate-200"
+                              : "bg-slate-100 text-slate-600 border-slate-200"
                         }`}>
                           {v.customerDecision || "PENDING"}
                         </span>

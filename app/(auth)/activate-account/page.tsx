@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { activateAccountAction } from "@/app/actions/auth";
+import { activateAccountAction, requestNewActivationLink } from "@/app/actions/auth";
 
 function Spinner({ small }: { small?: boolean }) {
   return (
@@ -58,6 +58,12 @@ function ActivateForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
+  // Resend flow
+  const [resendEmail, setResendEmail] = useState("");
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendDone, setResendDone] = useState(false);
+  const [resendError, setResendError] = useState("");
+
   const strength = getStrength(password);
   const passwordsMatch = password !== "" && password === confirmPassword;
 
@@ -75,7 +81,7 @@ function ActivateForm() {
       const parts = token.split(".");
       if (parts.length !== 3) throw new Error("bad format");
       const decoded = JSON.parse(atob(parts[1]));
-      if (decoded.purpose !== "ACCOUNT_ACTIVATION") throw new Error("wrong purpose");
+      if (decoded.purpose !== "ACCOUNT_ACTIVATION" && decoded.purpose !== "CUSTOMER_ACTIVATION") throw new Error("wrong purpose");
       if (decoded.exp && decoded.exp * 1000 < Date.now()) {
         setTokenError("This activation link has expired. Please contact your administrator for a new invitation.");
         setValidating(false);
@@ -114,6 +120,15 @@ function ActivateForm() {
   }
 
   if (!tokenValid) {
+    async function handleResend(e: React.FormEvent) {
+      e.preventDefault();
+      setResendLoading(true); setResendError("");
+      const res = await requestNewActivationLink(resendEmail);
+      setResendLoading(false);
+      if (!res.success) { setResendError(res.message); return; }
+      setResendDone(true);
+    }
+
     return (
       <div className="text-center py-4">
         <div className="w-14 h-14 rounded-full bg-[#ffdad6] flex items-center justify-center mx-auto mb-5">
@@ -123,7 +138,42 @@ function ActivateForm() {
         </div>
         <h2 className="text-[20px] font-semibold text-[#191c1e] mb-2">Link Invalid or Expired</h2>
         <p className="text-[14px] text-[#44474d] leading-[22px] mb-6">{tokenError}</p>
-        <div className="mt-5">
+
+        {resendDone ? (
+          <div className="p-4 rounded-[10px] bg-[#e6f4ea] border border-[#a8d5b0] text-[13px] text-[#2e7d32] font-medium">
+            ✓ A new activation link has been sent to your email. Please check your inbox (and spam folder).
+          </div>
+        ) : (
+          <form onSubmit={handleResend} className="text-left space-y-3 mt-2">
+            <p className="text-[13px] font-semibold text-[#191c1e] text-center mb-3">Request a new activation link</p>
+            <div>
+              <label htmlFor="resend-email" className="block text-[12px] font-semibold text-[#44474d] mb-1.5 uppercase tracking-wider">Your Email Address</label>
+              <input
+                id="resend-email"
+                type="email"
+                required
+                value={resendEmail}
+                onChange={e => setResendEmail(e.target.value)}
+                placeholder="Enter your registered email"
+                className="w-full px-4 py-3 rounded-[8px] border border-[#e2e8f0] bg-white text-[#191c1e] text-[14px] focus:outline-none focus:border-[#0b1f3a] focus:ring-2 focus:ring-[#0b1f3a]/20 transition-all"
+              />
+            </div>
+            {resendError && (
+              <p className="text-[12px] text-[#ba1a1a] font-medium">{resendError}</p>
+            )}
+            <button
+              type="submit"
+              disabled={resendLoading}
+              className="w-full py-3 px-6 rounded-[8px] bg-[#0b1f3a] hover:bg-[#152e52] text-white text-[14px] font-semibold transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
+            >
+              {resendLoading ? (
+                <><svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Sending…</>
+              ) : "Send New Activation Link"}
+            </button>
+          </form>
+        )}
+
+        <div className="mt-6 pt-5 border-t border-[#eceef0]">
           <Link href="/login" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#44474d] hover:text-[#0b1f3a] transition-colors">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
             Back to Login

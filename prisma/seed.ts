@@ -115,7 +115,7 @@ async function main() {
       planName: i % 2 === 0 ? "Enterprise Plan" : "Standard Plan",
       startDate,
       endDate,
-      status: isPending ? "Pending" : isExpired ? "Expired" : "Active",
+      status: (isPending ? "Pending" : isExpired ? "Expired" : "Active") as any,
       notes: `Subscription ${i + 1} notes.`,
     });
   }

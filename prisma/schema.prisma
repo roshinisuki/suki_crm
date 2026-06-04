@@ -36,6 +36,7 @@ enum SubscriptionStatus {
   Expired
   Cancelled
   Pending
+  Renewed
 }
 
 enum FollowUpStatus {
@@ -136,16 +137,27 @@ model CustomerVisit {
   customer           Customer  @relation(fields: [customerId], references: [id])
   hostedBy           String
   host               User      @relation(fields: [hostedBy], references: [id])
-  purpose            String    // Sales Meeting / Subscription Discussion / Support / Demo / Other
+  purpose            String    // New Enquiry / Product Demo / Pricing Discussion / Complaint Resolution / Subscription Renewal / Sales Meeting / Support / Demo / Other
   checkInTime        DateTime  @default(now())
   checkOutTime       DateTime?
   meetingSummary     String?   @db.Text
-  outcome            String?   // Interested / Not Interested / Follow-up Required / Pending Decision / Converted
+  outcome            String?   // Purpose-specific outcome value
   customerDecision   String?   // APPROVED / REJECTED / PENDING
   rejectionReason    String?   @db.Text
   nextMeetingDate    DateTime?
   nextMeetingNotes   String?   @db.Text
   status             String    @default("CHECKED_IN") // CHECKED_IN / CHECKED_OUT
+  // Extended fields for full Office Visit workflow
+  visitMetadata      Json?     // Dynamic purpose-specific fields (product, budget, complaint category, etc.)
+  requiresApproval   Boolean   @default(false)
+  approvalStatus     String    @default("NOT_REQUIRED") // NOT_REQUIRED / PENDING_APPROVAL / APPROVED / REJECTED
+  approvalComments   String?   @db.Text
+  priority           String    @default("Normal") // Low / Normal / High / Urgent
+  meetingType        String?   // Walk-in / Scheduled / Virtual
+  source             String?   // Referral / Walk-in / Social Media / Cold Call / Email Campaign / Website
+  agenda             String?   @db.Text
+  expectedDuration   Int?      // in minutes
+  department         String?   // Sales / Support / Management / Finance / Technical
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -171,15 +183,23 @@ model MarketingVisit {
   nextMeetingDate    DateTime?
   createdAt          DateTime  @default(now())
 
-  // New fields for high fidelity outbound field visits workflow
-  purpose            String?   // Sales Pitch / Follow-up Meeting / Subscription Renewal / Demo / Support Visit / Other
+  // Extended fields for full Log Field workflow
+  purpose            String?   // New Enquiry / Product Demo / Pricing Discussion / Complaint Resolution / Subscription Renewal / Sales Pitch / Follow-up Meeting / Support Visit / Other
   meetingDescription String?   @db.Text
-  outcome            String?   // Interested / Not Interested / Follow-up Required / Pending Decision / Converted
+  outcome            String?   // Purpose-specific outcome value
   customerDecision   String?   // APPROVED / REJECTED / PENDING
   rejectionReason    String?   @db.Text
   nextMeetingNotes   String?   @db.Text
   status             String    @default("CHECKED_IN") // CHECKED_IN / CHECKED_OUT
   updatedAt          DateTime? @updatedAt
+  visitMetadata      Json?     // Dynamic purpose-specific fields + travel/expense details
+  requiresApproval   Boolean   @default(false)
+  approvalStatus     String    @default("NOT_REQUIRED") // NOT_REQUIRED / PENDING_APPROVAL / APPROVED / REJECTED
+  approvalComments   String?   @db.Text
+  checkOutPhoto      String?
+  expenseAmount      Float?
+  travelMode         String?   // Two-Wheeler / Four-Wheeler / Auto / Train / Walk / Other
+  distanceTraveled   Float?
 
   @@index([executiveId])
   @@index([customerId])
