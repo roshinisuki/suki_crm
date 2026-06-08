@@ -208,7 +208,7 @@ function ActivateForm() {
       <div className="mb-7">
         <h1 className="text-[24px] font-semibold text-[#191c1e] mb-2 tracking-[-0.01em]">Activate your account</h1>
         <p className="text-[14px] text-[#44474d] leading-[20px]">
-          Choose a strong password to secure your Suki CRM account. You only need to do this once.
+          Choose a strong password to secure your SUKI CRM account. You only need to do this once.
         </p>
       </div>
 
@@ -294,7 +294,7 @@ export default function ActivateAccountPage() {
     <main className="min-h-screen flex items-center justify-center bg-[#f7f9fb] p-6 font-sans">
       <div className="w-full max-w-[440px]">
         <div className="flex justify-center mb-8">
-          <img src="/logo.png" alt="Suki CRM" className="w-[60px] h-[60px] object-contain" />
+          <img src="/logo.png" alt=" SUKI  CRM" className="w-[60px] h-[60px] object-contain" />
         </div>
         <div className="bg-white rounded-[16px] border border-[#e2e8f0] shadow-[0px_2px_8px_rgba(11,31,58,0.06)] px-8 py-10 sm:px-12 sm:py-12">
           <Suspense fallback={
@@ -309,7 +309,7 @@ export default function ActivateAccountPage() {
           </Suspense>
         </div>
         <p className="text-center text-[12px] text-[#75777e] mt-6">
-          © {new Date().getFullYear()} Suki Software Pvt. Ltd.
+          © {new Date().getFullYear()}  SUKI  Software Pvt. Ltd.
         </p>
       </div>
     </main>

@@ -37,7 +37,7 @@ export const customerSchema = z.object({
     .or(z.literal(""))
     .transform(v => v === "" ? null : v),
   city: z.string().min(2, "City name must be at least 2 characters").nullable().or(z.literal("")).transform(v => v === "" ? null : v),
-  status: z.enum(["Active", "Inactive", "Prospect"]).default("Prospect"),
+  status: z.enum(["Active", "Inactive", "Prospect", "APPROVED", "REJECTED", "PENDING", "New", "Contacted", "Qualified", "Converted", "Lost"]).default("New"),
 });
 
 export type CustomerFormValues = z.infer<typeof customerSchema>;

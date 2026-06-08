@@ -480,41 +480,17 @@ export async function checkOutInboundAction(data: {
     if (!visit) return { success: false, message: "Visit not found." };
     if (visit.status === "CHECKED_OUT") return { success: false, message: "Visit has already been checked out." };
 
-    // Update Customer Status & Triggers based on decision + outcome
-    let portalMsg = "";
-    if (visit.customer?.status === "Active") {
-      // If customer is already Active, protect their portal access
-      portalMsg = " Customer is already active. Portal login preserved.";
-    } else {
-      // Outcome-driven customer status update (takes priority over portal decision for won/lost)
-      if (closedWonOutcomes.includes(outcome)) {
-        await prisma.customer.update({
-          where: { id: visit.customerId },
-          data: { status: "Active" as any }
-        });
-        portalMsg = " Customer promoted to Active (deal closed won).";
-      } else if (customerDecision === "APPROVED") {
-        await prisma.customer.update({
-          where: { id: visit.customerId },
-          data: { status: "APPROVED" as any }
-        });
-        // Send Portal Activation Email
-        const emailRes = await activateCustomerPortal(visit.customerId);
-        if (emailRes.success) {
-          portalMsg = " Portal activation link emailed.";
-        }
-      } else if (customerDecision === "REJECTED" || closedLostOutcomes.includes(outcome)) {
-        await prisma.customer.update({
-          where: { id: visit.customerId },
-          data: { status: "REJECTED" as any }
-        });
-        await logAudit(userPayload.id, "CUSTOMER", "REJECT", `Customer ${visit.customer.name} rejected. Reason: ${rejectionReason || "None"}. Outcome: ${outcome}`);
-      } else {
-        await prisma.customer.update({
-          where: { id: visit.customerId },
-          data: { status: "PENDING" as any }
-        });
-      }
+    const { processVisitOutcome } = await import("@/lib/crm-pipeline");
+    const pipelineRes = await processVisitOutcome(visit.customerId, outcome, customerDecision);
+
+    if (!pipelineRes.success) {
+      return { success: false, message: pipelineRes.error || "Invalid pipeline transition." };
+    }
+
+    const portalMsg = pipelineRes.portalMsg || "";
+
+    if (customerDecision === "REJECTED" || closedLostOutcomes.includes(outcome)) {
+      await logAudit(userPayload.id, "CUSTOMER", "REJECT", `Customer ${visit.customer.name} rejected. Reason: ${rejectionReason || "None"}. Outcome: ${outcome}`);
     }
 
     // Trigger Notification back to Customer if they submitted support/renewal requests and employee updates it
@@ -719,38 +695,17 @@ export async function checkOutOutboundAction(data: {
     if (!visit) return { success: false, message: "Field visit not found." };
     if (visit.status === "CHECKED_OUT") return { success: false, message: "Visit has already been checked out." };
 
-    // Update Customer Status based on outcome + decision
-    let portalMsg = "";
-    if (visit.customer?.status === "Active") {
-      portalMsg = " Customer is already active. Portal login preserved.";
-    } else {
-      if (closedWonOutcomes.includes(outcome)) {
-        await prisma.customer.update({
-          where: { id: visit.customerId },
-          data: { status: "Active" as any }
-        });
-        portalMsg = " Customer promoted to Active (deal closed won).";
-      } else if (customerDecision === "APPROVED") {
-        await prisma.customer.update({
-          where: { id: visit.customerId },
-          data: { status: "APPROVED" as any }
-        });
-        const emailRes = await activateCustomerPortal(visit.customerId);
-        if (emailRes.success) {
-          portalMsg = " Portal activation link emailed.";
-        }
-      } else if (customerDecision === "REJECTED" || closedLostOutcomes.includes(outcome)) {
-        await prisma.customer.update({
-          where: { id: visit.customerId },
-          data: { status: "REJECTED" as any }
-        });
-        await logAudit(userPayload.id, "CUSTOMER", "REJECT", `Customer ${visit.customer.name} outcome: ${outcome}. Rejection reason: ${rejectionReason || "None"}.`);
-      } else {
-        await prisma.customer.update({
-          where: { id: visit.customerId },
-          data: { status: "PENDING" as any }
-        });
-      }
+    const { processVisitOutcome } = await import("@/lib/crm-pipeline");
+    const pipelineRes = await processVisitOutcome(visit.customerId, outcome, customerDecision);
+
+    if (!pipelineRes.success) {
+      return { success: false, message: pipelineRes.error || "Invalid pipeline transition." };
+    }
+
+    const portalMsg = pipelineRes.portalMsg || "";
+
+    if (customerDecision === "REJECTED" || closedLostOutcomes.includes(outcome)) {
+      await logAudit(userPayload.id, "CUSTOMER", "REJECT", `Customer ${visit.customer.name} outcome: ${outcome}. Rejection reason: ${rejectionReason || "None"}.`);
     }
 
     // Create follow-up reminder if next date is provided

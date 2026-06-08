@@ -33,9 +33,11 @@ const icons = {
   close:        <Icon d="M6 18L18 6M6 6l12 12" />,
 };
 
-const mainNav: NavItem[]  = [{ href: "/dashboard",          label: "Dashboard",     icon: icons.dashboard }];
+const mainNav: NavItem[]  = [
+  { href: "/dashboard",          label: "Dashboard",     icon: icons.dashboard },
+  { href: "/customer-master",    label: "Leads",         icon: icons.customers }
+];
 const crmNav: NavItem[]   = [
-  { href: "/customer-master",    label: "Customers",         icon: icons.customers },
   { href: "/subscription",       label: "Subscriptions",     icon: icons.subscription },
   { href: "/marketing-log",      label: "Marketing Visits",  icon: icons.visits },
   { href: "/visitor-management", label: "Office Visits",     icon: icons.visitors },
@@ -53,10 +55,10 @@ function NavLink({ item, active, onClick }: { item: NavItem; active: boolean; on
     <Link
       href={item.href}
       onClick={onClick}
-      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group
-        ${active ? "bg-white/[0.13] text-white" : "text-white/50 hover:text-white hover:bg-white/[0.07]"}`}
+      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group
+        ${active ? "bg-indigo-600/10 text-indigo-400 shadow-sm shadow-indigo-500/5 ring-1 ring-indigo-500/20" : "text-slate-400 hover:text-white hover:bg-white/5"}`}
     >
-      <span className={`transition-colors ${active ? "text-white" : "text-white/40 group-hover:text-white/70"}`}>
+      <span className={`transition-colors ${active ? "text-indigo-400" : "text-slate-500 group-hover:text-slate-300"}`}>
         {item.icon}
       </span>
       {item.label}
@@ -75,13 +77,13 @@ function SidebarContent({ pathname, user, loading, handleLogout, onNavClick }: {
   return (
     <>
       {/* Logo */}
-      <div className="px-5 pt-6 pb-5 border-b border-white/[0.07] shrink-0">
+      <div className="px-5 pt-6 pb-5 shrink-0 flex flex-col gap-1 border-b border-slate-800/60">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 flex items-center justify-center shrink-0">
-            <img src="/logo.png" alt="Suki ERP" className="w-full h-full object-contain" />
+          <div className="w-10 h-10 flex items-center justify-center shrink-0">
+            <img src="/logo.png" alt="SUKI CRM" className="w-full h-full object-contain" />
           </div>
           <div>
-            <p className="text-white text-lg font-bold leading-tight tracking-wide">Suki CRM</p>
+            <p className="text-white text-lg font-bold leading-tight tracking-wide">SUKI CRM</p>
           </div>
         </div>
       </div>
@@ -129,8 +131,8 @@ function SidebarContent({ pathname, user, loading, handleLogout, onNavClick }: {
 
       {/* User / Logout */}
       <div className="p-3 border-t border-white/[0.07] shrink-0">
-        <div onClick={handleLogout} className="flex items-center gap-3 px-2.5 py-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors group">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center text-xs font-black tracking-wider border border-white/10 shrink-0 shadow-sm">
+        <div onClick={handleLogout} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer transition-colors group">
+          <div className="w-8 h-8 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-xs font-black tracking-wider border border-slate-700 shrink-0 shadow-sm">
             {(() => {
               const name = user?.name || "System Admin";
               const cleanName = name.replace(/[^a-zA-Z\s]/g, " ").trim();
@@ -140,10 +142,10 @@ function SidebarContent({ pathname, user, loading, handleLogout, onNavClick }: {
             })()}
           </div>
           <div className="flex-1 overflow-hidden">
-            <p className="text-white text-xs font-semibold leading-tight truncate">{user?.name || "Loading..."}</p>
-            <p className="text-white/30 text-[10px] leading-tight truncate">{user?.role || "..."}</p>
+            <p className="text-slate-200 text-xs font-semibold leading-tight truncate">{user?.name || "Loading..."}</p>
+            <p className="text-slate-500 text-[10px] leading-tight truncate">{user?.role || "..."}</p>
           </div>
-          <span className="text-white/20 group-hover:text-white/50 transition-colors shrink-0">{icons.logout}</span>
+          <span className="text-slate-500 group-hover:text-slate-300 transition-colors shrink-0">{icons.logout}</span>
         </div>
       </div>
     </>
@@ -182,7 +184,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex h-screen overflow-hidden bg-[#F0F2F5]">
 
       {/* ── Desktop Sidebar ── */}
-      <aside className="hidden md:flex w-[240px] shrink-0 bg-[#0D2137] flex-col h-full z-20">
+      <aside className="hidden md:flex w-[260px] shrink-0 bg-[#0F172A] border-r border-slate-800/60 flex-col h-full z-20 shadow-xl shadow-slate-900/10">
         <SidebarContent
           pathname={pathname}
           user={user}
@@ -201,7 +203,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* ── Mobile Drawer Panel ── */}
       <aside
-        className={`fixed top-0 left-0 h-full w-[280px] bg-[#0D2137] flex flex-col z-50 md:hidden transition-transform duration-300 ease-in-out shadow-2xl
+        className={`fixed top-0 left-0 h-full w-[280px] bg-[#0F172A] flex flex-col z-50 md:hidden transition-transform duration-300 ease-in-out shadow-2xl
           ${drawerOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         {/* Close button */}

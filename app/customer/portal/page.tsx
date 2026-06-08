@@ -25,7 +25,7 @@ export default async function CustomerPortalPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Welcome, {user.name}</h1>
-        <p className="text-slate-500 mt-1">Manage your Suki Software subscriptions and profile.</p>
+        <p className="text-slate-500 mt-1">Manage your  SUKI  Software subscriptions and profile.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -38,12 +38,24 @@ export default async function CustomerPortalPage() {
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
               </div>
               <h3 className="text-slate-700 font-medium mb-1">No active subscriptions</h3>
-              <p className="text-sm text-slate-500">Contact your sales representative to add services.</p>
+              <p className="text-sm text-slate-500 mb-4">Contact your sales representative to add services.</p>
+              <RenewalRequestButton planName="New Service Subscription" />
             </div>
           ) : (
             <div className="space-y-4">
+              {subscriptions.some(s => s.status === 'Expired' || new Date(s.endDate) < new Date()) && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+                  <div className="mt-0.5 text-red-600">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-red-800">Subscription Expired</h3>
+                    <p className="text-sm text-red-700 mt-0.5">Your subscription has ended. Please request a renewal to regain full access.</p>
+                  </div>
+                </div>
+              )}
               {subscriptions.map(sub => (
-                <div key={sub.id} className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div key={sub.id} className={`border rounded-xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 ${sub.status === 'Expired' ? 'bg-red-50/50 border-red-100' : 'bg-slate-50 border-slate-200'}`}>
                   <div className="space-y-1">
                     <h3 className="font-bold text-slate-800">{sub.planName}</h3>
                     <p className="text-xs font-medium text-slate-500">
@@ -54,13 +66,12 @@ export default async function CustomerPortalPage() {
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
                       sub.status === 'Active' ? 'bg-emerald-100 text-emerald-700' :
                       sub.status === 'Pending' ? 'bg-amber-100 text-amber-700' :
+                      sub.status === 'Expired' ? 'bg-red-100 text-red-700' :
                       'bg-slate-200 text-slate-700'
                     }`}>
                       {sub.status}
                     </span>
-                    {sub.status === 'Active' && (
-                      <RenewalRequestButton planName={sub.planName} />
-                    )}
+                    <RenewalRequestButton planName={sub.planName} />
                   </div>
                 </div>
               ))}

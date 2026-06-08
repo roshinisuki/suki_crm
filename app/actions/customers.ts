@@ -86,6 +86,77 @@ export async function getCustomersAction(params?: { search?: string; city?: stri
   }
 }
 
+export async function getCustomerByIdAction(id: string) {
+  try {
+    const userPayload = await verifyAuth();
+    if (!userPayload) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { id },
+      include: {
+        subscriptions: true,
+        followUps: {
+          orderBy: { createdAt: "desc" },
+          include: { assignedUser: { select: { name: true } } }
+        },
+        marketingVisits: {
+          orderBy: { createdAt: "desc" },
+          include: { executive: { select: { name: true } } }
+        },
+        customerVisits: {
+          orderBy: { createdAt: "desc" },
+          include: { host: { select: { name: true } } }
+        }
+      },
+    });
+
+    if (!customer) {
+      return { success: false, message: "Customer not found" };
+    }
+
+    const serialized = {
+      ...customer,
+      createdAt: customer.createdAt.toISOString(),
+      updatedAt: customer.updatedAt.toISOString(),
+      subscriptions: customer.subscriptions.map((s) => ({
+        ...s,
+        createdAt: s.createdAt.toISOString(),
+        updatedAt: s.updatedAt.toISOString(),
+        startDate: s.startDate.toISOString(),
+        endDate: s.endDate.toISOString(),
+      })),
+      followUps: customer.followUps.map(f => ({
+        ...f,
+        createdAt: f.createdAt.toISOString(),
+        updatedAt: f.updatedAt.toISOString(),
+        nextMeetingDate: f.nextMeetingDate.toISOString(),
+        completedAt: f.completedAt?.toISOString() || null,
+      })),
+      marketingVisits: customer.marketingVisits.map(v => ({
+        ...v,
+        createdAt: v.createdAt.toISOString(),
+        updatedAt: v.updatedAt?.toISOString() || null,
+        checkIn: v.checkIn.toISOString(),
+        checkOut: v.checkOut?.toISOString() || null,
+      })),
+      customerVisits: customer.customerVisits.map(v => ({
+        ...v,
+        createdAt: v.createdAt.toISOString(),
+        updatedAt: v.updatedAt.toISOString(),
+        checkInTime: v.checkInTime.toISOString(),
+        checkOutTime: v.checkOutTime?.toISOString() || null,
+      })),
+    };
+
+    return { success: true, data: serialized };
+  } catch (error) {
+    console.error("GET Customer Error:", error);
+    return { success: false, message: "Failed to fetch customer details" };
+  }
+}
+
 export async function createCustomerAction(data: any) {
   try {
     const userPayload = await verifyAuth();

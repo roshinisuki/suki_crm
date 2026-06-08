@@ -11,8 +11,8 @@ const inter = Inter({ subsets: ["latin"] });
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: "Suki Marketing CRM",
-  description: "Internal CRM portal for Suki Marketing teams",
+  title: " SUKI  Marketing CRM",
+  description: "Internal CRM portal for  SUKI  Marketing teams",
 };
 
 export default async function RootLayout({

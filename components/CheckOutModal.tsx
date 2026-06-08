@@ -19,94 +19,26 @@ interface CheckOutModalProps {
   } | null;
 }
 
-// ── Purpose → Outcome configuration ──────────────────────────────
-const OUTCOME_CONFIG: Record<string, { value: string; label: string; color: string }[]> = {
-  "New Enquiry": [
-    { value: "Qualified Lead",    label: "✅ Qualified Lead",    color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-    { value: "Follow-up Needed",  label: "📅 Follow-up Needed",  color: "text-amber-700  bg-amber-50  border-amber-200"  },
-    { value: "Proposal Needed",   label: "📋 Proposal Needed",   color: "text-blue-700   bg-blue-50   border-blue-200"   },
-    { value: "Not Qualified",     label: "❌ Not Qualified",     color: "text-red-700    bg-red-50    border-red-200"    },
-  ],
-  "Product Demo": [
-    { value: "Demo Completed",    label: "✅ Demo Completed",    color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-    { value: "Trial Requested",   label: "🧪 Trial Requested",   color: "text-blue-700   bg-blue-50   border-blue-200"   },
-    { value: "Demo Rescheduled",  label: "📅 Demo Rescheduled",  color: "text-amber-700  bg-amber-50  border-amber-200"  },
-    { value: "Not Interested",    label: "❌ Not Interested",    color: "text-red-700    bg-red-50    border-red-200"    },
-  ],
-  "Pricing Discussion": [
-    { value: "Quotation Sent",        label: "📤 Quotation Sent",        color: "text-blue-700   bg-blue-50   border-blue-200"   },
-    { value: "Negotiation Ongoing",   label: "🤝 Negotiation Ongoing",   color: "text-amber-700  bg-amber-50  border-amber-200"  },
-    { value: "Budget Hold",           label: "⏸️ Budget Hold",           color: "text-slate-700  bg-slate-50  border-slate-200"  },
-    { value: "Closed Won",            label: "🏆 Closed Won",            color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-    { value: "Closed Lost",           label: "❌ Closed Lost",           color: "text-red-700    bg-red-50    border-red-200"    },
-  ],
-  "Complaint Resolution": [
-    { value: "Resolved",          label: "✅ Resolved",          color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-    { value: "Escalated",         label: "⬆️ Escalated",         color: "text-red-700    bg-red-50    border-red-200"    },
-    { value: "Revisit Needed",    label: "🔄 Revisit Needed",    color: "text-amber-700  bg-amber-50  border-amber-200"  },
-    { value: "Pending Documents", label: "📄 Pending Documents", color: "text-blue-700   bg-blue-50   border-blue-200"   },
-  ],
-  "Subscription Renewal": [
-    { value: "Renewed",               label: "✅ Renewed",               color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-    { value: "Renewal Pending",       label: "⏳ Renewal Pending",       color: "text-amber-700  bg-amber-50  border-amber-200"  },
-    { value: "Discount Requested",    label: "🏷️ Discount Requested",    color: "text-blue-700   bg-blue-50   border-blue-200"   },
-    { value: "Churn Risk",            label: "⚠️ Churn Risk",            color: "text-red-700    bg-red-50    border-red-200"    },
-  ],
-  "Sales Meeting": [
-    { value: "Interested",        label: "👍 Interested",        color: "text-blue-700   bg-blue-50   border-blue-200"   },
-    { value: "Not Interested",    label: "❌ Not Interested",    color: "text-red-700    bg-red-50    border-red-200"    },
-    { value: "Follow-up Required",label: "📅 Follow-up Required",color: "text-amber-700  bg-amber-50  border-amber-200"  },
-    { value: "Pending Decision",  label: "⏳ Pending Decision",  color: "text-slate-700  bg-slate-50  border-slate-200"  },
-    { value: "Converted",         label: "🏆 Converted",         color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-  ],
-  "Sales Pitch": [
-    { value: "Interested",        label: "👍 Interested",        color: "text-blue-700   bg-blue-50   border-blue-200"   },
-    { value: "Not Interested",    label: "❌ Not Interested",    color: "text-red-700    bg-red-50    border-red-200"    },
-    { value: "Follow-up Required",label: "📅 Follow-up Required",color: "text-amber-700  bg-amber-50  border-amber-200"  },
-    { value: "Pending Decision",  label: "⏳ Pending Decision",  color: "text-slate-700  bg-slate-50  border-slate-200"  },
-    { value: "Converted",         label: "🏆 Converted",         color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-  ],
-  "Support": [
-    { value: "Resolved",          label: "✅ Resolved",          color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-    { value: "Escalated",         label: "⬆️ Escalated",         color: "text-red-700    bg-red-50    border-red-200"    },
-    { value: "Revisit Needed",    label: "🔄 Revisit Needed",    color: "text-amber-700  bg-amber-50  border-amber-200"  },
-    { value: "Pending Documents", label: "📄 Pending Documents", color: "text-blue-700   bg-blue-50   border-blue-200"   },
-  ],
-  "Support Visit": [
-    { value: "Resolved",          label: "✅ Resolved",          color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-    { value: "Escalated",         label: "⬆️ Escalated",         color: "text-red-700    bg-red-50    border-red-200"    },
-    { value: "Revisit Needed",    label: "🔄 Revisit Needed",    color: "text-amber-700  bg-amber-50  border-amber-200"  },
-    { value: "Pending Documents", label: "📄 Pending Documents", color: "text-blue-700   bg-blue-50   border-blue-200"   },
-  ],
-  "Demo": [
-    { value: "Demo Completed",    label: "✅ Demo Completed",    color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-    { value: "Trial Requested",   label: "🧪 Trial Requested",   color: "text-blue-700   bg-blue-50   border-blue-200"   },
-    { value: "Demo Rescheduled",  label: "📅 Demo Rescheduled",  color: "text-amber-700  bg-amber-50  border-amber-200"  },
-    { value: "Not Interested",    label: "❌ Not Interested",    color: "text-red-700    bg-red-50    border-red-200"    },
-  ],
-  "Follow-up Meeting": [
-    { value: "Follow-up Needed",  label: "📅 Follow-up Needed",  color: "text-amber-700  bg-amber-50  border-amber-200"  },
-    { value: "Proposal Needed",   label: "📋 Proposal Needed",   color: "text-blue-700   bg-blue-50   border-blue-200"   },
-    { value: "Closed Won",        label: "🏆 Closed Won",        color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-    { value: "Closed Lost",       label: "❌ Closed Lost",       color: "text-red-700    bg-red-50    border-red-200"    },
-  ],
-};
-const DEFAULT_OUTCOMES = [
-  { value: "Completed",           label: "✅ Completed",          color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-  { value: "Follow-up Needed",    label: "📅 Follow-up Needed",   color: "text-amber-700  bg-amber-50  border-amber-200"  },
-  { value: "No Action Required",  label: "🔇 No Action Required", color: "text-slate-700  bg-slate-50  border-slate-200"  },
+// ── Common CRM Pipeline Outcomes ──────────────────────────────
+const COMMON_OUTCOMES = [
+  { value: "Follow-up Required",  label: "📅 Follow-up Required", color: "text-amber-700  bg-amber-50  border-amber-200" },
+  { value: "Qualified Lead",      label: "✅ Qualified Lead",     color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  { value: "Proposal Needed",     label: "📋 Proposal Needed",    color: "text-blue-700   bg-blue-50   border-blue-200" },
+  { value: "Negotiation Ongoing", label: "🤝 Negotiation Ongoing", color: "text-purple-700 bg-purple-50 border-purple-200" },
+  { value: "Closed Won",          label: "🏆 Closed Won",         color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  { value: "Closed Lost",         label: "❌ Closed Lost",        color: "text-red-700    bg-red-50    border-red-200" },
 ];
 
 function getOutcomes(purpose: string) {
-  return OUTCOME_CONFIG[purpose] || DEFAULT_OUTCOMES;
+  return COMMON_OUTCOMES;
 }
 
 // Outcomes that need follow-up scheduling
-const FOLLOWUP_OUTCOMES = new Set(["Follow-up Required", "Follow-up Needed", "Pending Decision", "Interested", "Negotiation Ongoing", "Budget Hold", "Discount Requested", "Renewal Pending", "Churn Risk", "Revisit Needed", "Qualified Lead", "Proposal Needed", "Trial Requested", "Demo Rescheduled"]);
+const FOLLOWUP_OUTCOMES = new Set(["Follow-up Required", "Proposal Needed", "Negotiation Ongoing"]);
 // Outcomes that close the deal (won)
-const WON_OUTCOMES = new Set(["Converted", "Closed Won", "Renewed", "Demo Completed", "Resolved"]);
+const WON_OUTCOMES = new Set(["Closed Won"]);
 // Outcomes that close the deal (lost)
-const LOST_OUTCOMES = new Set(["Closed Lost", "Not Interested", "Not Qualified"]);
+const LOST_OUTCOMES = new Set(["Closed Lost"]);
 // Purposes where the portal decision toggle is relevant
 const PORTAL_DECISION_PURPOSES = new Set(["New Enquiry", "Sales Meeting", "Product Demo", "Sales Pitch", "Demo", "Pricing Discussion", "Follow-up Meeting", "Other"]);
 
@@ -129,6 +61,24 @@ export default function CheckOutModal({ isOpen, onClose, onSuccess, onCheckInNex
 
   // GPS for Outbound checkout
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locLoading, setLocLoading] = useState(false);
+  const [locError, setLocError] = useState("");
+
+  const fetchGPS = () => {
+    setLocation(null);
+    setLocError("");
+    setLocLoading(true);
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        pos => { setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLocLoading(false); },
+        err => { setLocError("GPS capture failed. You may retry or proceed without location."); setLocLoading(false); },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    } else {
+      setLocError("Geolocation not supported by this browser.");
+      setLocLoading(false);
+    }
+  };
 
   // Confirmation dialog
   const [showConfirm, setShowConfirm] = useState(false);
@@ -149,16 +99,12 @@ export default function CheckOutModal({ isOpen, onClose, onSuccess, onCheckInNex
       setConfirmClosedWon(false);
       setLocation(null);
 
-      // Default first outcome for the purpose
+      // Default first outcome
       const opts = getOutcomes(visit.purpose);
-      setOutcome(opts[0]?.value || "Completed");
+      setOutcome(opts[0]?.value || "Follow-up Required");
 
-      if (visit.visitType === "Outbound" && "geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          pos => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-          () => {},
-          { timeout: 5000 }
-        );
+      if (visit.visitType === "Outbound") {
+        fetchGPS();
       }
     }
   }, [isOpen, visit]);
@@ -238,7 +184,7 @@ export default function CheckOutModal({ isOpen, onClose, onSuccess, onCheckInNex
   const isWon = WON_OUTCOMES.has(outcome);
   const isLost = LOST_OUTCOMES.has(outcome);
   const isEscalated = outcome === "Escalated";
-  const showPortalDecision = PORTAL_DECISION_PURPOSES.has(visit.purpose);
+  const showPortalDecision = PORTAL_DECISION_PURPOSES.has(visit.purpose) && !isLost;
 
   const handleValidationAndSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -365,10 +311,26 @@ export default function CheckOutModal({ isOpen, onClose, onSuccess, onCheckInNex
 
               {/* Outbound GPS check-out */}
               {visit.visitType === "Outbound" && (
-                <div className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${location ? "bg-emerald-50 border border-emerald-100 text-emerald-700" : "bg-amber-50 border border-amber-100 text-amber-700"}`}>
-                  {location
-                    ? `✅ Check-out GPS: ${location.lat.toFixed(4)}°N, ${location.lng.toFixed(4)}°E`
-                    : "⚠️ GPS not captured — checkout will be logged without coordinates"}
+                <div className="p-3.5 border rounded-2xl bg-slate-50 border-slate-200/80 flex items-center justify-between gap-3">
+                  <div className="flex-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Check-Out Coordinates</p>
+                    {locLoading && (
+                      <p className="text-xs text-slate-600 flex items-center gap-2">
+                        <span className="w-3.5 h-3.5 rounded-full border-2 border-slate-400 border-t-transparent animate-spin shrink-0" />
+                        Capturing GPS coordinates...
+                      </p>
+                    )}
+                    {location && (
+                      <p className="text-xs font-semibold text-emerald-600 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping shrink-0" />
+                        Locked: {location.lat.toFixed(5)}°N, {location.lng.toFixed(5)}°E
+                      </p>
+                    )}
+                    {locError && <p className="text-xs font-medium text-amber-600">⚠️ {locError}</p>}
+                  </div>
+                  <button type="button" onClick={fetchGPS} className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-[10px] font-bold text-slate-700 transition-colors shrink-0">
+                    Retry GPS
+                  </button>
                 </div>
               )}
 

@@ -28,12 +28,20 @@ const icons = {
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    Active: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    Inactive: "bg-slate-100 text-slate-600 border-slate-200",
-    Prospect: "bg-amber-50 text-amber-700 border-amber-200",
+    Active: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    Inactive: "bg-red-100 text-red-800 border-red-200",
+    Prospect: "bg-amber-100 text-amber-800 border-amber-200",
+    APPROVED: "bg-blue-100 text-blue-800 border-blue-200",
+    REJECTED: "bg-slate-200 text-slate-700 border-slate-300",
+    PENDING: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    New: "bg-indigo-100 text-indigo-800 border-indigo-200",
+    Contacted: "bg-cyan-100 text-cyan-800 border-cyan-200",
+    Qualified: "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200",
+    Converted: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    Lost: "bg-rose-100 text-rose-800 border-rose-200",
   };
   return (
-    <span className={`inline-flex items-center justify-center w-24 px-2 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${styles[status] || "bg-slate-100"}`}>
+    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${styles[status] || "bg-gray-100 text-gray-800"}`}>
       {status}
     </span>
   );
@@ -62,7 +70,7 @@ export default function CustomerMasterPage() {
     email: "",
     phone: "",
     city: "",
-    status: "Prospect" as "Active" | "Inactive" | "Prospect" | "APPROVED" | "REJECTED" | "PENDING",
+    status: "New" as any,
     assignedUserId: "",
   });
 
@@ -109,7 +117,7 @@ export default function CustomerMasterPage() {
       email: "",
       phone: "",
       city: "",
-      status: "Prospect",
+      status: "New",
       assignedUserId: "",
     });
     setErrorMsg("");
@@ -212,89 +220,111 @@ export default function CustomerMasterPage() {
 
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Customer Master</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage and track your customer base.</p>
+          <h2 className="text-xl font-bold text-slate-800 tracking-tight">Leads Overview</h2>
+          <p className="text-sm text-slate-500 mt-1">Manage and track your customer pipeline.</p>
         </div>
         <button 
           onClick={openCreateModal}
-          className="flex items-center gap-2 px-4 py-2 bg-[#0D2137] text-white rounded-xl text-sm font-medium hover:bg-[#1a365d] transition-colors shadow-sm"
+          className="flex items-center gap-1.5 px-3 py-2 bg-[#DF643B] text-white rounded-md text-[13px] font-medium hover:bg-[#D1552C] transition-colors shadow-sm"
         >
           <Ico d={icons.plus} size={16} />
-          Create Customer
+          Create Lead
         </button>
       </div>
 
-      {/* KPI Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-            <Ico d={icons.users} size={20} className="text-blue-600" />
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1 */}
+        <div className="bg-amber-50 border border-amber-200/50 p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col">
+          <p className="text-sm font-semibold text-slate-700">Total Leads (All)</p>
+          <div className="flex items-end justify-between mt-2">
+            <h3 className="text-3xl font-black text-slate-900">{customers.length}</h3>
+            <div className="text-amber-500 opacity-80">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" /></svg>
+            </div>
           </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-800 tracking-tight">{customers.length}</p>
-            <p className="text-xs font-semibold text-slate-500">Total Customers</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-            <Ico d={icons.check} size={20} className="text-emerald-600" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-800 tracking-tight">
-              {customers.filter(c => c.status === "Active").length}
-            </p>
-            <p className="text-xs font-semibold text-slate-500">Active Clients</p>
+          <div className="mt-3 flex items-center gap-1 text-xs font-medium text-emerald-600">
+             <span>Live Data</span>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
-            <Ico d={icons.clock} size={20} className="text-amber-600" />
+        
+        {/* Card 2 */}
+        <div className="bg-blue-50 border border-blue-200/50 p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col">
+          <p className="text-sm font-semibold text-slate-700">Active Clients</p>
+          <div className="flex items-end justify-between mt-2">
+            <h3 className="text-3xl font-black text-slate-900">{customers.filter(c => c.status === "Active").length}</h3>
+            <div className="text-blue-500 opacity-80">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" /></svg>
+            </div>
           </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-800 tracking-tight">
-              {customers.filter(c => c.status === "Prospect").length}
-            </p>
-            <p className="text-xs font-semibold text-slate-500">Prospect Leads</p>
+          <div className="mt-3 flex items-center gap-1 text-xs font-medium text-emerald-600">
+             <span>Live Data</span>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-            <Ico d={icons.map} size={20} className="text-indigo-600" />
+
+        {/* Card 3 */}
+        <div className="bg-slate-100 border border-slate-200/50 p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col">
+          <p className="text-sm font-semibold text-slate-700">Qualified Leads</p>
+          <div className="flex items-end justify-between mt-2">
+            <h3 className="text-3xl font-black text-slate-900">{customers.filter(c => c.status === "Qualified").length}</h3>
+            <div className="text-slate-600 opacity-80">
+               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" /></svg>
+            </div>
           </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-800 tracking-tight">
-              {new Set(customers.map(c => c.city).filter(Boolean)).size}
-            </p>
-            <p className="text-xs font-semibold text-slate-500">Cities Covered</p>
+          <div className="mt-3 flex items-center gap-1 text-xs font-medium text-emerald-600">
+             <span>Live Data</span>
+          </div>
+        </div>
+
+        {/* Card 4 */}
+        <div className="bg-red-50 border border-red-200/50 p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col">
+          <p className="text-sm font-semibold text-slate-700">Lost / Inactive</p>
+          <div className="flex items-end justify-between mt-2">
+            <h3 className="text-3xl font-black text-slate-900">{customers.filter(c => c.status === "Inactive").length}</h3>
+            <div className="text-red-500 opacity-80">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" /><path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" /></svg>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center gap-1 text-xs font-medium text-emerald-600">
+             <span>Live Data</span>
           </div>
         </div>
       </div>
 
       {/* Main Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col">
-        <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="relative flex-1 max-w-md">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-              <Ico d={icons.search} size={16} />
-            </span>
-            <input 
-              type="text" 
-              placeholder="Search by name, code, or city..." 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-shadow"
-            />
-          </div>
-          <div className="flex items-center gap-3">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+        {/* Toolbar */}
+        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h3 className="text-lg font-bold text-slate-800">Leads List</h3>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-64">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <Ico d={icons.search} size={16} />
+              </span>
+              <input 
+                type="text" 
+                placeholder="Search leads..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              />
+            </div>
             <select 
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-600 font-medium focus:outline-none"
             >
               <option value="">All Statuses</option>
+              <option value="New">New</option>
+              <option value="Contacted">Contacted</option>
+              <option value="Qualified">Qualified</option>
+              <option value="Converted">Converted</option>
+              <option value="Lost">Lost</option>
+              <option disabled>--- Legacy ---</option>
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
               <option value="Prospect">Prospect</option>
@@ -304,96 +334,98 @@ export default function CustomerMasterPage() {
 
         <div className="overflow-x-auto">
           {selectedIds.length > 0 && (
-            <div className="bg-[#0b1f3a] text-white px-5 py-3 flex items-center justify-between text-sm font-medium animate-in fade-in slide-in-from-top-4">
-              <span>{selectedIds.length} customer(s) selected</span>
+            <div className="bg-slate-800 text-white px-5 py-3 flex items-center justify-between text-sm font-medium animate-in fade-in slide-in-from-top-4">
+              <span>{selectedIds.length} lead(s) selected</span>
               <button 
                 onClick={handleDeleteSelected}
                 disabled={isDeleting}
-                className="px-4 py-1.5 bg-red-500 hover:bg-red-600 rounded-lg transition-colors flex items-center gap-2 shadow-sm border border-red-400"
+                className="px-4 py-1.5 bg-red-500 hover:bg-red-600 rounded-md transition-colors flex items-center gap-2 shadow-sm border border-red-400 text-xs"
               >
-                {isDeleting ? "Deleting..." : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                    Delete Selected
-                  </>
-                )}
+                {isDeleting ? "Deleting..." : "Delete Selected"}
               </button>
             </div>
           )}
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50/50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200/60">
-                <th className="px-6 py-4 w-10 whitespace-nowrap">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-slate-50/50 text-slate-500 font-semibold text-xs uppercase tracking-wider border-b border-slate-100">
+              <tr>
+                <th className="px-5 py-4 w-10">
                   <input 
                     type="checkbox" 
-                    className="rounded border-slate-300 text-[#0b1f3a] focus:ring-[#0b1f3a]"
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
                     checked={customers.length > 0 && selectedIds.length === customers.length}
                     onChange={toggleAll}
                   />
                 </th>
-                <th className="px-6 py-4 whitespace-nowrap">Customer Code</th>
-                <th className="px-6 py-4 whitespace-nowrap">Company details</th>
-                <th className="px-6 py-4 whitespace-nowrap">City</th>
-                <th className="px-6 py-4 whitespace-nowrap">Status</th>
-                <th className="px-6 py-4 text-right whitespace-nowrap">Actions</th>
+                <th className="px-5 py-4">Lead Code</th>
+                <th className="px-5 py-4">Lead Name</th>
+                <th className="px-5 py-4">City</th>
+                <th className="px-5 py-4">Status</th>
+                <th className="px-5 py-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
                   <td colSpan={6} className="text-center py-8 text-sm text-slate-500">
-                    Loading customer data...
+                    Loading leads data...
                   </td>
                 </tr>
               ) : customers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center py-8 text-sm text-slate-500">
-                    No customers found.
+                    No leads found.
                   </td>
                 </tr>
               ) : (
                 customers.map(c => (
-                  <tr key={c.id} className={`hover:bg-slate-50/80 transition-colors group ${selectedIds.includes(c.id) ? 'bg-blue-50/50' : ''}`}>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                  <tr key={c.id} className={`hover:bg-slate-50/80 transition-colors ${selectedIds.includes(c.id) ? 'bg-indigo-50/50' : ''}`}>
+                    <td className="px-5 py-3">
                       <input 
                         type="checkbox" 
-                        className="rounded border-slate-300 text-[#0b1f3a] focus:ring-[#0b1f3a]"
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
                         checked={selectedIds.includes(c.id)}
                         onChange={() => toggleOne(c.id)}
                       />
                     </td>
-                    <td className="px-6 py-4 text-sm font-medium text-slate-700 whitespace-nowrap">{c.customerCode}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
-                          {c.name.charAt(0)}
+                    <td className="px-5 py-3 text-slate-500 font-medium">{c.customerCode}</td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold shrink-0">
+                          {c.name.substring(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-slate-800">{c.name}</p>
-                          <p className="text-xs text-slate-500">{c.email || "No email added"}</p>
+                          <span className="font-semibold text-slate-700 block leading-tight">{c.name}</span>
+                          <span className="text-[10px] text-slate-400 block leading-tight">{c.email || "No email"}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap">{c.city || "-"}</td>
-                    <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={c.status} /></td>
-                    <td className="px-6 py-4 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-5 py-3 text-slate-600">{c.city || "-"}</td>
+                    <td className="px-5 py-3"><StatusBadge status={c.status} /></td>
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2 text-slate-400">
+                        <button
+                          onClick={() => router.push(`/customer-master/${c.id}`)}
+                          className="hover:text-emerald-600 transition-colors p-1"
+                          title="View Lead Details"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </button>
                         <button
                           onClick={() => openEditModal(c)}
-                          className="text-xs font-semibold text-[#0D2137] hover:underline px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors"
+                          className="hover:text-blue-600 transition-colors p-1"
+                          title="Edit Lead"
                         >
-                          Edit Details
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         </button>
 
                         {(user?.role === "Admin" || user?.role === "MarketingLead") && (
                           <button
                             onClick={() => handleDeleteOne(c)}
                             disabled={isDeleting}
-                            title="Delete this customer"
-                            className="text-xs font-semibold text-red-600 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                            className="hover:text-red-600 transition-colors p-1 disabled:opacity-50"
+                            title="Delete Lead"
                           >
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            Delete
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           </button>
                         )}
                       </div>
@@ -412,7 +444,7 @@ export default function CustomerMasterPage() {
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <h2 className="text-lg font-bold text-slate-800">
-                {formData.id ? "Edit Customer Record" : "Add New Customer"}
+                {formData.id ? "Edit Lead Record" : "Add New Lead"}
               </h2>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-700 transition-colors">
                 <Ico d={icons.x} size={20} />
@@ -494,6 +526,12 @@ export default function CustomerMasterPage() {
                       onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
                       className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                     >
+                      <option value="New">New</option>
+                      <option value="Contacted">Contacted</option>
+                      <option value="Qualified">Qualified</option>
+                      <option value="Converted">Converted</option>
+                      <option value="Lost">Lost</option>
+                      <option disabled>--- Legacy ---</option>
                       <option value="Active">Active</option>
                       <option value="Prospect">Prospect</option>
                       <option value="Inactive">Inactive</option>
@@ -530,7 +568,7 @@ export default function CustomerMasterPage() {
                   disabled={formLoading}
                   className="px-5 py-2 rounded-xl text-sm font-medium text-white bg-[#0D2137] hover:bg-[#1a365d] transition-colors shadow-sm disabled:opacity-75"
                 >
-                  {formLoading ? "Saving..." : "Save Customer"}
+                  {formLoading ? "Saving..." : "Save Lead"}
                 </button>
               </div>
             </form>

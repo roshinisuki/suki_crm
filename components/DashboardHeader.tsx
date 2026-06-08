@@ -148,18 +148,18 @@ export default function DashboardHeader({
   };
 
   return (
-    <header className="h-14 md:h-16 bg-white border-b border-slate-200/80 flex items-center justify-between px-4 md:px-6 lg:px-8 shrink-0 z-10 relative">
+    <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shrink-0 z-10 relative">
       <div className="flex items-center gap-3">
         <button
           onClick={() => setDrawerOpen(true)}
-          className="md:hidden w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-colors border border-slate-200/60"
+          className="md:hidden w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-colors border border-slate-200"
         >
           {icons.menu}
         </button>
-        <h1 className="text-base md:text-lg font-bold text-slate-800 capitalize">{pageTitle}</h1>
+        <h1 className="text-base font-semibold text-slate-800 capitalize tracking-tight">{pageTitle}</h1>
       </div>
 
-      <div className="flex items-center gap-2 md:gap-3">
+      <div className="flex items-center gap-3 md:gap-4">
         {/* Global Search */}
         <div className="relative hidden sm:block" ref={searchRef}>
           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">{icons.search}</span>
@@ -170,8 +170,8 @@ export default function DashboardHeader({
               setSearchQuery(e.target.value);
               setIsSearchOpen(true);
             }}
-            placeholder="Search customers, visits..."
-            className="w-44 md:w-64 pl-10 pr-4 py-2 rounded-xl bg-slate-100 text-sm text-slate-700 placeholder:text-slate-400 border border-slate-200/60 focus:outline-none focus:ring-2 focus:ring-[#0D2137] transition"
+            placeholder="Search leads, customers..."
+            className="w-48 md:w-64 pl-9 pr-3 py-1.5 rounded-full bg-slate-50 text-sm text-slate-700 placeholder:text-slate-400 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
           />
 
           {isSearchOpen && searchResults && (
@@ -233,15 +233,14 @@ export default function DashboardHeader({
           )}
         </div>
 
-        {/* Notifications Dropdown */}
         <div className="relative" ref={notifRef}>
           <button 
             onClick={() => setIsNotifOpen(!isNotifOpen)}
-            className="relative w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors border border-slate-200/60"
+            className="relative w-8 h-8 rounded-full hover:bg-slate-50 flex items-center justify-center text-slate-500 transition-colors"
           >
             {icons.bell}
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-white animate-pulse" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 border-2 border-white animate-pulse" />
             )}
           </button>
 
@@ -351,17 +350,27 @@ export default function DashboardHeader({
                   View Renewals <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                 </button>
                 <div className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">
-                  Suki CRM System
+                  SUKI CRM System
                 </div>
               </div>
             </div>
           )}
         </div>
 
+        {/* Primary CTA */}
+        <div className="hidden md:block h-5 w-px bg-slate-200 mx-1"></div>
+        <button 
+          onClick={() => router.push("/leads")}
+          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#DF643B] hover:bg-[#D1552C] text-white text-[13px] font-medium transition-colors shadow-sm"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+          Add Lead
+        </button>
+
         {/* User Profile Initials Avatar */}
         <div 
           onClick={() => router.push("/profile")}
-          className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-gradient-to-br from-[#0D2137] to-[#1E3A5F] text-white flex items-center justify-center text-xs md:text-sm font-black tracking-wider cursor-pointer border border-slate-200 hover:scale-105 active:scale-95 transition-all shadow-sm shrink-0"
+          className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-bold tracking-wider cursor-pointer border border-slate-200 hover:bg-slate-200 transition-colors shrink-0"
           title={user?.name || "User Profile"}
         >
           {(() => {

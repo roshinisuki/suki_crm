@@ -101,8 +101,8 @@ function LeftPanel() {
     <div className="hidden lg:flex w-1/2 bg-[#0b1f3a] flex-col justify-center items-center p-12 text-center relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.03)_0%,transparent_80%)]" />
       <div className="relative z-10 max-w-md flex flex-col items-center">
-        <img src="/logo.png" alt="Suki CRM" className="w-[88px] h-[88px] object-contain mb-10" />
-        <h1 className="text-[40px] font-semibold text-white mb-6 leading-[1.15] tracking-tight">Welcome to<br />Suki CRM</h1>
+        <img src="/logo.png" alt="SUKI CRM" className="w-[88px] h-[88px] object-contain mb-10" />
+        <h1 className="text-[40px] font-semibold text-white mb-6 leading-[1.15] tracking-tight">Welcome to<br /> SUKI  CRM</h1>
         <p className="text-[#7587a7] text-base leading-[24px] mb-12 font-medium">
           Secure access to your customer ecosystem. Manage relationships, analyze data, and grow your brand with enterprise-grade precision.
         </p>
@@ -289,7 +289,7 @@ function LoginContent() {
               <CheckIcon />
               <div>
                 <p className="text-[13px] font-semibold text-[#2e7d32]">Account activated successfully!</p>
-                <p className="text-[12px] text-[#2e7d32]/80">Welcome to Suki CRM. Sign in with your email and new password.</p>
+                <p className="text-[12px] text-[#2e7d32]/80">Welcome to  SUKI  CRM. Sign in with your email and new password.</p>
               </div>
             </div>
           )}
@@ -313,7 +313,7 @@ function LoginContent() {
             {stage === "email" && (
               <>
                 <div className="mb-8">
-                  <h2 className="text-[24px] font-semibold text-[#191c1e] mb-2 tracking-[-0.01em]">Sign in to Suki CRM</h2>
+                  <h2 className="text-[24px] font-semibold text-[#191c1e] mb-2 tracking-[-0.01em]">Sign in to  SUKI  CRM</h2>
                   <p className="text-[14px] text-[#44474d] leading-[20px]">Enter your registered email address to continue.</p>
                 </div>
                 <ErrorBox />
@@ -386,7 +386,7 @@ function LoginContent() {
                     <svg className="w-5 h-5 text-[#2e7d32]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   </div>
                   <h2 className="text-[24px] font-semibold text-[#191c1e] mb-2 tracking-[-0.01em]">Set your password</h2>
-                  <p className="text-[14px] text-[#44474d] leading-[20px]">Create a strong password to secure your Suki CRM account.</p>
+                  <p className="text-[14px] text-[#44474d] leading-[20px]">Create a strong password to secure your  SUKI  CRM account.</p>
                 </div>
                 <ErrorBox />
                 <form onSubmit={handleSetPassword} className="space-y-5" noValidate>

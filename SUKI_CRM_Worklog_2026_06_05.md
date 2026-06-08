@@ -1,4 +1,4 @@
-# Suki CRM Worklog — 2026-06-05
+#  SUKI  CRM Worklog — 2026-06-05
 
 ## 1. Notification System Technical Debt Resolution
 - **Database Schema Update:** Added a new `link` column to the `Notification` model to allow notifications to directly link to relevant pages (e.g., `/marketing-log`).

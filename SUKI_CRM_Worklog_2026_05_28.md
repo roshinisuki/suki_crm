@@ -1,6 +1,6 @@
-# Suki CRM - Developer Daily Recap (May 28)
+#  SUKI  CRM - Developer Daily Recap (May 28)
 
-Hey! Here's a quick recap of the UI adjustments, visual cleanups, and real-time database integrations I got done on the dashboard and Suki CRM pages today. It was a highly productive session and the application feels incredibly solid and professional now.
+Hey! Here's a quick recap of the UI adjustments, visual cleanups, and real-time database integrations I got done on the dashboard and  SUKI  CRM pages today. It was a highly productive session and the application feels incredibly solid and professional now.
 
 ---
 

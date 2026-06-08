@@ -151,23 +151,7 @@ export async function loginWithPassword(email: string, password: string, remembe
       return { success: false, message: "Invalid email or password." };
     }
 
-    // Customer subscription check
-    if (user.role === "Customer") {
-      const activeSubscription = await prisma.subscription.findFirst({
-        where: {
-          customer: { email: user.email },
-          status: "Active",
-          endDate: { gt: new Date() },
-        },
-      });
-      if (!activeSubscription) {
-        await logAudit(user.id, "AUTH", "LOGIN_BLOCKED_NO_SUBSCRIPTION", `No active subscription for ${user.email}`);
-        return {
-          success: false,
-          message: "Your subscription has expired. Please contact support.",
-        };
-      }
-    }
+    // Customer subscription check removed. Expired customers can now login to the portal.
 
     // Reset lockout + update lastLogin
     await prisma.user.update({
@@ -235,7 +219,7 @@ export async function sendPasswordResetLink(email: string) {
 
     await sendEmail(
       user.email,
-      "Reset Your Password — Suki Marketing CRM",
+      "Reset Your Password —  SUKI  Marketing CRM",
       buildResetEmail(user.name, resetUrl)
     );
 
@@ -366,6 +350,7 @@ export async function activateCustomerPortal(customerId: string) {
           email: customer.email,
           name: customer.name,
           role: "Customer",
+          userType: "customer",
           passwordHash: "",
           isActive: true,
           isFirstLogin: true,
@@ -395,7 +380,7 @@ export async function activateCustomerPortal(customerId: string) {
 
     await sendEmail(
       customer.email,
-      "Welcome to Suki Software Customer Portal",
+      "Welcome to  SUKI  Software Customer Portal",
       buildCustomerActivationEmail(customer.name, activationUrl)
     );
 
@@ -574,7 +559,7 @@ export async function createInternalUserByAdmin(data: {
     const activationTokenExpiry = new Date(Date.now() + ACTIVATION_EXPIRY_HRS * 60 * 60 * 1000);
 
     const adminUser = await prisma.user.findUnique({ where: { id: adminPayload.id }, select: { name: true } });
-    const inviterName = adminUser?.name || "Suki CRM Admin";
+    const inviterName = adminUser?.name || " SUKI  CRM Admin";
 
     const newUser = await prisma.user.create({
       data: {
@@ -598,7 +583,7 @@ export async function createInternalUserByAdmin(data: {
 
     await sendEmail(
       normalizedEmail,
-      "You've been added to Suki CRM — Set Your Password",
+      "You've been added to  SUKI  CRM — Set Your Password",
       buildInternalActivationEmail(name.trim(), activationUrl, inviterName)
     );
 
@@ -661,7 +646,7 @@ export async function resendInvitation(userId: string) {
     if (!user.isFirstLogin) return { success: false, message: "User has already completed setup." };
 
     const adminUser = await prisma.user.findUnique({ where: { id: adminPayload.id }, select: { name: true } });
-    const inviterName = adminUser?.name || "Suki CRM Admin";
+    const inviterName = adminUser?.name || " SUKI  CRM Admin";
 
     if (user.userType === "customer") {
       // For customer portal users, resend the portal activation email
@@ -692,7 +677,7 @@ export async function resendInvitation(userId: string) {
 
       await sendEmail(
         user.email,
-        "Suki CRM — Set Your Password (resent)",
+        "SUKI CRM — Set Your Password (resent)",
         buildInternalActivationEmail(user.name, activationUrl, inviterName)
       );
     }
@@ -710,10 +695,11 @@ export async function resendInvitation(userId: string) {
 // ═══════════════════════════════════════════════════════════════
 export async function activateAccountAction(token: string, password: string) {
   try {
+    const cleanToken = token.trim();
     // Validate the JWT
     let payload: any;
     try {
-      payload = jwt.verify(token, JWT_SECRET);
+      payload = jwt.verify(cleanToken, JWT_SECRET);
     } catch {
       return { success: false, message: "Activation link is invalid or has expired." };
     }
@@ -722,11 +708,14 @@ export async function activateAccountAction(token: string, password: string) {
       return { success: false, message: "Invalid activation link." };
     }
 
-    const user = await prisma.user.findFirst({
-      where: { activationToken: token },
-    });
+    let user;
+    if (payload.purpose === "CUSTOMER_ACTIVATION" && payload.userId) {
+      user = await prisma.user.findUnique({ where: { id: payload.userId } });
+    } else if (payload.email) {
+      user = await prisma.user.findUnique({ where: { email: payload.email } });
+    }
 
-    if (!user) {
+    if (!user || user.activationToken !== cleanToken) {
       return { success: false, message: "This activation link has already been used or is invalid." };
     }
 
@@ -823,7 +812,7 @@ export async function requestNewActivationLink(email: string) {
 
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       const activationUrl = `${appUrl}/activate-account?token=${activationToken}`;
-      await sendEmail(user.email, "Your New Suki Portal Activation Link", buildCustomerActivationEmail(customer.name, activationUrl));
+      await sendEmail(user.email, "Your New  SUKI  Portal Activation Link", buildCustomerActivationEmail(customer.name, activationUrl));
     } else {
       // Internal user — regenerate internal activation
       const activationToken = jwt.sign(
@@ -841,7 +830,7 @@ export async function requestNewActivationLink(email: string) {
 
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       const activationUrl = `${appUrl}/activate-account?token=${activationToken}`;
-      await sendEmail(user.email, "Your New Suki CRM Activation Link", buildInternalActivationEmail(user.name, activationUrl, "Suki CRM Admin"));
+      await sendEmail(user.email, "Your New  SUKI  CRM Activation Link", buildInternalActivationEmail(user.name, activationUrl, " SUKI  CRM Admin"));
     }
 
     return { success: true, message: "If that email is registered and pending activation, a new link has been sent." };

@@ -29,6 +29,13 @@ enum CustomerStatus {
   APPROVED
   REJECTED
   PENDING
+  New
+  Contacted
+  Qualified
+  ProposalSent
+  Negotiation
+  Converted
+  Lost
 }
 
 enum SubscriptionStatus {

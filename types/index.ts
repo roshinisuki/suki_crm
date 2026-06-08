@@ -20,7 +20,7 @@ export interface Customer {
   email: string | null;
   phone: string | null;
   city: string | null;
-  status: "Active" | "Inactive" | "Prospect" | "APPROVED" | "REJECTED" | "PENDING";
+  status: "Active" | "Inactive" | "Prospect" | "APPROVED" | "REJECTED" | "PENDING" | "New" | "Contacted" | "Qualified" | "ProposalSent" | "Negotiation" | "Converted" | "Lost";
   assignedUserId: string | null;
   assignedUser?: Partial<User>;
   createdAt?: string;

@@ -103,14 +103,14 @@ export default function UserMasterPage() {
 
   // ── Filtered lists ──────────────────────────────────────────
   const internalUsers = users.filter(u =>
-    (u.userType === "internal" || u.role !== "Customer") &&
+    u.role !== "Customer" &&
     (u.name.toLowerCase().includes(search.toLowerCase()) ||
      u.email.toLowerCase().includes(search.toLowerCase()) ||
      u.role.toLowerCase().includes(search.toLowerCase()))
   );
 
   const customerUsers = users.filter(u =>
-    (u.userType === "customer" || u.role === "Customer") &&
+    u.role === "Customer" &&
     (u.name.toLowerCase().includes(search.toLowerCase()) ||
      u.email.toLowerCase().includes(search.toLowerCase()))
   ).sort((a, b) => {

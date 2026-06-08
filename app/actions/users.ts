@@ -142,7 +142,7 @@ export async function approveUserAction(id: string) {
 
     await sendEmail(
       user.email,
-      "Your Suki CRM account has been approved!",
+      "Your SUKI CRM account has been approved!",
       buildOtpEmail(user.name, otp)
     );
 

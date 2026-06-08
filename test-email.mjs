@@ -19,7 +19,7 @@ async function testEmail() {
     const info = await transporter.sendMail({
       from: process.env.SMTP_FROM,
       to: process.env.SMTP_USER, // Send to self
-      subject: "Test Email from Suki CRM",
+      subject: "Test Email from  SUKI  CRM",
       text: "This is a test email to verify SMTP configuration.",
     });
     console.log("Message sent: %s", info.messageId);

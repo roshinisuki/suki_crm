@@ -110,7 +110,7 @@ export default function SupportClient({ initialTickets }: { initialTickets: Tick
             </div>
             <h3 className="text-slate-700 font-semibold mb-1">No support tickets</h3>
             <p className="text-sm text-slate-500 max-w-sm mx-auto">
-              If you have any technical queries or issues with Suki CRM portal, create a new support ticket.
+              If you have any technical queries or issues with  SUKI  CRM portal, create a new support ticket.
             </p>
           </div>
         ) : (

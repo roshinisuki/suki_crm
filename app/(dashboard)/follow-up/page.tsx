@@ -398,7 +398,7 @@ export default function FollowUpsPage() {
         <div className="bg-[#0D2137] rounded-3xl p-6 text-white shadow-sm flex flex-col gap-4 h-fit">
           <div>
             <h2 className="text-sm font-bold">Follow-Up Workflow Guide</h2>
-            <p className="text-[10px] text-white/40 mt-0.5">Suki Software Conversion Pipeline</p>
+            <p className="text-[10px] text-white/40 mt-0.5"> SUKI  Software Conversion Pipeline</p>
           </div>
           <div className="space-y-3.5 text-xs text-white/75 mt-2">
             <div className="flex gap-2">
