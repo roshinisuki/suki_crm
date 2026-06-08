@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { getSubscriptionsAction, createSubscriptionAction, updateSubscriptionAction, renewSubscriptionAction } from "@/app/actions/subscriptions";
 import { getCustomersAction } from "@/app/actions/customers";
 import { Subscription, Customer } from "@/types";
+import { useRouter } from "next/navigation";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
   <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -43,6 +44,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function SubscriptionsPage() {
+  const router = useRouter();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,10 +94,10 @@ export default function SubscriptionsPage() {
     if (params.get("add") === "true") {
       setTimeout(() => {
         openCreateModal();
-        window.history.replaceState({}, document.title, window.location.pathname);
+        router.replace(window.location.pathname, { scroll: false });
       }, 100);
     }
-  }, []);
+  }, [router]);
 
   const openCreateModal = () => {
     setIsEdit(false);
@@ -107,6 +109,21 @@ export default function SubscriptionsPage() {
       endDate: "",
       status: "Active",
       notes: "",
+    });
+    setErrorMsg("");
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (sub: Subscription) => {
+    setIsEdit(true);
+    setSelectedSub(sub);
+    setFormData({
+      customerId: sub.customerId,
+      planName: sub.planName,
+      startDate: sub.startDate ? new Date(sub.startDate).toISOString().split('T')[0] : "",
+      endDate: sub.endDate ? new Date(sub.endDate).toISOString().split('T')[0] : "",
+      status: sub.status as any,
+      notes: sub.notes || "",
     });
     setErrorMsg("");
     setIsModalOpen(true);
@@ -242,11 +259,14 @@ export default function SubscriptionsPage() {
       } as any
     }));
 
-  // Sort "Pending" subscriptions to the very top so they are instantly visible & actionable
+  // Sort "Pending", "Expiring", and "Expired" subscriptions to the top
   const allSubs = [...subscriptions, ...approvedPendingSubs].sort((a, b) => {
-    if (a.status === "Pending" && b.status !== "Pending") return -1;
-    if (a.status !== "Pending" && b.status === "Pending") return 1;
-    return 0;
+    const getPriority = (status: string) => {
+      if (status === "Pending") return 0;
+      if (status === "Expiring" || status === "Expired") return 1;
+      return 2;
+    };
+    return getPriority(a.status) - getPriority(b.status);
   });
 
   const filtered = allSubs.filter((s) => {
@@ -417,8 +437,13 @@ export default function SubscriptionsPage() {
                           🔄 Renew
                         </button>
                       )}
-                      {s.status === "Active" && (
-                        <span className="text-xs text-slate-400 font-semibold italic">Current Plan</span>
+                      {s.status !== "Pending" && (
+                        <button
+                          onClick={() => openEditModal(s)}
+                          className="ml-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-xs"
+                        >
+                          ✏️ Edit
+                        </button>
                       )}
                       {s.status === "Pending" && !s.startDate && (
                         <button

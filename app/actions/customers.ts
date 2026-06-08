@@ -148,6 +148,7 @@ export async function createCustomerAction(data: any) {
             name,
             passwordHash,
             role: "Customer",
+            userType: "customer",
           },
         });
       }
@@ -185,6 +186,12 @@ export async function updateCustomerAction(data: any) {
       return { success: false, message: "ID, Customer Code and Name are required" };
     }
 
+    const currentCustomer = await prisma.customer.findUnique({ where: { id } });
+    if (!currentCustomer) {
+      return { success: false, message: "Customer not found" };
+    }
+    const oldEmail = currentCustomer.email;
+
     const finalAssignedUserId = userPayload.role === "MarketingExecutive" 
       ? userPayload.id 
       : assignedUserId || null;
@@ -209,6 +216,18 @@ export async function updateCustomerAction(data: any) {
         assignedUserId: finalAssignedUserId,
       },
     });
+
+    if (oldEmail && oldEmail !== email && email) {
+      const portalUser = await prisma.user.findFirst({
+        where: { email: oldEmail, userType: "customer" },
+      });
+      if (portalUser) {
+        await prisma.user.update({
+          where: { id: portalUser.id },
+          data: { email },
+        });
+      }
+    }
 
     await logAudit(
       userPayload.id,
@@ -275,6 +294,8 @@ export async function deleteCustomersAction(customerIds: string[]) {
         if (portalUserIds.length > 0) {
           // Clean up relations for the User record to avoid foreign key errors
           await tx.passwordResetToken.deleteMany({ where: { userId: { in: portalUserIds } } });
+          await tx.notification.deleteMany({ where: { userId: { in: portalUserIds } } });
+          await tx.notificationPreference.deleteMany({ where: { userId: { in: portalUserIds } } });
           
           // AuditLog userId is optional, we can set it to null to preserve the log history
           await tx.auditLog.updateMany({

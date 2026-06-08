@@ -6,6 +6,7 @@ import { updateFollowUpStatusAction, createFollowUpAction, completeFollowUpWithS
 import { getCustomersAction } from "@/app/actions/customers";
 import { getUsersAction } from "@/app/actions/users";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/ToastProvider";
 
 const icons = {
   plus: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>,
@@ -17,6 +18,7 @@ const icons = {
 
 export default function FollowUpsPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const [followUps, setFollowUps] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -77,11 +79,10 @@ export default function FollowUpsPage() {
     try {
       const res = await updateFollowUpStatusAction({ id, status });
       if (res.success) {
-        // Show success toast (using alert for now since toast not implemented yet)
-        alert(`Status updated to ${status}`);
+        toast.success(`Status updated to ${status}`);
         loadData();
       } else {
-        alert(res.message || "Failed to update status.");
+        toast.error(res.message || "Failed to update status.");
       }
     } catch (err) {
       console.error(err);
@@ -166,7 +167,7 @@ export default function FollowUpsPage() {
 
       if (res.success) {
         setIsCompleteModalOpen(false);
-        alert(res.message);
+        toast.success(res.message);
         loadData();
       } else {
         setErrorMsg(res.message || "Failed to complete follow-up.");
@@ -318,8 +319,8 @@ export default function FollowUpsPage() {
                   <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center shrink-0 border shadow-xs ${
                     isOverdue ? "bg-red-50/50 border-red-200 text-red-700" : isToday ? "bg-emerald-50/50 border-emerald-200 text-emerald-700" : "bg-white border-slate-200 text-slate-700"
                   }`}>
-                    <span className="text-[9px] font-bold uppercase tracking-wider">{new Date(f.nextMeetingDate).toLocaleString('default', { month: 'short' })}</span>
-                    <span className="text-lg font-black leading-none">{new Date(f.nextMeetingDate).getDate()}</span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider">{f.nextMeetingDate ? new Date(f.nextMeetingDate).toLocaleString('default', { month: 'short' }) : "-"}</span>
+                    <span className="text-lg font-black leading-none">{f.nextMeetingDate ? new Date(f.nextMeetingDate).getDate() : "-"}</span>
                   </div>
 
                   {/* Contents */}
@@ -338,7 +339,7 @@ export default function FollowUpsPage() {
                     <p className="text-xs text-slate-600 font-semibold leading-relaxed max-w-2xl">{f.notes || "No specific discussion agenda recorded."}</p>
                     
                     <div className="flex items-center gap-3 text-[10px] text-slate-400 font-bold mt-2.5 uppercase tracking-wide">
-                      <span className="flex items-center gap-1">⌚ {new Date(f.nextMeetingDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
+                      <span className="flex items-center gap-1">⌚ {f.nextMeetingDate ? new Date(f.nextMeetingDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "—"}</span>
                       <span>•</span>
                       <span>Assigned to: {f.assignedToName}</span>
                       {f.visitType && (

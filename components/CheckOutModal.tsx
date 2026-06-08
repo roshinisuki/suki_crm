@@ -7,6 +7,7 @@ interface CheckOutModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  onCheckInNext?: (type: "Inbound" | "Outbound") => void;
   visit: {
     id: string;
     customerId: string;
@@ -109,9 +110,11 @@ const LOST_OUTCOMES = new Set(["Closed Lost", "Not Interested", "Not Qualified"]
 // Purposes where the portal decision toggle is relevant
 const PORTAL_DECISION_PURPOSES = new Set(["New Enquiry", "Sales Meeting", "Product Demo", "Sales Pitch", "Demo", "Pricing Discussion", "Follow-up Meeting", "Other"]);
 
-export default function CheckOutModal({ isOpen, onClose, onSuccess, visit }: CheckOutModalProps) {
+export default function CheckOutModal({ isOpen, onClose, onSuccess, onCheckInNext, visit }: CheckOutModalProps) {
   const [formLoading, setFormLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [checkoutDone, setCheckoutDone] = useState(false);
+  const [checkedOutName, setCheckedOutName] = useState("");
 
   const [meetingNotes, setMeetingNotes] = useState("");
   const [outcome, setOutcome] = useState("");
@@ -133,6 +136,8 @@ export default function CheckOutModal({ isOpen, onClose, onSuccess, visit }: Che
   useEffect(() => {
     if (isOpen && visit) {
       setErrorMsg("");
+      setCheckoutDone(false);
+      setCheckedOutName("");
       setMeetingNotes("");
       setCustomerDecision("PENDING");
       setRejectionReason("");
@@ -169,6 +174,64 @@ export default function CheckOutModal({ isOpen, onClose, onSuccess, visit }: Che
   }, [outcome]);
 
   if (!isOpen || !visit) return null;
+
+  // ── POST-CHECKOUT SUCCESS SCREEN ──────────────────────────────────
+  if (checkoutDone) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          {/* Success header */}
+          <div className="bg-emerald-600 px-6 py-6 text-center">
+            <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3">
+              <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-white font-black text-lg">Checked Out!</h2>
+            <p className="text-emerald-100 text-xs mt-1 font-medium">{checkedOutName} — visit logged successfully</p>
+          </div>
+
+          {/* Next action prompt */}
+          <div className="p-6">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest text-center mb-4">Check-in to another office?</p>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <button
+                onClick={() => {
+                  onClose();
+                  onCheckInNext?.("Inbound");
+                }}
+                className="flex flex-col items-center justify-center bg-[#0D2137] text-white p-5 rounded-2xl active:scale-95 transition-transform gap-2"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                <span className="text-xs font-black tracking-wide">+ Office Visit</span>
+              </button>
+              <button
+                onClick={() => {
+                  onClose();
+                  onCheckInNext?.("Outbound");
+                }}
+                className="flex flex-col items-center justify-center bg-[#475569] text-white p-5 rounded-2xl active:scale-95 transition-transform gap-2"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span className="text-xs font-black tracking-wide">+ Field Visit</span>
+              </button>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+            >
+              No, I'm done for now
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const outcomes = getOutcomes(visit.purpose);
   const needsFollowUp = FOLLOWUP_OUTCOMES.has(outcome);
@@ -246,8 +309,9 @@ export default function CheckOutModal({ isOpen, onClose, onSuccess, visit }: Che
       }
 
       if (res.success) {
+        setCheckedOutName(visit.customerName);
+        setCheckoutDone(true);
         onSuccess();
-        onClose();
       } else {
         setErrorMsg(res.message || "Failed to process checkout.");
       }
@@ -386,12 +450,23 @@ export default function CheckOutModal({ isOpen, onClose, onSuccess, visit }: Che
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className={labelCls}>Escalate To <span className="text-red-400">*</span></label>
-                      <select required={isEscalated} value={escalationTarget} onChange={e => setEscalationTarget(e.target.value)} className={inputCls}>
-                        <option value="">Select target...</option>
+                      <select required={isEscalated} value={escalationTarget} onChange={e => setEscalationTarget(e.target.value)} className={inputCls} onFocus={() => {
+                        if (!escalationTarget) {
+                          import("@/app/actions/users").then(m => m.getUsersAction()).then(res => {
+                            if (res.success && res.data) {
+                              const opts = res.data.filter((u: any) => u.role !== "Customer").map((u: any) => `${u.name} (${u.role})`);
+                              setEscalationTarget(opts[0] || "Admin");
+                              const sel = document.getElementById("esc-select") as HTMLSelectElement;
+                              if (sel) {
+                                sel.innerHTML = `<option value="">Select target...</option>` + opts.map((o: string) => `<option value="${o}">${o}</option>`).join("");
+                              }
+                            }
+                          });
+                        }
+                      }} id="esc-select">
+                        <option value="">Select target... (Click to load)</option>
                         <option>Admin</option>
                         <option>Marketing Lead</option>
-                        <option>Senior Manager</option>
-                        <option>Technical Team</option>
                       </select>
                     </div>
                     <div>

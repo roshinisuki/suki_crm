@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getUsersAction, updateUserAction } from "@/app/actions/users";
+import { getUsersAction, updateUserAction, deleteUserAction } from "@/app/actions/users";
 import { createInternalUserByAdmin, createCustomerPortalUser, resendInvitation } from "@/app/actions/auth";
 import { getCustomersAction } from "@/app/actions/customers";
 import { User } from "@/types";
 import { useAuth } from "@/components/AuthProvider";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { useToast } from "@/components/ToastProvider";
 import { useRouter } from "next/navigation";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
@@ -23,6 +25,7 @@ const icons = {
   check:  "M5 13l4 4L19 7",
   resend: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
   edit:   "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z",
+  trash:  "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
 };
 
 const ROLE_BADGE: Record<string, string> = {
@@ -60,6 +63,10 @@ export default function UserMasterPage() {
   const [intName, setIntName] = useState("");
   const [intEmail, setIntEmail] = useState("");
   const [intRole, setIntRole] = useState<"MarketingLead" | "MarketingExecutive">("MarketingExecutive");
+
+  // Confirm Modal
+  const [confirmState, setConfirmState] = useState<{isOpen: boolean; title: string; message: string; isDestructive: boolean; action: () => void}>({ isOpen: false, title: "", message: "", isDestructive: false, action: () => {} });
+  const toast = useToast();
 
   // Customer portal form
   const [custId, setCustId] = useState("");
@@ -106,7 +113,12 @@ export default function UserMasterPage() {
     (u.userType === "customer" || u.role === "Customer") &&
     (u.name.toLowerCase().includes(search.toLowerCase()) ||
      u.email.toLowerCase().includes(search.toLowerCase()))
-  );
+  ).sort((a, b) => {
+    // Show 'Pending Setup' (isFirstLogin = true) before 'Activated' (isFirstLogin = false)
+    if (a.isFirstLogin && !b.isFirstLogin) return -1;
+    if (!a.isFirstLogin && b.isFirstLogin) return 1;
+    return 0;
+  });
 
   const displayedUsers = activeTab === "internal" ? internalUsers : customerUsers;
 
@@ -170,8 +182,28 @@ export default function UserMasterPage() {
 
   const handleResend = async (userId: string) => {
     const res = await resendInvitation(userId);
-    if (res.success) alert(`✓ ${res.message}`);
-    else alert(`✗ ${res.message}`);
+    if (res.success) toast.success(res.message);
+    else toast.error(res.message);
+  };
+
+  const handleDelete = (userId: string) => {
+    setConfirmState({
+      isOpen: true,
+      title: "Delete User",
+      message: "Are you sure you want to delete this user? This action cannot be undone.",
+      isDestructive: true,
+      action: async () => {
+        setFormLoading(true);
+        const res = await deleteUserAction(userId);
+        setFormLoading(false);
+        if (!res.success) {
+          toast.error(res.message);
+          return;
+        }
+        toast.success("User deleted successfully");
+        loadData();
+      }
+    });
   };
 
   // ── Table row ───────────────────────────────────────────────
@@ -223,6 +255,13 @@ export default function UserMasterPage() {
             className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
           >
             <Ico d={icons.edit} size={14} />
+          </button>
+          <button
+            onClick={() => handleDelete(u.id)}
+            title="Delete user"
+            className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors border border-red-100"
+          >
+            <Ico d={icons.trash} size={14} />
           </button>
         </div>
       </td>
@@ -541,6 +580,15 @@ export default function UserMasterPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.action}
+        onCancel={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+        isDestructive={confirmState.isDestructive}
+      />
     </div>
   );
 }

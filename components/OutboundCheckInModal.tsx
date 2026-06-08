@@ -285,18 +285,20 @@ export default function OutboundCheckInModal({
       ...visitMetadata,
       ...(visitLocation ? { visitLocation } : {}),
       ...(contactPerson ? { contactPerson } : {}),
+      ...(requiresApproval ? { requiresApproval } : {}),
     };
+
+    const metadataStr = Object.keys(fullMetadata).length > 0 
+      ? "\n\nVisit Metadata:\n" + Object.entries(fullMetadata).map(([k, v]) => `${k}: ${v}`).join("\n") 
+      : "";
 
     try {
       const res = await checkInOutboundAction({
         customerId: selectedCustomerId,
         purpose,
-        notes: notes.trim() || undefined,
+        notes: (notes.trim() + metadataStr).trim() || undefined,
         checkInLat: location?.lat,
         checkInLng: location?.lng,
-
-        requiresApproval,
-        visitMetadata: Object.keys(fullMetadata).length > 0 ? fullMetadata : undefined,
       });
 
       if (res.success) {

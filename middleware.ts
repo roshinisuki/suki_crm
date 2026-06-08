@@ -15,7 +15,7 @@ const CUSTOMER_ONLY_PATHS = ["/customer/portal", "/customer/support"];
 // Routes customers cannot access
 const INTERNAL_ONLY_PATHS = ["/dashboard", "/customer-master", "/subscription", "/marketing-log", "/visitor-management", "/follow-up", "/audit-logs", "/user-master", "/settings"];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow public paths and static assets
@@ -42,15 +42,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Decode token (edge-compatible — no full verify needed, just role extraction)
+  // Decode token using jose
   let payload: { id: string; email: string; role: string } | null = null;
   try {
-    const parts = token.split(".");
-    if (parts.length === 3) {
-      payload = JSON.parse(atob(parts[1]));
-    }
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+    const { payload: jwtPayload } = await import('jose').then(m => m.jwtVerify(token, secret));
+    payload = jwtPayload as any;
   } catch (err) {
-    console.error("Failed to parse token in middleware", err);
+    console.error("Failed to verify token in middleware", err);
   }
 
   if (!payload || !payload.role) {

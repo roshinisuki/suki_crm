@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getUnifiedOfficeVisitsAction, createVisitorAction, checkoutVisitorAction, deleteVisitorAction } from "@/app/actions/visitors";
+import { getUnifiedOfficeVisitsAction, createVisitorAction, checkoutVisitorAction } from "@/app/actions/visitors";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import InboundCheckInModal from "@/components/InboundCheckInModal";
@@ -131,28 +131,6 @@ export default function OfficeVisitsPage() {
     setIsCheckoutModalOpen(true);
   };
 
-  const handleDeleteVisit = async (v: any) => {
-    if (!confirm("Are you sure you want to delete this office visit record?")) return;
-    try {
-      let res;
-      if (v.type === "Guest") {
-        res = await deleteVisitorAction(v.id);
-      } else {
-        // Customer visits deleted via Admin action
-        const { deleteVisitAction } = await import("@/app/actions/visits");
-        res = await deleteVisitAction(v.id, "Inbound");
-      }
-
-      if (res.success) {
-        toast.success("Visit record deleted.");
-        loadVisits();
-      } else {
-        toast.error(res.message || "Failed to delete record");
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   // Filter & Search Logic
   const filtered = visits.filter((v) => {
@@ -359,14 +337,6 @@ export default function OfficeVisitsPage() {
                               className="text-[10px] font-extrabold text-white bg-[#0D2137] hover:bg-[#1a3a5f] px-3 py-1.5 rounded-lg transition-colors uppercase tracking-wider shadow-sm"
                             >
                               End Visit
-                            </button>
-                          )}
-                          {user?.role === "Admin" && (
-                            <button
-                              onClick={() => handleDeleteVisit(v)}
-                              className="text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors shadow-sm border border-red-100"
-                            >
-                              Delete
                             </button>
                           )}
                         </div>

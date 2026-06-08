@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(request: Request) {
   try {
@@ -58,6 +59,8 @@ export async function PATCH(request: Request) {
         createdAt: true,
       }
     });
+
+    await logAudit(userPayload.id, "Profile", "Update", "User updated their profile");
 
     return NextResponse.json({ success: true, message: "Profile updated successfully", data: updatedUser });
   } catch (error) {

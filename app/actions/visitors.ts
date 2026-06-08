@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
+import { dispatchNotificationsToMany } from "@/lib/notifications";
 import { logAudit } from "@/lib/audit";
 
 export async function getVisitorsAction() {
@@ -80,13 +81,12 @@ export async function createVisitorAction(data: any) {
     });
     
     if (adminsAndLeads.length > 0) {
-      await prisma.notification.createMany({
-        data: adminsAndLeads.map(u => ({
-          userId: u.id,
-          title: "New Visitor Walk-in",
-          message: `${name} from ${company || "unknown"} checked in to meet ${visitor.host?.name ?? "someone"}`,
-          type: "visit"
-        }))
+      await dispatchNotificationsToMany({
+        userIds: adminsAndLeads.map(u => u.id),
+        title: "New Visitor Walk-in",
+        message: `${name} from ${company || "unknown"} checked in to meet ${visitor.host?.name ?? "someone"}`,
+        type: "visit",
+        link: "/visitor-management"
       });
     }
 

@@ -60,38 +60,43 @@ export default function DashboardHeader({
     if (!user) return;
 
     let isFirstLoad = true;
+    const eventSource = new EventSource("/api/notifications/sse");
 
-    const fetchNotifs = () => {
-      fetch("/api/notifications")
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            setNotifications(prev => {
-              const newUnreads = data.data.filter((n: any) => !n.isRead);
-              
-              // Only consider it "new" for toasting if we've never seen this ID before
-              const trulyNewForToast = newUnreads.filter((n: any) => !seenToastIds.current.has(n.id));
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.success) {
+          const fetchedNotifications = data.data;
+          const newUnreads = fetchedNotifications.filter((n: any) => !n.isRead);
+          const trulyNewForToast = newUnreads.filter((n: any) => !seenToastIds.current.has(n.id));
 
-              if (trulyNewForToast.length > 0 && !isFirstLoad) {
-                // Toast the first newly seen notification
-                const latest = trulyNewForToast[0];
-                toast.info(latest?.message || "New activity logged.", latest?.title || "Notification Received");
-              }
-              
-              // Mark all currently fetched unreads as "seen" so they don't toast again
-              newUnreads.forEach((n: any) => seenToastIds.current.add(n.id));
-
-              return data.data;
-            });
-            isFirstLoad = false;
+          if (trulyNewForToast.length > 0 && !isFirstLoad) {
+            const latest = trulyNewForToast[0];
+            
+            let toastType: "success" | "error" | "warning" | "info" = "info";
+            const t = latest.title?.toLowerCase() || "";
+            if (t.includes("reject") || t.includes("fail") || t.includes("error")) toastType = "error";
+            else if (t.includes("approve") || t.includes("success") || t.includes("complete")) toastType = "success";
+            else if (t.includes("due") || t.includes("warning") || t.includes("overdue") || latest.type === "follow_up") toastType = "warning";
+            
+            toast[toastType](latest?.message || "New activity logged.", latest?.title || "Notification Received");
           }
-        })
-        .catch(console.error);
+          
+          newUnreads.forEach((n: any) => seenToastIds.current.add(n.id));
+          setNotifications(fetchedNotifications);
+          isFirstLoad = false;
+        }
+      } catch (e) {
+        console.error("Error parsing SSE data", e);
+      }
     };
 
-    fetchNotifs();
-    const interval = setInterval(fetchNotifs, 8000); // Check every 8 seconds
-    return () => clearInterval(interval);
+    eventSource.onerror = (error) => {
+      console.error("SSE Error", error);
+      eventSource.close();
+    };
+
+    return () => eventSource.close();
   }, [user]);
 
   // Handle Search Debounce
@@ -261,6 +266,11 @@ export default function DashboardHeader({
                         {icons.check} MARK ALL READ
                       </button>
                     )}
+                    {notifications.length > 0 && (
+                      <button onClick={clearAll} className="px-2.5 py-1.5 rounded bg-red-500/20 hover:bg-red-500/30 text-[10px] font-bold text-red-200 flex items-center gap-1.5 transition-colors border border-red-500/20">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg> CLEAR ALL
+                      </button>
+                    )}
                   </div>
                 </div>
                 
@@ -288,6 +298,7 @@ export default function DashboardHeader({
                         onClick={() => {
                           markAsRead(n.id);
                           setIsNotifOpen(false);
+                          if (n.link) router.push(n.link);
                         }}
                         className="p-4 hover:bg-slate-50 cursor-pointer transition-colors group relative"
                       >

@@ -48,6 +48,10 @@ export default function ExecutiveDashboard({ data, user, loadData }: { data: any
   const pendingCount = data?.pendingApprovals?.length || 0;
   const followUpCount = followUps.length;
 
+  // Block new check-in if user already has an active visit
+  const activeVisit = todayVisits.find(v => v.status === "CHECKED_IN");
+  const hasActiveVisit = !!activeVisit;
+
   return (
     <div className="max-w-[1200px] mx-auto pb-6">
       
@@ -64,41 +68,108 @@ export default function ExecutiveDashboard({ data, user, loadData }: { data: any
           </div>
           
           <div className="flex gap-4">
-            <button 
-              onClick={() => setIsInboundOpen(true)}
-              className="px-6 py-3 bg-white text-[#0D2137] rounded-xl font-bold text-sm hover:bg-slate-100 transition-colors shadow-sm flex items-center gap-2"
-            >
-              <Building className="w-4 h-4" />
-              + Office Visit
-            </button>
-            <button 
-              onClick={() => setIsOutboundOpen(true)}
-              className="px-6 py-3 bg-[#0D2137] text-white border border-white/20 rounded-xl font-bold text-sm hover:bg-white/10 transition-colors shadow-sm flex items-center gap-2"
-            >
-              <MapPin className="w-4 h-4" />
-              + Field Check-In
-            </button>
+            {hasActiveVisit ? (
+              <div className="px-5 py-3 bg-amber-500/20 border border-amber-400/40 rounded-xl text-amber-300 text-xs font-bold flex items-center gap-2">
+                <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+                Active visit in progress — check out first
+              </div>
+            ) : (
+              <>
+                <button 
+                  onClick={() => setIsInboundOpen(true)}
+                  className="px-6 py-3 bg-white text-[#0D2137] rounded-xl font-bold text-sm hover:bg-slate-100 transition-colors shadow-sm flex items-center gap-2"
+                >
+                  <Building className="w-4 h-4" />
+                  + Office Visit
+                </button>
+                <button 
+                  onClick={() => setIsOutboundOpen(true)}
+                  className="px-6 py-3 bg-[#0D2137] text-white border border-white/20 rounded-xl font-bold text-sm hover:bg-white/10 transition-colors shadow-sm flex items-center gap-2"
+                >
+                  <MapPin className="w-4 h-4" />
+                  + Field Check-In
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
 
       {/* ── MOBILE QUICK ACTIONS ── */}
-      <div className="md:hidden grid grid-cols-2 gap-4 mb-6">
-        <button 
-          onClick={() => setIsInboundOpen(true)}
-          className="flex flex-col items-center justify-center bg-[#0D2137] text-white p-6 rounded-2xl shadow-sm active:scale-95 transition-transform"
-        >
-          <Building className="w-8 h-8 mb-3 opacity-90" />
-          <span className="text-sm font-bold tracking-wide">+ Office Visit</span>
-        </button>
-        <button 
-          onClick={() => setIsOutboundOpen(true)}
-          className="flex flex-col items-center justify-center bg-[#475569] text-white p-6 rounded-2xl shadow-sm active:scale-95 transition-transform"
-        >
-          <MapPin className="w-8 h-8 mb-3 opacity-90" />
-          <span className="text-sm font-bold tracking-wide">+ Log Field</span>
-        </button>
-      </div>
+      {hasActiveVisit ? (
+        <div className="md:hidden bg-amber-50 border-2 border-amber-300 rounded-2xl px-4 py-3.5 mb-4 flex items-center gap-3">
+          <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-black text-amber-800">Active visit in progress</p>
+            <p className="text-[10px] text-amber-700 font-medium mt-0.5 truncate">
+              {activeVisit?.customer?.name || activeVisit?.customerName} — check out to start a new visit
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="md:hidden grid grid-cols-2 gap-4 mb-6">
+          <button 
+            onClick={() => setIsInboundOpen(true)}
+            className="flex flex-col items-center justify-center bg-[#0D2137] text-white p-6 rounded-2xl shadow-sm active:scale-95 transition-transform"
+          >
+            <Building className="w-8 h-8 mb-3 opacity-90" />
+            <span className="text-sm font-bold tracking-wide">+ Office Visit</span>
+          </button>
+          <button 
+            onClick={() => setIsOutboundOpen(true)}
+            className="flex flex-col items-center justify-center bg-[#475569] text-white p-6 rounded-2xl shadow-sm active:scale-95 transition-transform"
+          >
+            <MapPin className="w-8 h-8 mb-3 opacity-90" />
+            <span className="text-sm font-bold tracking-wide">+ Log Field</span>
+          </button>
+        </div>
+      )}
+
+      {/* ── MOBILE ACTIVE VISITS (with Check-Out) ── */}
+      {todayVisits.some(v => v.status === "CHECKED_IN") && (
+        <div className="md:hidden mb-4">
+          <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2 px-1 flex items-center gap-1.5">
+            <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse inline-block" />
+            Active Visit — Check-Out Required
+          </p>
+          <div className="space-y-3">
+            {todayVisits.filter(v => v.status === "CHECKED_IN").map(v => {
+              const dateObj = new Date(v.checkIn || v.checkInTime);
+              const timeStr = dateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+              return (
+                <div key={v.id} className="bg-white rounded-2xl border-2 border-amber-400 shadow-sm overflow-hidden">
+                  <div className="bg-amber-50 px-4 py-2 border-b border-amber-200 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                      <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">In Progress</span>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-md font-bold text-[9px] ${
+                      v.type === "Inbound" ? "bg-amber-100 text-amber-800" : "bg-indigo-100 text-indigo-800"
+                    }`}>{v.type}</span>
+                  </div>
+                  <div className="p-4 flex items-center gap-4">
+                    <div className="bg-slate-100 rounded-xl px-3 py-2 text-center shrink-0">
+                      <p className="text-sm font-black text-slate-700">{timeStr}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Check-In</p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-slate-800 truncate">{v.customer?.name || v.customerName}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{v.purpose || "Field Visit"}</p>
+                    </div>
+                    <button
+                      onClick={() => handleOpenCheckout(v, v.type)}
+                      className="shrink-0 flex items-center gap-1.5 px-4 py-3 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-black text-xs rounded-xl transition-all shadow-sm uppercase tracking-wide"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      Check-Out
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── MOBILE PERFORMANCE OVERVIEW ── */}
       <div className="md:hidden bg-white p-5 rounded-2xl shadow-sm border border-slate-100 mb-6">
@@ -201,7 +272,7 @@ export default function ExecutiveDashboard({ data, user, loadData }: { data: any
               ) : (
                 <div className="divide-y divide-slate-100">
                   {followUps.slice(0, 4).map((f: any) => {
-                    const isOverdue = new Date(f.nextMeetingDate) < new Date();
+                    const isOverdue = f.nextMeetingDate ? new Date(f.nextMeetingDate) < new Date() : false;
                     return (
                       <div key={f.id} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors cursor-pointer group">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isOverdue ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
@@ -250,7 +321,18 @@ export default function ExecutiveDashboard({ data, user, loadData }: { data: any
 
       <InboundCheckInModal isOpen={isInboundOpen} onClose={() => setIsInboundOpen(false)} onSuccess={loadData} loggedInUser={user ? { name: user.name, id: user.id } : null} />
       <OutboundCheckInModal isOpen={isOutboundOpen} onClose={() => setIsOutboundOpen(false)} onSuccess={loadData} loggedInUser={user ? { name: user.name, id: user.id } : null} />
-      <CheckOutModal isOpen={isCheckoutOpen} onClose={() => { setIsCheckoutOpen(false); setActiveCheckoutVisit(null); }} onSuccess={loadData} visit={activeCheckoutVisit} />
+      <CheckOutModal
+        isOpen={isCheckoutOpen}
+        onClose={() => { setIsCheckoutOpen(false); setActiveCheckoutVisit(null); }}
+        onSuccess={loadData}
+        onCheckInNext={(type) => {
+          setIsCheckoutOpen(false);
+          setActiveCheckoutVisit(null);
+          if (type === "Inbound") setIsInboundOpen(true);
+          else setIsOutboundOpen(true);
+        }}
+        visit={activeCheckoutVisit}
+      />
     </div>
   );
 }

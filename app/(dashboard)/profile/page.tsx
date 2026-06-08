@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/ToastProvider";
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -20,7 +21,7 @@ export default function ProfilePage() {
   const [createdAt, setCreatedAt] = useState("");
 
   // Toast
-  const [toast, setToast] = useState<{ type: "success" | "error", message: string } | null>(null);
+  const toast = useToast();
 
   // Password Modal
   const [isPasswordModalOpen, setPasswordModalOpen] = useState(false);
@@ -56,10 +57,7 @@ export default function ProfilePage() {
     }
   };
 
-  const showToast = (type: "success" | "error", message: string) => {
-    setToast({ type, message });
-    setTimeout(() => setToast(null), 3000);
-  };
+
 
   const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,12 +70,12 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (data.success) {
-        showToast("success", "Profile updated successfully!");
+        toast.success("Profile updated successfully!");
       } else {
-        showToast("error", data.message || "Failed to update profile.");
+        toast.error(data.message || "Failed to update profile.");
       }
     } catch (err) {
-      showToast("error", "An unexpected error occurred.");
+      toast.error("An unexpected error occurred.");
     } finally {
       setSaving(false);
     }
@@ -101,7 +99,7 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (data.success) {
-        showToast("success", "Password changed successfully!");
+        toast.success("Password changed successfully!");
         setPasswordModalOpen(false);
         setCurrentPassword("");
         setNewPassword("");
@@ -122,12 +120,6 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg font-bold text-white transition-all animate-in slide-in-from-top-2 ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"}`}>
-          {toast.message}
-        </div>
-      )}
-
       <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200/60 flex flex-col md:flex-row gap-8 items-start">
         {/* Profile Sidebar */}
         <div className="w-full md:w-64 shrink-0 flex flex-col items-center text-center space-y-4">

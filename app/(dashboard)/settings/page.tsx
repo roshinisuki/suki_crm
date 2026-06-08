@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ToastProvider";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
   <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -64,6 +65,7 @@ function Card({ title, icon, children }: CardProps) {
 export default function SettingsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const toast = useToast();
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -106,11 +108,12 @@ export default function SettingsPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
+        toast.success("Settings saved successfully.");
+      } else {
+        toast.error("Failed to save settings.");
       }
     } catch (err) {
-      console.error(err);
+      toast.error("An error occurred while saving.");
     } finally {
       setSaving(false);
     }
@@ -172,12 +175,6 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-bold text-slate-800">Settings</h1>
           <p className="text-sm text-slate-500 mt-1">Manage system preferences, security, and notification options.</p>
         </div>
-        {saved && (
-          <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-xl">
-            <Ico d={icons.check} size={16} className="text-emerald-600" />
-            Changes Saved
-          </div>
-        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

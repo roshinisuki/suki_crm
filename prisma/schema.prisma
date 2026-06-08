@@ -100,7 +100,7 @@ model Customer {
   city           String?
   status         CustomerStatus @default(Active)
   assignedUserId String?
-  assignedUser   User?          @relation("AssignedCustomers", fields: [assignedUserId], references: [id])
+  assignedUser   User?          @relation("AssignedCustomers", fields: [assignedUserId], references: [id], onDelete: Cascade)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -136,28 +136,22 @@ model CustomerVisit {
   customerId         String
   customer           Customer  @relation(fields: [customerId], references: [id])
   hostedBy           String
-  host               User      @relation(fields: [hostedBy], references: [id])
-  purpose            String    // New Enquiry / Product Demo / Pricing Discussion / Complaint Resolution / Subscription Renewal / Sales Meeting / Support / Demo / Other
+  host               User      @relation(fields: [hostedBy], references: [id], onDelete: Cascade)
+  purpose            String
   checkInTime        DateTime  @default(now())
   checkOutTime       DateTime?
   meetingSummary     String?   @db.Text
-  outcome            String?   // Purpose-specific outcome value
-  customerDecision   String?   // APPROVED / REJECTED / PENDING
+  outcome            String?
+  customerDecision   String?
   rejectionReason    String?   @db.Text
   nextMeetingDate    DateTime?
   nextMeetingNotes   String?   @db.Text
-  status             String    @default("CHECKED_IN") // CHECKED_IN / CHECKED_OUT
-  // Extended fields for full Office Visit workflow
-  visitMetadata      Json?     // Dynamic purpose-specific fields (product, budget, complaint category, etc.)
-  requiresApproval   Boolean   @default(false)
-  approvalStatus     String    @default("NOT_REQUIRED") // NOT_REQUIRED / PENDING_APPROVAL / APPROVED / REJECTED
-  approvalComments   String?   @db.Text
-  priority           String    @default("Normal") // Low / Normal / High / Urgent
-  meetingType        String?   // Walk-in / Scheduled / Virtual
-  source             String?   // Referral / Walk-in / Social Media / Cold Call / Email Campaign / Website
+  status             String    @default("CHECKED_IN")
+  priority           String    @default("Normal")
+  meetingType        String?
+  source             String?
   agenda             String?   @db.Text
-  expectedDuration   Int?      // in minutes
-  department         String?   // Sales / Support / Management / Finance / Technical
+  department         String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -169,7 +163,7 @@ model CustomerVisit {
 model MarketingVisit {
   id                 String    @id @default(uuid())
   executiveId        String
-  executive          User      @relation(fields: [executiveId], references: [id])
+  executive          User      @relation(fields: [executiveId], references: [id], onDelete: Cascade)
   customerId         String
   customer           Customer  @relation(fields: [customerId], references: [id])
   checkIn            DateTime  @default(now())
@@ -182,24 +176,14 @@ model MarketingVisit {
   remarks            String?   @db.Text
   nextMeetingDate    DateTime?
   createdAt          DateTime  @default(now())
-
-  // Extended fields for full Log Field workflow
-  purpose            String?   // New Enquiry / Product Demo / Pricing Discussion / Complaint Resolution / Subscription Renewal / Sales Pitch / Follow-up Meeting / Support Visit / Other
+  purpose            String?
   meetingDescription String?   @db.Text
-  outcome            String?   // Purpose-specific outcome value
-  customerDecision   String?   // APPROVED / REJECTED / PENDING
+  outcome            String?
+  customerDecision   String?
   rejectionReason    String?   @db.Text
   nextMeetingNotes   String?   @db.Text
-  status             String    @default("CHECKED_IN") // CHECKED_IN / CHECKED_OUT
+  status             String    @default("CHECKED_IN")
   updatedAt          DateTime? @updatedAt
-  visitMetadata      Json?     // Dynamic purpose-specific fields + travel/expense details
-  requiresApproval   Boolean   @default(false)
-  approvalStatus     String    @default("NOT_REQUIRED") // NOT_REQUIRED / PENDING_APPROVAL / APPROVED / REJECTED
-  approvalComments   String?   @db.Text
-  checkOutPhoto      String?
-  expenseAmount      Float?
-  travelMode         String?   // Two-Wheeler / Four-Wheeler / Auto / Train / Walk / Other
-  distanceTraveled   Float?
 
   @@index([executiveId])
   @@index([customerId])
@@ -218,7 +202,7 @@ model Visitor {
   inTime       DateTime  @default(now())
   outTime      DateTime?
   hostUserId   String
-  host         User      @relation(fields: [hostUserId], references: [id])
+  host         User      @relation(fields: [hostUserId], references: [id], onDelete: Cascade)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -229,7 +213,7 @@ model Visitor {
 model AuditLog {
   id        String   @id @default(uuid())
   userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   module    String
   action    String
   details   String?  @db.Text
@@ -243,7 +227,7 @@ model AuditLog {
 model PasswordResetToken {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   otp       String
   expiresAt DateTime
   used      Boolean  @default(false)
@@ -257,7 +241,7 @@ model FollowUp {
   customerId      String
   customer        Customer       @relation(fields: [customerId], references: [id])
   assignedUserId  String
-  assignedUser    User           @relation(fields: [assignedUserId], references: [id])
+  assignedUser    User           @relation(fields: [assignedUserId], references: [id], onDelete: Cascade)
   nextMeetingDate DateTime
   remarks         String?        @db.Text
   status          FollowUpStatus @default(Pending)
@@ -282,9 +266,10 @@ model Notification {
   title      String
   message    String   @db.Text
   type       String   // "follow_up", "visit", "system"
+  link       String?  // Optional URL for action linkage
   isRead     Boolean  @default(false)
   createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id])
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([isRead])
@@ -297,5 +282,5 @@ model NotificationPreference {
   emailFollowUp       Boolean @default(true)
   emailVisitorCheckIn Boolean @default(false)
   inAppVisitUpdate    Boolean @default(true)
-  user                User    @relation(fields: [userId], references: [id])
+  user                User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

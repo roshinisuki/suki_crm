@@ -54,6 +54,16 @@ export default function DashboardRouter() {
     return <LeadDashboard data={dashboardData} user={user} loadData={loadData} />;
   }
 
-  // Fallback to Admin Dashboard for Admin or unrecognized roles
-  return <AdminDashboard />;
+  if (user?.role === "Admin") {
+    return <AdminDashboard />;
+  }
+
+  return (
+    <div className="flex items-center justify-center h-[50vh]">
+      <div className="text-center space-y-2">
+        <p className="text-xl font-bold text-slate-800">Access Denied</p>
+        <p className="text-sm text-slate-500">Unrecognized role or unauthorized access.</p>
+      </div>
+    </div>
+  );
 }

@@ -31,13 +31,7 @@ const PRIORITY_OPTIONS = ["Low", "Normal", "High", "Urgent"];
 const MEETING_TYPE_OPTIONS = ["Walk-in", "Scheduled", "Virtual"];
 const DEPARTMENT_OPTIONS = ["Sales", "Support", "Management", "Finance", "Technical"];
 const SOURCE_OPTIONS = ["Walk-in", "Referral", "Cold Call", "Social Media", "Email Campaign", "Website"];
-const DURATION_OPTIONS = [
-  { value: 30, label: "30 min" },
-  { value: 60, label: "1 hour" },
-  { value: 90, label: "1.5 hours" },
-  { value: 120, label: "2 hours" },
-  { value: 180, label: "3 hours" },
-];
+
 
 // Purpose-specific dynamic fields — rendered per purpose
 function DynamicFields({
@@ -230,8 +224,6 @@ export default function InboundCheckInModal({
   const [meetingType, setMeetingType] = useState("Walk-in");
   const [source, setSource] = useState("Walk-in");
   const [department, setDepartment] = useState("");
-  const [expectedDuration, setExpectedDuration] = useState<number | "">(60);
-  const [requiresApproval, setRequiresApproval] = useState(false);
 
   // Section 3 — Purpose + Dynamic
   const [purpose, setPurpose] = useState("New Enquiry");
@@ -248,8 +240,6 @@ export default function InboundCheckInModal({
     setMeetingType("Walk-in");
     setSource("Walk-in");
     setDepartment("");
-    setExpectedDuration(60);
-    setRequiresApproval(false);
     setPurpose("New Enquiry");
     setVisitMetadata({});
     setAgenda("");
@@ -319,18 +309,19 @@ export default function InboundCheckInModal({
         return;
       }
 
+      const metadataStr = Object.keys(visitMetadata).length > 0 
+        ? "\n\nVisit Metadata:\n" + Object.entries(visitMetadata).map(([k, v]) => `${k}: ${v}`).join("\n") 
+        : "";
+
       const res = await checkInInboundAction({
         customerId: finalCustomerId,
         purpose,
-        notes: notes.trim() || undefined,
+        notes: (notes.trim() + metadataStr).trim() || undefined,
         priority,
         meetingType,
         source,
         agenda: agenda.trim() || undefined,
-        expectedDuration: expectedDuration ? Number(expectedDuration) : undefined,
         department: department || undefined,
-        requiresApproval,
-        visitMetadata: Object.keys(visitMetadata).length > 0 ? visitMetadata : undefined,
       });
 
       if (res.success) {
@@ -467,12 +458,7 @@ export default function InboundCheckInModal({
                     {DEPARTMENT_OPTIONS.map(d => <option key={d}>{d}</option>)}
                   </select>
                 </div>
-                <div>
-                  <label className={labelCls}>Expected Duration</label>
-                  <select value={expectedDuration} onChange={e => setExpectedDuration(Number(e.target.value))} className={inputCls}>
-                    {DURATION_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-                  </select>
-                </div>
+
                 <div>
                   <label className={labelCls}>Source</label>
                   <select value={source} onChange={e => setSource(e.target.value)} className={inputCls}>
@@ -497,27 +483,7 @@ export default function InboundCheckInModal({
                 </div>
               </div>
 
-              {/* Approval toggle */}
-              <div className="mt-3">
-                <label className="flex items-center gap-3 cursor-pointer select-none group">
-                  <div
-                    onClick={() => setRequiresApproval(!requiresApproval)}
-                    className={`relative w-10 h-5 rounded-full transition-colors ${requiresApproval ? "bg-amber-500" : "bg-slate-200"}`}
-                  >
-                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${requiresApproval ? "left-5" : "left-0.5"}`} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-700">Requires Manager Approval</p>
-                    <p className="text-[10px] text-slate-400">This visit will be sent for approval before finalizing</p>
-                  </div>
-                </label>
-                {requiresApproval && (
-                  <div className="mt-2 p-3 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-700 font-semibold flex items-center gap-2">
-                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                    This visit will be reviewed by a Marketing Lead or Admin before being finalized.
-                  </div>
-                )}
-              </div>
+
             </div>
 
             <div className="border-t border-slate-100" />

@@ -67,7 +67,8 @@ export async function checkInAction(data: any) {
       data: {
         executiveId: userPayload.id,
         customerId,
-        remarks:     purpose || remarks || notes || null,
+        purpose:     purpose || null,
+        remarks:     remarks || notes || null,
         checkIn:     new Date(),
         checkInLat:  checkInLat ?? null,
         checkInLng:  checkInLng ?? null,

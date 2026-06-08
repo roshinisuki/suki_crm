@@ -20,32 +20,7 @@ export async function getSubscriptionsAction(params?: { customerId?: string; sta
       rbacFilter = { customer: { email: userPayload.email } };
     }
 
-    // 1. Real-time transition of expired active subscriptions
-    const now = new Date();
-    const expiredActive = await prisma.subscription.findMany({
-      where: {
-        status: "Active",
-        endDate: { lt: now }
-      }
-    });
 
-    if (expiredActive.length > 0) {
-      const expiredIds = expiredActive.map(s => s.id);
-      await prisma.subscription.updateMany({
-        where: { id: { in: expiredIds } },
-        data: { status: "Expired" }
-      });
-
-      // Also log audit for each transitioned subscription
-      for (const sub of expiredActive) {
-        await logAudit(
-          "system",
-          "subscription",
-          "update",
-          `Subscription ${sub.id} (Plan: ${sub.planName}) for customer ${sub.customerId} transitioned to Expired automatically (EndDate: ${sub.endDate.toISOString()})`
-        );
-      }
-    }
 
     // 2. Query with adapted filter status (since 'Expiring' is dynamic, query as Active)
     const expiringFilter = status === "Expiring";
@@ -71,7 +46,7 @@ export async function getSubscriptionsAction(params?: { customerId?: string; sta
       if (s.status === "Active") {
         const in30Days = new Date();
         in30Days.setDate(in30Days.getDate() + 30);
-        if (s.endDate <= in30Days && s.endDate >= now) {
+        if (s.endDate <= in30Days && s.endDate >= new Date()) {
           finalStatus = "Expiring";
         }
       }

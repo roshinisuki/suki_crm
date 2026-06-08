@@ -67,6 +67,8 @@ model User {
   auditLogs           AuditLog[]
   passwordResetTokens PasswordResetToken[]
   assignedFollowUps   FollowUp[]
+  notifications       Notification[]
+  notificationPrefs   NotificationPreference?
 
   @@index([role])
   @@index([isActive])
@@ -114,7 +116,7 @@ model CustomerVisit {
   customerId         String
   customer           Customer  @relation(fields: [customerId], references: [id])
   hostedBy           String
-  host               User      @relation(fields: [hostedBy], references: [id])
+  host               User      @relation(fields: [hostedBy], references: [id], onDelete: Cascade)
   purpose            String    // Sales Meeting / Subscription Discussion / Support / Demo / Other
   checkInTime        DateTime  @default(now())
   checkOutTime       DateTime?
@@ -136,7 +138,7 @@ model CustomerVisit {
 model MarketingVisit {
   id                 String    @id @default(uuid())
   executiveId        String
-  executive          User      @relation(fields: [executiveId], references: [id])
+  executive          User      @relation(fields: [executiveId], references: [id], onDelete: Cascade)
   customerId         String
   customer           Customer  @relation(fields: [customerId], references: [id])
   checkIn            DateTime  @default(now())
@@ -177,7 +179,7 @@ model Visitor {
   inTime       DateTime  @default(now())
   outTime      DateTime?
   hostUserId   String
-  host         User      @relation(fields: [hostUserId], references: [id])
+  host         User      @relation(fields: [hostUserId], references: [id], onDelete: Cascade)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -188,7 +190,7 @@ model Visitor {
 model AuditLog {
   id        String   @id @default(uuid())
   userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   module    String
   action    String
   details   String?  @db.NVarChar(Max)
@@ -202,7 +204,7 @@ model AuditLog {
 model PasswordResetToken {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   otp       String
   expiresAt DateTime
   used      Boolean  @default(false)
@@ -216,7 +218,7 @@ model FollowUp {
   customerId      String
   customer        Customer       @relation(fields: [customerId], references: [id])
   assignedUserId  String
-  assignedUser    User           @relation(fields: [assignedUserId], references: [id])
+  assignedUser    User           @relation(fields: [assignedUserId], references: [id], onDelete: Cascade)
   nextMeetingDate DateTime
   remarks         String?        @db.NVarChar(Max)
   status          FollowUpStatus @default(Pending)
@@ -233,4 +235,29 @@ model FollowUp {
   @@index([assignedUserId])
   @@index([status])
   @@index([nextMeetingDate])
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  userId     String
+  title      String
+  message    String   @db.NVarChar(Max)
+  type       String   // "follow_up", "visit", "system"
+  link       String?  // Optional URL for action linkage
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model NotificationPreference {
+  id                  Int     @id @default(autoincrement())
+  userId              String  @unique
+  emailFollowUp       Boolean @default(true)
+  emailVisitorCheckIn Boolean @default(false)
+  inAppVisitUpdate    Boolean @default(true)
+  user                User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

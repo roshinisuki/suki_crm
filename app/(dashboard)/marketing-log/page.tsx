@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { useToast } from "@/components/ToastProvider";
 import { getVisitHistoryAction, editVisitRemarksAction, deleteVisitAction, checkInOutboundAction, checkOutOutboundAction, checkInInboundAction, checkOutInboundAction } from "@/app/actions/visits";
 import { getUsersAction } from "@/app/actions/users";
 import { getCustomersAction } from "@/app/actions/customers";
@@ -86,6 +87,8 @@ export default function MarketingLogPage() {
   // View / Edit modal state
   const [selectedVisit, setSelectedVisit] = useState<any>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const toast = useToast();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [remarksInput, setRemarksInput] = useState("");
 
@@ -151,7 +154,7 @@ export default function MarketingLogPage() {
   const handleOpenEdit = (item: any) => {
     const hoursDiff = (new Date().getTime() - new Date(item.createdAt).getTime()) / (1000 * 60 * 60);
     if (hoursDiff > 24) {
-      alert("Validation: Visit remarks can only be edited within 24 hours of check-in.");
+      toast.error("Validation: Visit remarks can only be edited within 24 hours of check-in.");
       return;
     }
     setSelectedVisit(item);
@@ -179,20 +182,7 @@ export default function MarketingLogPage() {
     }
   };
 
-  const handleDeleteVisit = async (item: any) => {
-    const confirmDelete = window.confirm("Are you absolutely sure you want to delete this visit record? This action cannot be undone.");
-    if (!confirmDelete) return;
-    try {
-      const res = await deleteVisitAction(item.id, item.visitType);
-      if (res.success) {
-        loadData();
-      } else {
-        alert(res.message || "Failed to delete visit record.");
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+
 
 
 
@@ -332,8 +322,126 @@ export default function MarketingLogPage() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col">
+      {/* ── MOBILE CARD VIEW (replaces table on small screens) ─────────────────── */}
+      <div className="md:hidden">
+        {/* Search bar for mobile */}
+        <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-4 flex items-center gap-3 mb-4">
+          <span className="shrink-0 text-slate-400">{icons.search}</span>
+          <input
+            type="text"
+            placeholder="Search visits..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 bg-transparent text-sm focus:outline-none font-medium text-slate-700 placeholder-slate-400"
+          />
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <span className="w-7 h-7 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
+          </div>
+        ) : searchedLogs.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-10 text-center text-slate-400 font-semibold text-sm">
+            No visit logs recorded matching filters
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Active (checked-in) visits pinned to top with prominent checkout */}
+            {searchedLogs.filter(l => !l.checkOutTime).map((l) => {
+              const checkInText = new Date(l.checkInTime).toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" });
+              const isEditable = (new Date().getTime() - new Date(l.createdAt).getTime()) / (1000 * 60 * 60) <= 24;
+              return (
+                <div key={l.id} className="bg-white rounded-2xl border-2 border-amber-300 shadow-sm overflow-hidden">
+                  {/* Active banner */}
+                  <div className="bg-amber-50 px-4 py-2 flex items-center justify-between border-b border-amber-200">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                      <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Active Visit</span>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-md font-bold text-[9px] ${
+                      l.visitType === "Inbound" ? "bg-amber-100 text-amber-800" : "bg-indigo-100 text-indigo-800"
+                    }`}>{l.visitType}</span>
+                  </div>
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-slate-800 text-sm truncate">{l.customerName}</p>
+                        <p className="text-[10px] text-slate-500 font-bold mt-0.5">{l.customerCode}</p>
+                        <p className="text-xs text-slate-600 font-semibold mt-1">{l.purpose}</p>
+                        <p className="text-[10px] text-slate-400 mt-1">Checked in: {checkInText}</p>
+                        {l.executiveName && user?.role !== "MarketingExecutive" && (
+                          <p className="text-[10px] text-slate-400">by {l.executiveName}</p>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <button
+                          onClick={() => openCheckOut(l)}
+                          className="flex items-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-black text-xs rounded-xl transition-colors shadow-sm uppercase tracking-wide"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          Check-Out
+                        </button>
+                        <button
+                          onClick={() => handleOpenDetails(l)}
+                          className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
+                        >
+                          {icons.eye}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Completed visits as compact cards */}
+            {searchedLogs.filter(l => !!l.checkOutTime).map((l) => {
+              const checkInText = new Date(l.checkInTime).toLocaleString("en-IN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" });
+              const checkOutText = new Date(l.checkOutTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+              const isEditable = (new Date().getTime() - new Date(l.createdAt).getTime()) / (1000 * 60 * 60) <= 24;
+              return (
+                <div key={l.id} className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`px-2 py-0.5 rounded-md font-bold text-[9px] ${
+                            l.visitType === "Inbound" ? "bg-amber-100 text-amber-800" : "bg-indigo-100 text-indigo-800"
+                          }`}>{l.visitType}</span>
+                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md font-bold text-[9px] border border-emerald-200">Done</span>
+                        </div>
+                        <p className="font-bold text-slate-800 text-sm truncate">{l.customerName}</p>
+                        <p className="text-[10px] text-slate-500 font-bold">{l.customerCode}</p>
+                        <p className="text-xs text-slate-600 font-semibold mt-0.5">{l.purpose}</p>
+                        <p className="text-[10px] text-slate-400 mt-1">{checkInText} → Out: {checkOutText}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <button
+                          onClick={() => handleOpenDetails(l)}
+                          className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
+                        >
+                          {icons.eye}
+                        </button>
+                        <button
+                          onClick={() => handleOpenEdit(l)}
+                          disabled={!isEditable}
+                          title={isEditable ? "Edit Remarks" : "Expired (24 hr limit)"}
+                          className={`p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors ${!isEditable ? "opacity-30 cursor-not-allowed" : ""}`}
+                        >
+                          {icons.edit}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── DESKTOP TABLE (hidden on mobile) ─────────────────────────────────── */}
+      <div className="hidden md:block bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col">
         <div className="p-5 border-b border-slate-100 flex items-center bg-slate-50/30 relative">
           <span className="absolute left-9 text-slate-400">{icons.search}</span>
           <input
@@ -438,15 +546,7 @@ export default function MarketingLogPage() {
                           >
                             {icons.edit}
                           </button>
-                          {user?.role === "Admin" && (
-                            <button
-                              onClick={() => handleDeleteVisit(l)}
-                              title="Delete Record"
-                              className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
-                            >
-                              {icons.delete}
-                            </button>
-                          )}
+
                         </div>
                       </td>
                     </tr>
@@ -611,6 +711,12 @@ export default function MarketingLogPage() {
         isOpen={isCheckOutOpen}
         onClose={() => setIsCheckOutOpen(false)}
         onSuccess={loadData}
+        onCheckInNext={(type) => {
+          setIsCheckOutOpen(false);
+          if (type === "Outbound") setIsOutboundOpen(true);
+          // Inbound check-in is not available on this page — navigate to dashboard
+          else window.location.href = "/dashboard";
+        }}
         visit={checkoutVisit}
       />
 

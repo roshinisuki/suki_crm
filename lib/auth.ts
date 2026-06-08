@@ -1,7 +1,10 @@
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is missing.");
+}
 const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN || "sukisoftware.com";
 
 export interface TokenPayload {
@@ -32,7 +35,7 @@ export async function verifyAuth(): Promise<TokenPayload | null> {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET as string) as any;
     if (decoded.userId && !decoded.id) {
       decoded.id = decoded.userId;
     }

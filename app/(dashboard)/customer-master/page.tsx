@@ -6,6 +6,8 @@ import { getCustomersAction, createCustomerAction, updateCustomerAction, deleteC
 import { getUsersAction } from "@/app/actions/users";
 import { Customer, User } from "@/types";
 import { useAuth } from "@/components/AuthProvider";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { useToast } from "@/components/ToastProvider";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
   <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -50,12 +52,8 @@ export default function CustomerMasterPage() {
   const [executives, setExecutives] = useState<User[]>([]);
   const [errorMsg, setErrorMsg] = useState("");
   const [formLoading, setFormLoading] = useState(false);
-  const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
-
-  const showToast = (type: "success" | "error", msg: string) => {
-    setToast({ type, msg });
-    setTimeout(() => setToast(null), 4000);
-  };
+  const toast = useToast();
+  const [confirmState, setConfirmState] = useState<{isOpen: boolean; title: string; message: string; action: () => void}>({ isOpen: false, title: "", message: "", action: () => {} });
 
   const [formData, setFormData] = useState({
     id: "",
@@ -172,54 +170,49 @@ export default function CustomerMasterPage() {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
-  const handleDeleteSelected = async () => {
-    if (!confirm(`Are you sure you want to permanently delete ${selectedIds.length} customer(s)? This will erase ALL their visits, subscriptions, and portal access. This action CANNOT be undone.`)) return;
-    
-    setIsDeleting(true);
-    const res = await deleteCustomersAction(selectedIds);
-    setIsDeleting(false);
-    
-    if (res.success) {
-      showToast("success", res.message || "Customers deleted.");
-      setSelectedIds([]);
-      loadCustomers();
-    } else {
-      showToast("error", res.message || "Failed to delete customers.");
-    }
+  const handleDeleteSelected = () => {
+    setConfirmState({
+      isOpen: true,
+      title: "Delete Customers",
+      message: `Are you sure you want to permanently delete ${selectedIds.length} customer(s)? This will erase ALL their visits, subscriptions, and portal access. This action CANNOT be undone.`,
+      action: async () => {
+        setIsDeleting(true);
+        const res = await deleteCustomersAction(selectedIds);
+        setIsDeleting(false);
+        if (res.success) {
+          toast.success(res.message || "Customers deleted.");
+          setSelectedIds([]);
+          loadCustomers();
+        } else {
+          toast.error(res.message || "Failed to delete customers.");
+        }
+      }
+    });
   };
 
-  const handleDeleteOne = async (c: Customer) => {
-    if (!confirm(`Delete "${c.name}" (${c.customerCode})?\n\nThis will permanently erase ALL their visits, subscriptions, and portal access.\n\nThis action CANNOT be undone.`)) return;
-    setIsDeleting(true);
-    const res = await deleteCustomersAction([c.id]);
-    setIsDeleting(false);
-    if (res.success) {
-      showToast("success", `"${c.name}" has been deleted.`);
-      setSelectedIds(prev => prev.filter(x => x !== c.id));
-      loadCustomers();
-    } else {
-      showToast("error", res.message || "Failed to delete customer.");
-    }
+  const handleDeleteOne = (c: Customer) => {
+    setConfirmState({
+      isOpen: true,
+      title: "Delete Customer",
+      message: `Delete "${c.name}" (${c.customerCode})?\n\nThis will permanently erase ALL their visits, subscriptions, and portal access.\n\nThis action CANNOT be undone.`,
+      action: async () => {
+        setIsDeleting(true);
+        const res = await deleteCustomersAction([c.id]);
+        setIsDeleting(false);
+        if (res.success) {
+          toast.success(`"${c.name}" has been deleted.`);
+          setSelectedIds(prev => prev.filter(x => x !== c.id));
+          loadCustomers();
+        } else {
+          toast.error(res.message || "Failed to delete customer.");
+        }
+      }
+    });
   };
 
 
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto">
-
-      {/* Toast */}
-      {toast && (
-        <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-xl text-sm font-semibold border ${
-          toast.type === "success"
-            ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-            : "bg-red-50 border-red-200 text-red-800"
-        }`}>
-          {toast.type === "success"
-            ? <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            : <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          }
-          {toast.msg}
-        </div>
-      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Customer Master</h1>
@@ -391,16 +384,7 @@ export default function CustomerMasterPage() {
                         >
                           Edit Details
                         </button>
-                        {(user?.role === "Admin" || user?.role === "MarketingLead") && c.email && c.status === "Active" && !c.hasActivatedPortal && (
-                          <button
-                            onClick={() => router.push("/user-master")}
-                            title="Go to Users page to activate portal for this customer"
-                            className="text-xs font-semibold text-violet-700 px-3 py-1.5 rounded-lg bg-violet-50 hover:bg-violet-100 border border-violet-200 transition-colors flex items-center gap-1.5"
-                          >
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                            Activate Portal
-                          </button>
-                        )}
+
                         {(user?.role === "Admin" || user?.role === "MarketingLead") && (
                           <button
                             onClick={() => handleDeleteOne(c)}
@@ -553,6 +537,15 @@ export default function CustomerMasterPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={confirmState.action}
+        onCancel={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+        isDestructive={true}
+      />
     </div>
   );
 }
