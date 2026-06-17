@@ -1,0 +1,470 @@
+JUNE 11, 2026 
+SUKI CRM – MANUFACTURING & B2B CRM 
+BUSINESS REQUIREMENT DOCUMENT 
+SURESH KUMAR MANGALARAJ[SUKI SOFT] 
+SUKI SOFTWARE SOLUTIONS PVT LTD 
+SUKI CRM – Manufacturing & B2B CRM 
+Business Requirements Document (BRD) 
+Version 1.0 
+1. Document Information 
+Item     
+Product Name   
+Version     
+Product Type     
+Integration     
+Prepared By     
+Status      
+2. Project Objective 
+: 
+: 
+: 
+: 
+: 
+: 
+: 
+Details 
+SUKI CRM  
+1.0  
+Manufacturing & B2B CRM  
+SUKI ERP  
+Suresh Kumar M 
+Final Requirement Freeze  
+Develop a Manufacturing-focused CRM solution that manages the complete customer 
+acquisition and sales lifecycle from Lead Generation to Purchase Order (PO) Confirmation. 
+Once a Purchase Order is approved, the CRM will automatically transfer the required 
+customer, contact, product and order information to SUKI ERP through API/JSON integration. 
+3. Business Scope 
+Included in CRM 
+o Lead Management 
+o Account Management 
+o Contact Management 
+o Activities & Follow-Ups 
+o RFQ Management 
+o Product Catalogue 
+o Sample Management 
+o Opportunity Management 
+o Quotation Management 
+o Negotiation Management 
+o Purchase Order Management 
+o Customer Visit Management 
+o Competitor Analysis 
+o Key Account Management 
+(Confidential) 
+o Territory Management 
+o Target Management 
+o Forecasting 
+o Reporting 
+o Approval Workflows 
+Excluded from CRM (Handled by ERP) 
+o Purchase 
+o Inventory 
+o Production 
+o MRP 
+o Quality Management 
+o PPAP 
+o Traceability 
+o Finance 
+o Payroll 
+o HRMS 
+o Dispatch 
+o Invoicing 
+o GST 
+o E-Invoicing 
+o E-Way Bill 
+o Costing 
+4. CRM Workflow 
+Lead 
+↓ 
+Account 
+↓ 
+Contact 
+↓ 
+Activities 
+↓ 
+RFQ 
+↓ 
+Sample 
+(Confidential) 
+↓ 
+Opportunity 
+↓ 
+Quotation 
+↓ 
+Negotiation 
+↓ 
+Purchase Order 
+↓ 
+SUKI ERP 
+5. CRM → ERP Integration Flow 
+When Purchase Order Status = Approved 
+System shall: 
+o Generate JSON Payload 
+o Validate Customer Information 
+o Validate Contact Information 
+o Validate Product Information 
+o Validate PO Details 
+o Push Data to ERP API 
+o Receive ERP Reference Number 
+o Update CRM Status 
+o Log Integration History 
+6. Module Structure 
+Dashboard 
+├── My Dashboard 
+└── Sales Manager Dashboard 
+Leads 
+├── All Leads 
+├── New Leads 
+├── Follow-Up Due 
+(Confidential) 
+├── SQL 
+├── Overdue Leads 
+├── Lost Leads 
+└── Duplicate Leads 
+Accounts 
+├── All Accounts 
+├── Active Accounts 
+├── Prospect Accounts 
+└── Inactive Accounts 
+Contacts 
+├── All Contacts 
+├── Technical Contacts 
+├── Purchase Contacts 
+├── Finance Contacts 
+└── Management Contacts 
+Activities 
+├── Calls 
+├── Meetings 
+├── Emails 
+├── WhatsApp 
+├── Notes 
+└── Timeline 
+Tasks 
+├── Pending Tasks 
+├── Completed Tasks 
+├── Overdue Tasks 
+└── Cancelled Tasks 
+(Confidential) 
+Follow Ups 
+├── Pending 
+├── Completed 
+├── Overdue 
+└── Cancelled 
+Customer Visits 
+├── Planned Visits 
+├── Completed Visits 
+├── Missed Visits 
+└── Visit Reports 
+RFQ Management 
+├── New RFQ 
+├── Under Review 
+├── Costing Pending 
+├── Quotation Created 
+└── Closed RFQ 
+Product Catalogue 
+├── Categories 
+├── Products 
+├── Specifications 
+├── Datasheets 
+└── Brochures 
+Sample Management 
+├── New Sample Request 
+├── Under Review 
+├── Sent To Customer 
+├── Approved 
+(Confidential) 
+├── Rejected 
+└── Revisions 
+Sales Pipeline 
+├── All Opportunities 
+├── Qualified 
+├── Requirement Gathering 
+├── Technical Discussion 
+├── Meeting Scheduled 
+├── Demo Conducted 
+├── Overdue 
+└── Rejected 
+Deals 
+├── Active Deals 
+├── On Hold Deals 
+├── Won Deals 
+└── Lost Deals 
+Quotation Management 
+├── Draft 
+├── Sent 
+├── Under Review 
+├── Accepted 
+├── Rejected 
+└── Expired 
+Negotiation Management 
+├── Active Negotiation 
+├── Pending Approval 
+├── Price Revision 
+(Confidential) 
+├── Commercial Discussion 
+├── Won 
+└── Lost 
+Purchase Order Management 
+├── New PO 
+├── Under Validation 
+├── Approved PO 
+├── Rejected PO 
+└── Closed 
+Document Management 
+├── Drawings 
+├── Technical Specifications 
+├── NDA 
+├── Quotations 
+├── Purchase Orders 
+├── Agreements 
+└── Brochures 
+Competitor Management 
+├── Competitors 
+├── Competitor Products 
+├── Lost Deals Analysis 
+└── Win/Loss Analysis 
+Key Account Management 
+├── Strategic Accounts 
+├── Revenue Potential 
+├── Visit Schedule 
+└── Relationship Mapping 
+(Confidential) 
+Territory Management 
+├── Regions 
+├── Sales Territories 
+├── Territory Accounts 
+└── Territory Performance 
+Target Management 
+├── Monthly Targets 
+├── Quarterly Targets 
+├── Yearly Targets 
+└── Achievement Tracking 
+Forecast 
+├── Revenue Forecast 
+├── Opportunity Forecast 
+├── Sales Forecast 
+└── Target vs Achievement 
+Reports 
+├── Lead Report 
+├── Follow-Up Report 
+├── Opportunity Report 
+├── RFQ Report 
+├── Quotation Report 
+├── Negotiation Report 
+├── PO Conversion Report 
+├── Competitor Analysis 
+├── Sales Performance Report 
+├── Visit Report 
+├── Forecast Report 
+(Confidential) 
+└── Target Achievement Report 
+Approval Center 
+├── Quotation Approvals 
+├── Discount Approvals 
+├── Negotiation Approvals 
+└── PO Approvals 
+Settings 
+├── Users 
+├── Roles & Permissions 
+├── Lead Sources 
+├── Pipeline Stages 
+├── Approval Matrix 
+├── Notification Rules 
+├── Email Templates 
+├── WhatsApp Templates 
+├── Competitor Master 
+├── Product Categories 
+├── Loss Reason Master 
+├── Territories 
+└── Custom Fields 
+Variant 1 – Starter CRM 
+Focus: Lead Management & Basic Sales 
+Dashboard 
+├── My Dashboard 
+(Confidential) 
+Leads 
+├── All Leads 
+├── New Leads 
+├── Follow-Up Due 
+├── SQL 
+├── Overdue Leads 
+├── Lost Leads 
+Accounts 
+├── All Accounts 
+├── Active Accounts 
+├── Prospect Accounts 
+Contacts 
+├── All Contacts 
+├── Technical Contacts 
+├── Purchase Contacts 
+Activities 
+├── Calls 
+├── Meetings 
+├── Notes 
+Tasks 
+├── Pending Tasks 
+├── Completed Tasks 
+├── Overdue Tasks 
+Follow Ups 
+├── Pending 
+├── Completed 
+(Confidential) 
+├── Overdue 
+Sales Pipeline 
+├── All Opportunities 
+├── Qualified 
+├── Requirement Gathering 
+├── Meeting Scheduled 
+Deals 
+├── Active Deals 
+├── Won Deals 
+├── Lost Deals 
+Reports 
+├── Lead Report 
+├── Follow-Up Report 
+Settings 
+├── Users 
+├── Roles & Permissions 
+├── Lead Sources 
+Variant 2 – Professional CRM 
+Everything in Starter + 
+Dashboard 
+└── Sales Manager Dashboard 
+Accounts 
+└── Inactive Accounts 
+Contacts 
+├── Finance Contacts 
+(Confidential) 
+└── Management Contacts 
+Activities 
+├── Emails 
+├── WhatsApp 
+└── Timeline 
+Tasks 
+└── Cancelled Tasks 
+Follow Ups 
+└── Cancelled 
+Customer Visits 
+├── Planned Visits 
+├── Completed Visits 
+├── Missed Visits 
+└── Visit Reports 
+Product Catalogue 
+├── Categories 
+├── Products 
+├── Specifications 
+├── Datasheets 
+└── Brochures 
+RFQ Management 
+├── New RFQ 
+├── Under Review 
+├── Costing Pending 
+├── Quotation Created 
+└── Closed RFQ 
+(Confidential) 
+Sales Pipeline 
+├── Technical Discussion 
+├── Demo Conducted 
+├── Overdue 
+└── Rejected 
+Deals 
+└── On Hold Deals 
+Quotation Management 
+├── Draft 
+├── Sent 
+├── Under Review 
+├── Accepted 
+├── Rejected 
+└── Expired 
+Forecast 
+├── Revenue Forecast 
+├── Opportunity Forecast 
+├── Sales Forecast 
+└── Target vs Achievement 
+Reports 
+├── Opportunity Report 
+├── RFQ Report 
+├── Quotation Report 
+├── Sales Performance Report 
+├── Visit Report 
+└── Forecast Report 
+(Confidential) 
+Settings 
+├── Pipeline Stages 
+├── Product Categories 
+└── Custom Fields 
+Variant 3 – Manufacturing CRM 
+Everything in Professional + 
+Sample Management 
+├── New Sample Request 
+├── Under Review 
+├── Sent To Customer 
+├── Approved 
+├── Rejected 
+└── Revisions 
+(Confidential) 
+Negotiation Management 
+├── Active Negotiation 
+├── Pending Approval 
+├── Price Revision 
+├── Commercial Discussion 
+├── Won 
+└── Lost 
+Purchase Order Management 
+├── New PO 
+├── Under Validation 
+├── Approved PO 
+├── Rejected PO 
+└── Closed 
+Document Management 
+├── Drawings 
+├── Technical Specifications 
+├── NDA 
+├── Quotations 
+├── Purchase Orders 
+├── Agreements 
+└── Brochures 
+Approval Center 
+├── Quotation Approvals 
+├── Discount Approvals 
+├── Negotiation Approvals 
+└── PO Approvals 
+(Confidential) 
+Reports 
+├── Negotiation Report 
+└── PO Conversion Report 
+Settings 
+├── Approval Matrix 
+├── Notification Rules 
+├── Email Templates 
+└── WhatsApp Templates 
+Variant 4 – Enterprise Manufacturing CRM 
+Everything in Manufacturing + 
+Competitor Management 
+├── Competitors 
+├── Competitor Products 
+├── Lost Deals Analysis 
+└── Win/Loss Analysis 
+Key Account Management 
+├── Strategic Accounts 
+├── Revenue Potential 
+├── Visit Schedule 
+└── Relationship Mapping 
+(Confidential) 
+Territory Management 
+├── Regions 
+├── Sales Territories 
+├── Territory Accounts 
+└── Territory Performance 
+Target Management 
+├── Monthly Targets 
+├── Quarterly Targets 
+├── Yearly Targets 
+└── Achievement Tracking 
+Reports 
+├── Competitor Analysis 
+└── Target Achievement Report 
+Settings 
+├── Competitor Master 
+├── Loss Reason Master 
+└── Territories 
+(Confidential) 

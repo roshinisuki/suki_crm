@@ -10,8 +10,8 @@ import MobileBottomNav from "@/components/MobileBottomNav";
 import { cn } from "@/lib/ui-utils";
 import {
   LayoutDashboard, Users, CalendarClock, Briefcase, BookUser,
-  CheckSquare, Settings, LogOut, Menu, X, TrendingUp, MapPin, Building,
-  ChevronDown, ChevronUp, FileText, Scale, LineChart, Coins, Building2, ShieldCheck, PieChart, Activity, ContactRound, ListTodo
+  CheckSquare, Settings, LogOut, Menu, X, TrendingUp, Building,
+  ChevronDown, ChevronUp, Building2, ShieldCheck, PieChart, Activity, ContactRound, ListTodo
 } from "lucide-react";
 
 // ─── Nav definitions ─────────────────────────────────────────────────────────
@@ -285,94 +285,87 @@ function SidebarContent({
   const isActive = (item: NavItem) =>
     item.end ? pathname === item.href : pathname.startsWith(item.href);
 
-  // Submenu definitions (Phase 1 CRM Navigation Architecture)
+  // ── BRD Variant 1 — Navigation sub-item definitions ───────────────────────
+
+  // 2. Leads
   const leadSubItems = [
     { href: "/leads", label: "All Leads" },
     { href: "/leads?status=New", label: "New Leads" },
     { href: "/leads?followUp=due", label: "Follow-up Due" },
-    { href: "/leads?status=Qualified", label: "Sales Qualified Leads (SQL)" },
-    { href: "/leads?slaStatus=Breached", label: "Overdue Leads" },
+    { href: "/leads?status=SQL", label: "Sales Qualified Leads (SQL)" },
+    { href: "/leads?status=FollowUpDue", label: "Overdue Leads" },
     { href: "/leads?status=Lost", label: "Lost Leads" },
   ];
 
+  // 3. Accounts
+  const accountsSubItems = [
+    { href: "/customer-master", label: "All Accounts" },
+    { href: "/customer-master?status=ActiveCustomer", label: "Active Accounts" },
+    { href: "/customer-master?status=Prospect", label: "Prospect Accounts" },
+  ];
+
+  // 4. Contacts
+  const contactsSubItems = [
+    { href: "/contacts", label: "All Contacts" },
+    { href: "/contacts?type=Technical", label: "Technical Contacts" },
+    { href: "/contacts?type=Purchase", label: "Purchase Contacts" },
+  ];
+
+  // 5. Activities
   const activitySubItems = [
-    { href: "/activities?status=Pending", label: "Pending Activities" },
-    { href: "/activities?status=Completed", label: "Completed Activities" },
-    { href: "/activities/call-logs", label: "Call Logs" },
+    { href: "/activities/call-logs", label: "Calls" },
+    { href: "/activities?type=Meeting", label: "Meetings" },
+    { href: "/activities?type=Note", label: "Notes" },
   ];
 
-  const visitSubItems = [
-    { href: "/marketing-log", label: "Marketing Visits" },
-    { href: "/visitor-management", label: "Office Visits" },
+  // 6. Tasks
+  const taskSubItems = [
+    { href: "/tasks", label: "All Tasks" },
+    { href: "/tasks?status=Pending", label: "Pending" },
+    { href: "/tasks?status=Completed", label: "Completed" },
+    { href: "/tasks?status=Overdue", label: "Overdue" },
   ];
 
+  // 7. Follow Ups
+  const followUpSubItems = [
+    { href: "/follow-up", label: "All Follow Ups" },
+    { href: "/follow-up?status=Pending", label: "Pending" },
+    { href: "/follow-up?status=Completed", label: "Completed" },
+    { href: "/follow-up?status=Overdue", label: "Overdue" },
+  ];
+
+  // 8. Sales Pipeline — V1 stages only
+  const salesPipelineSubItems = [
+    { href: "/sales-pipeline", label: "All Opportunities" },
+    { href: "/sales-pipeline?stage=SalesOpportunity", label: "Qualified" },
+    { href: "/sales-pipeline?stage=RequirementGathering", label: "Requirement Gathering" },
+    { href: "/sales-pipeline?stage=MeetingScheduled", label: "Meeting Scheduled" },
+  ];
+
+  // 9. Deals
   const dealSubItems = [
     { href: "/deals?status=Active", label: "Active Deals" },
     { href: "/deals?status=Won", label: "Won Deals" },
     { href: "/deals?status=Lost", label: "Lost Deals" },
   ];
 
-  const salesPipelineSections = [
-    {
-      label: "Sales Opportunities",
-      subItems: [
-        { href: "/sales-pipeline", label: "All Sales" },
-        { href: "/sales-pipeline?stage=RequirementGathering", label: "Requirement Gathering" },
-        { href: "/sales-pipeline?stage=PreSalesReview", label: "Pre-Sales Review" },
-        { href: "/sales-pipeline?stage=MeetingScheduled", label: "Meeting Scheduled" },
-        { href: "/sales-pipeline?stage=DemoConducted", label: "Demo Conducted" },
-        { href: "/sales-pipeline?stage=RejectedDemo", label: "Rejected Demo" },
-        { href: "/sales-pipeline?stage=Overdue", label: "Overdue" },
-      ]
-    },
-    {
-      label: "Proposal Management",
-      subItems: [
-        { href: "/proposals", label: "All Proposals" },
-        { href: "/proposals?status=Draft", label: "Draft" },
-        { href: "/proposals?status=Sent", label: "Sent" },
-        { href: "/proposals?status=CustomerReviewing", label: "Customer Reviewing" },
-        { href: "/proposals?status=RevisionRequested", label: "Revision Requested" },
-        { href: "/proposals?status=Accepted", label: "Accepted" },
-        { href: "/proposals?status=Rejected", label: "Rejected" },
-        { href: "/proposals?status=Expired", label: "Expired" },
-      ]
-    },
-    {
-      label: "Negotiations",
-      subItems: [
-        { href: "/negotiations", label: "All Negotiations" },
-        { href: "/negotiations?view=active", label: "Active Negotiations" },
-        { href: "/negotiations?view=approval", label: "Pending Approval" },
-        { href: "/negotiations?view=approved", label: "Approved" },
-        { href: "/negotiations?view=closed", label: "Closed" },
-      ]
-    }
+  // 10. Reports
+  const reportsSubItems = [
+    { href: "/reports", label: "All Reports" },
+    { href: "/reports?type=lead", label: "Lead Report" },
+    { href: "/reports?type=followup", label: "Follow-Up Report" },
   ];
 
-  const accountsSubItems = [
-    { href: "/customer-master", label: "All Accounts" },
-    { href: "/customer-master?status=ActiveCustomer", label: "Active Accounts" },
-    { href: "/customer-master?status=Prospect", label: "Prospect Accounts" },
-    { href: "/customer-master?status=Churned", label: "Inactive Accounts" },
-  ];
-  
+  // User Management (restored exactly as original)
   const userManagementSubItems = [
     { href: "/user-master", label: "Users" },
     { href: "/settings?tab=permissions", label: "Roles & Permissions" },
     { href: "/settings?tab=approval-matrix", label: "Approval Matrix" },
   ];
 
+  // 11. Settings
   const settingsSubItems = [
     { href: "/settings/lead-sources", label: "Lead Sources" },
-    { href: "/settings/pipeline-stages", label: "Pipeline Stages" },
-    { href: "/settings/deal-types", label: "Deal Types" },
-    { href: "/settings/visit-types", label: "Visit Types" },
-    { href: "/settings/lost-reasons", label: "Lost Reasons" },
-    { href: "/settings/subscription-types", label: "Subscription Types" },
-    { href: "/settings/custom-fields", label: "Custom Fields" },
-    { href: "/settings/notifications", label: "Notification Settings" },
-    { href: "/settings/email-templates", label: "Email Templates" },
   ];
 
   return (
@@ -408,24 +401,27 @@ function SidebarContent({
         {/* ── Dashboard ── */}
         <NavLink item={{ href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={17} />, end: true }} active={pathname === "/dashboard"} onClick={onNavClick} collapsed={isCollapsed} />
 
-        {/* ── Internal CRM staff nav (Admin, SalesManager, SalesExecutive) ── */}
+        {/* ── Internal CRM staff nav — BRD Variant 1 order ── */}
         {!loading && user?.role !== "Customer" && user?.role !== "SuperAdmin" && (
           <>
+            {/* 2. Leads */}
             <ExpandableNavSection label="Leads" icon={<Users size={17} />} subItems={leadSubItems} pathname={pathname} onNavClick={onNavClick} />
-            <ExpandableNavSection label="Activities" icon={<Activity size={17} />} subItems={activitySubItems} pathname={pathname} onNavClick={onNavClick} />
-            <NavLink item={{ href: "/contacts", label: "Contacts", icon: <ContactRound size={17} /> }} active={pathname.startsWith("/contacts")} onClick={onNavClick} collapsed={isCollapsed} />
-            <NavLink item={{ href: "/tasks", label: "Tasks", icon: <ListTodo size={17} /> }} active={pathname.startsWith("/tasks")} onClick={onNavClick} collapsed={isCollapsed} />
-            <ExpandableNavSection label="Visits" icon={<MapPin size={17} />} subItems={visitSubItems} pathname={pathname} onNavClick={onNavClick} />
-            <ExpandableNavSection label="Deals" icon={<Briefcase size={17} />} subItems={dealSubItems} pathname={pathname} onNavClick={onNavClick} />
-            
-            {/* The multi-level Sales Pipeline */}
-            <ExpandableGroup label="Sales Pipeline" icon={<TrendingUp size={17} />} sections={salesPipelineSections} pathname={pathname} onNavClick={onNavClick} />
-
-            <NavLink item={{ href: "/forecast", label: "Forecast", icon: <LineChart size={17} /> }} active={pathname.startsWith("/forecast")} onClick={onNavClick} collapsed={isCollapsed} />
-            
+            {/* 3. Accounts */}
             <ExpandableNavSection label="Accounts" icon={<BookUser size={17} />} subItems={accountsSubItems} pathname={pathname} onNavClick={onNavClick} />
-            
-            <NavLink item={{ href: "/reports", label: "Reports", icon: <PieChart size={17} /> }} active={pathname.startsWith("/reports")} onClick={onNavClick} collapsed={isCollapsed} />
+            {/* 4. Contacts */}
+            <ExpandableNavSection label="Contacts" icon={<ContactRound size={17} />} subItems={contactsSubItems} pathname={pathname} onNavClick={onNavClick} />
+            {/* 5. Activities */}
+            <ExpandableNavSection label="Activities" icon={<Activity size={17} />} subItems={activitySubItems} pathname={pathname} onNavClick={onNavClick} />
+            {/* 6. Tasks */}
+            <ExpandableNavSection label="Tasks" icon={<ListTodo size={17} />} subItems={taskSubItems} pathname={pathname} onNavClick={onNavClick} />
+            {/* 7. Follow Ups */}
+            <ExpandableNavSection label="Follow Ups" icon={<CalendarClock size={17} />} subItems={followUpSubItems} pathname={pathname} onNavClick={onNavClick} />
+            {/* 8. Sales Pipeline — V1 stages only */}
+            <ExpandableNavSection label="Sales Pipeline" icon={<TrendingUp size={17} />} subItems={salesPipelineSubItems} pathname={pathname} onNavClick={onNavClick} />
+            {/* 9. Deals */}
+            <ExpandableNavSection label="Deals" icon={<Briefcase size={17} />} subItems={dealSubItems} pathname={pathname} onNavClick={onNavClick} />
+            {/* 10. Reports */}
+            <ExpandableNavSection label="Reports" icon={<PieChart size={17} />} subItems={reportsSubItems} pathname={pathname} onNavClick={onNavClick} />
           </>
         )}
 
@@ -448,7 +444,7 @@ function SidebarContent({
           </>
         )}
 
-        {/* ── Settings & Admin (Internal CRM) ── */}
+        {/* ── System Management (Admin/SalesManager) ── */}
         {!loading && ["Admin", "SalesManager"].includes(user?.role ?? "") && (
           <>
             <div className="pt-4 pb-2 border-t border-white/[0.06] mt-4">

@@ -13,18 +13,10 @@ import { ArrowLeft, CheckCircle, Clock, Save, LayoutTemplate, Briefcase, FileTex
 const STAGES = {
   SalesOpportunity: "New Opportunity",
   RequirementGathering: "Requirement Gathering",
-  PreSalesReview: "Pre-Sales Review",
   MeetingScheduled: "Meeting Scheduled",
-  DemoConducted: "Demo Conducted",
-  RejectedDemo: "Rejected Demo",
-  ProposalSent: "Proposal Sent",
-  ApprovalQueue: "Approval Queue",
-  ActiveNegotiation: "Negotiation",
-  Won: "Closed Won",
-  Lost: "Closed Lost"
 };
 
-const MODULES_LIST = ["Leads Management", "Contacts Management", "Sales Pipeline", "Follow-Ups", "Proposal Management", "Reports & Analytics", "Marketing", "Inventory", "Asset Management", "Custom Module"];
+const MODULES_LIST = ["Leads Management", "Contacts Management", "Sales Pipeline", "Follow-Ups", "Reports & Analytics", "Custom Module"];
 const PAIN_POINTS_LIST = ["No CRM System", "Manual Excel Tracking", "Poor Follow-up Tracking", "No Reporting", "No Customer Visibility", "Other"];
 const INTEGRATIONS_LIST = ["WhatsApp", "Email", "ERP", "Tally", "SAP", "API Integration", "Other"];
 const TIMELINE_OPTIONS = ["Immediate", "1 Month", "3 Months", "6 Months", "Later"];
@@ -171,35 +163,12 @@ export default function OpportunityWorkspacePage({ params }: { params: Promise<{
                     Requirements Completed <ChevronRight size={16} className="ml-1 inline" />
                   </button>
                 )}
-                {deal.status === "PreSalesReview" && (
-                  <>
-                    <button onClick={() => handleAdvanceStage("RequirementGathering")} disabled={isSubmitting} className="btn-secondary text-sm border-amber-200 text-amber-700 hover:bg-amber-50">
-                      Request More Info
-                    </button>
-                    <button onClick={() => setShowMeetingModal(true)} disabled={isSubmitting} className="btn-primary text-sm shadow-sm bg-teal-600 hover:bg-teal-700">
-                      Schedule Customer Meeting <ChevronRight size={16} className="ml-1 inline" />
-                    </button>
-                  </>
-                )}
                 {deal.status === "MeetingScheduled" && (
-                  <button onClick={() => setShowDemoModal(true)} disabled={isSubmitting} className="btn-primary text-sm shadow-sm bg-purple-600 hover:bg-purple-700">
-                    Conduct Demo <ChevronRight size={16} className="ml-1 inline" />
+                  <button onClick={() => handleAdvanceStage("Active")} disabled={isSubmitting} className="btn-primary text-sm shadow-sm bg-emerald-600 hover:bg-emerald-700">
+                    Convert to Active Deal <ChevronRight size={16} className="ml-1 inline" />
                   </button>
                 )}
-                {deal.status === "DemoConducted" && (
-                  <>
-                    <button onClick={() => setShowRejectModal(true)} disabled={isSubmitting} className="btn-secondary text-sm border-rose-200 text-rose-700 hover:bg-rose-50">
-                      Reject
-                    </button>
-                    <button onClick={() => handleAdvanceStage("RequirementGathering")} disabled={isSubmitting} className="btn-secondary text-sm border-amber-200 text-amber-700 hover:bg-amber-50">
-                      Rework
-                    </button>
-                    <button onClick={() => handleAdvanceStage("ProposalSent")} disabled={isSubmitting} className="btn-primary text-sm shadow-sm bg-emerald-600 hover:bg-emerald-700">
-                      Accept & Send Proposal <ChevronRight size={16} className="ml-1 inline" />
-                    </button>
-                  </>
-                )}
-                {deal.status !== "RequirementGathering" && deal.status !== "PreSalesReview" && deal.status !== "MeetingScheduled" && deal.status !== "DemoConducted" && (
+                {deal.status !== "RequirementGathering" && deal.status !== "MeetingScheduled" && (
                   <span className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold uppercase tracking-wide flex items-center gap-1">
                     <CheckCircle size={14} /> Stage: {(STAGES as any)[deal.status] || deal.status}
                   </span>
@@ -222,7 +191,7 @@ export default function OpportunityWorkspacePage({ params }: { params: Promise<{
               { id: "tech_req", label: "Technical Requirements" },
               { id: "commercial_info", label: "Commercial Info" },
               { id: "internal_notes", label: "Internal Notes" },
-              { id: "presales_review", label: "Pre-Sales Review", reqStatus: ["PreSalesReview", "MeetingScheduled", "DemoConducted", "RejectedDemo", "ProposalSent", "Won"] }
+              { id: "presales_review", label: "Meeting Notes", reqStatus: ["MeetingScheduled"] }
             ]
             .filter(tab => !tab.reqStatus || tab.reqStatus.includes(deal.status))
             .map(tab => (
@@ -498,10 +467,8 @@ export default function OpportunityWorkspacePage({ params }: { params: Promise<{
                 {[
                   { key: "SalesOpportunity", label: "Opportunity Created", done: true },
                   { key: "RequirementGathering", label: "Requirement Gathering", active: deal.status === "RequirementGathering", done: deal.status !== "RequirementGathering" && deal.status !== "SalesOpportunity" },
-                  { key: "PreSalesReview", label: "Pre-Sales Review", active: deal.status === "PreSalesReview", done: ["MeetingScheduled","DemoConducted","ProposalSent","Won"].includes(deal.status) },
-                  { key: "MeetingScheduled", label: "Meeting Scheduled", active: deal.status === "MeetingScheduled", done: ["DemoConducted","ProposalSent","Won"].includes(deal.status) },
-                  { key: "DemoConducted", label: "Demo Conducted", active: deal.status === "DemoConducted", done: ["ProposalSent","Won"].includes(deal.status) },
-                  { key: "ProposalSent", label: "Proposal Sent", active: deal.status === "ProposalSent", done: ["Won"].includes(deal.status) }
+                  { key: "MeetingScheduled", label: "Meeting Scheduled", active: deal.status === "MeetingScheduled", done: deal.status === "Active" },
+                  { key: "Active", label: "Active Deal", active: deal.status === "Active", done: false }
                 ].map((step, i) => (
                   <div key={step.key} className="relative flex items-center gap-3">
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 z-10 ${step.done ? "bg-emerald-500 text-white" : step.active ? "bg-indigo-600 text-white shadow-md ring-4 ring-indigo-50" : "bg-slate-200 text-slate-400"}`}>

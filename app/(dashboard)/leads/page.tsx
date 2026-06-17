@@ -18,19 +18,11 @@ import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { getInitials, getAvatarColor, formatDate, cn } from "@/lib/ui-utils";
 import {
   Plus, Search, Download, Eye, Pencil, Trash2, Filter,
-  Users, Phone, CheckCircle, XCircle, ShieldAlert,
+  Users, Phone, CheckCircle, XCircle,
 } from "lucide-react";
 
-const LEAD_STATUSES = ["New", "Contacted", "Qualified", "Converted", "Lost"];
+const LEAD_STATUSES = ["New", "Contacted", "FollowUpDue", "SQL", "Qualified", "Converted", "Lost"];
 const LEAD_SOURCES  = ["Website", "Facebook", "Instagram", "LinkedIn", "Referral", "WalkIn", "ColdCall", "Partner"];
-const SLA_STATUSES  = ["Pending", "Warning", "Breached", "Met"];
-
-const SLA_DOT: Record<string, string> = {
-  Pending: "bg-amber-400",
-  Warning: "bg-orange-500",
-  Breached: "bg-red-600",
-  Met: "bg-green-500",
-};
 
 const emptyForm = {
   id: "", leadCode: "", name: "", email: "",
@@ -49,11 +41,11 @@ export default function LeadsPage() {
   const [dbLeadSources, setDbLeadSources] = useState<any[]>([]);
   const [loading,    setLoading]    = useState(true);
 
-  const [search,      setSearch]      = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [slaFilter,   setSlaFilter]   = useState("");
-  const [dateFrom,    setDateFrom]    = useState("");
-  const [dateTo,      setDateTo]      = useState("");
+  const [search,         setSearch]         = useState("");
+  const [statusFilter,   setStatusFilter]   = useState("");
+  const [fuStatusFilter, setFuStatusFilter] = useState("");
+  const [dateFrom,       setDateFrom]       = useState("");
+  const [dateTo,         setDateTo]         = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData,    setFormData]    = useState(emptyForm);
@@ -65,14 +57,12 @@ export default function LeadsPage() {
     isOpen: false, title: "", message: "", action: () => {},
   });
 
-  const statusParam = searchParams ? searchParams.get("status") : null;
-  const slaParam = searchParams ? searchParams.get("slaStatus") : null;
+  const statusParam  = searchParams ? searchParams.get("status") : null;
   const followUpParam = searchParams ? searchParams.get("followUp") : null;
 
   useEffect(() => {
     setStatusFilter(statusParam || "");
-    setSlaFilter(slaParam || "");
-  }, [statusParam, slaParam]);
+  }, [statusParam]);
 
   // ── Load data ─────────────────────────────────────────────────────────────
 
@@ -82,7 +72,6 @@ export default function LeadsPage() {
       const params: any = {};
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
-      if (slaFilter) params.slaStatus = slaFilter;
       const res = await getLeadsAction(params);
       if (res.success && res.data) setLeads(res.data as any);
     } finally {
@@ -105,27 +94,45 @@ export default function LeadsPage() {
     }
   };
 
-  useEffect(() => { loadLeads(); }, [search, statusFilter, slaFilter]);
+  useEffect(() => { loadLeads(); }, [search, statusFilter]);
   useEffect(() => { loadExecutives(); loadLeadSources(); }, [user]);
 
   // ── Filtered data ─────────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
+    const now = new Date();
     return leads.filter(l => {
       if (dateFrom && l.createdAt && new Date(l.createdAt) < new Date(dateFrom)) return false;
       if (dateTo   && l.createdAt && new Date(l.createdAt) > new Date(dateTo + "T23:59:59")) return false;
-      
+
       if (followUpParam === "due") {
-        const hasDueFollowUp = (l as any).followUps?.some((f: any) => {
-          const isPending = f.status === "Pending";
-          const isOverdue = new Date(f.nextMeetingDate) <= new Date();
-          return isPending && isOverdue;
-        });
+        // Terminal statuses have no follow-up queue
+        if (l.status === "Lost" || l.status === "Converted") return false;
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const hasDueFollowUp = (l as any).followUps?.some((f: any) =>
+          f.status === "Pending" && new Date(f.nextMeetingDate) >= startOfToday
+        );
         if (!hasDueFollowUp) return false;
       }
+
+      if (fuStatusFilter === "pending") {
+        const hasPending = (l as any).followUps?.some((f: any) =>
+          f.status === "Pending" && new Date(f.nextMeetingDate) > now
+        );
+        if (!hasPending) return false;
+      } else if (fuStatusFilter === "overdue") {
+        const hasOverdue = (l as any).followUps?.some((f: any) =>
+          f.status === "Pending" && new Date(f.nextMeetingDate) <= now
+        );
+        if (!hasOverdue) return false;
+      } else if (fuStatusFilter === "completed") {
+        const allDone = (l as any).followUps?.every((f: any) => f.status !== "Pending");
+        if (!allDone) return false;
+      }
+
       return true;
     });
-  }, [leads, dateFrom, dateTo, followUpParam]);
+  }, [leads, dateFrom, dateTo, followUpParam, fuStatusFilter]);
 
   const { page, setPage, totalPages, paged, total } = usePagination(filtered, 10);
 
@@ -134,7 +141,7 @@ export default function LeadsPage() {
   const kpiTotal     = leads.length;
   const kpiContacted = leads.filter(l => l.status === "Contacted").length;
   const kpiQualified = leads.filter(l => l.status === "Qualified").length;
-  const kpiBreached  = leads.filter(l => (l as any).slaStatus === "Breached").length;
+  const kpiOverdue   = leads.filter(l => l.status === "FollowUpDue").length;
 
   // ── Form handlers ─────────────────────────────────────────────────────────
 
@@ -268,10 +275,10 @@ export default function LeadsPage() {
           variant="light"
         />
         <SummaryCard
-          label="SLA Breached"
-          value={kpiBreached}
-          subtitle="Needs immediate action"
-          icon={<ShieldAlert size={20} />}
+          label="Overdue Leads"
+          value={kpiOverdue}
+          subtitle="Follow-up past due"
+          icon={<XCircle size={20} />}
           variant="orange"
         />
       </div>
@@ -305,15 +312,18 @@ export default function LeadsPage() {
               {LEAD_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
 
-            {/* SLA filter */}
+            {/* Follow-Up Status filter */}
             <select
-              value={slaFilter}
-              onChange={e => { setSlaFilter(e.target.value); setPage(1); }}
+              value={fuStatusFilter}
+              onChange={e => { setFuStatusFilter(e.target.value); setPage(1); }}
               className="px-3 py-2 text-sm rounded-xl bg-surface-2 border border-theme text-theme-secondary focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] cursor-pointer"
             >
-              <option value="">All SLA</option>
-              {SLA_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+              <option value="">All Follow-Up</option>
+              <option value="pending">Follow-Up Pending</option>
+              <option value="overdue">Follow-Up Overdue</option>
+              <option value="completed">Follow-Up Completed</option>
             </select>
+
 
             {/* Date from */}
             <input
@@ -356,7 +366,6 @@ export default function LeadsPage() {
                 <th className="crm-th">Phone No</th>
                 <th className="crm-th">Email ID</th>
                 <th className="crm-th">Status</th>
-                <th className="crm-th">SLA</th>
                 <th className="crm-th">Assigned To</th>
                 <th className="crm-th">Created On</th>
                 <th className="crm-th text-right">Action</th>
@@ -365,7 +374,7 @@ export default function LeadsPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="crm-td text-center py-12">
+                  <td colSpan={8} className="crm-td text-center py-12">
                     <div className="flex flex-col items-center gap-2 text-slate-400">
                       <div className="spinner-brand" />
                       <span className="text-xs font-medium">Loading leads...</span>
@@ -374,7 +383,7 @@ export default function LeadsPage() {
                 </tr>
               ) : paged.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="crm-td text-center py-16">
+                  <td colSpan={8} className="crm-td text-center py-16">
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
                         <Users size={28} className="text-slate-300" />
@@ -414,21 +423,6 @@ export default function LeadsPage() {
                     <td className="crm-td text-theme-muted text-xs">{l.email || "—"}</td>
                     <td className="crm-td">
                       <StatusBadge status={l.status} />
-                    </td>
-                    <td className="crm-td">
-                      {(l as any).slaStatus ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className={cn("w-2 h-2 rounded-full shrink-0", SLA_DOT[(l as any).slaStatus] || "bg-slate-300")} />
-                          <span className={cn(
-                            "text-xs font-semibold",
-                            (l as any).slaStatus === "Breached" ? "text-red-500" :
-                            (l as any).slaStatus === "Warning"  ? "text-orange-500" :
-                            (l as any).slaStatus === "Met"      ? "text-emerald-500" : "text-amber-500"
-                          )}>
-                            {(l as any).slaStatus}
-                          </span>
-                        </div>
-                      ) : "—"}
                     </td>
                     <td className="crm-td text-theme-secondary text-sm">{l.assignedUser?.name || "Unassigned"}</td>
                     <td className="crm-td text-theme-muted text-xs whitespace-nowrap">{formatDate(l.createdAt)}</td>

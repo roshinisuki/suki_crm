@@ -50,7 +50,7 @@ export function SalesKpiCards({ kpis }: { kpis: any }) {
           <h3 className="text-3xl font-black text-slate-800">{kpis.openDeals}</h3>
           <p className="text-[10px] font-bold mt-1.5 flex items-center gap-1 text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md w-fit">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-            Negotiation Stage
+            In Pipeline
           </p>
         </div>
         <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
@@ -605,17 +605,17 @@ export function SalesPipelineWidget({
   const stages = [
     { label: "Prospecting", count: 0, pct: 0, revenue: "" },
     { label: "Qualified", count: 0, pct: 0, revenue: "" },
-    { label: "Proposal", count: 0, pct: 0, revenue: "" },
-    { label: "Negotiation", count: 0, pct: 0, revenue: "" },
+    { label: "Meeting", count: 0, pct: 0, revenue: "" },
+    { label: "Active", count: 0, pct: 0, revenue: "" },
     { label: "Won", count: 0, pct: 0, revenue: "" }
   ];
 
   if (funnel && funnel.length > 0) {
-    stages[0].count = (funnel.find((f: any) => f.stage === "New Lead")?.count || 0) + 
+    stages[0].count = (funnel.find((f: any) => f.stage === "New Lead")?.count || 0) +
                       (funnel.find((f: any) => f.stage === "Contacted")?.count || 0);
     stages[1].count = funnel.find((f: any) => f.stage === "Qualified")?.count || 0;
-    stages[2].count = funnel.find((f: any) => f.stage === "Proposal Sent")?.count || 0;
-    stages[3].count = funnel.find((f: any) => f.stage === "Negotiation")?.count || 0;
+    stages[2].count = funnel.find((f: any) => f.stage === "Meeting Scheduled")?.count || 0;
+    stages[3].count = funnel.find((f: any) => f.stage === "Active Deal")?.count || 0;
     stages[4].count = funnel.find((f: any) => f.stage === "Closed Won")?.count || 0;
   }
 

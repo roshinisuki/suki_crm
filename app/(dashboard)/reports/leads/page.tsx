@@ -209,10 +209,10 @@ function LeadReportContent() {
                 <option value="All">All Statuses</option>
                 <option value="New">New</option>
                 <option value="Contacted">Contacted</option>
+                <option value="FollowUpDue">Follow Up Due</option>
+                <option value="SQL">SQL</option>
                 <option value="Qualified">Qualified</option>
-                <option value="Proposal">Proposal</option>
-                <option value="Negotiation">Negotiation</option>
-                <option value="Won">Won</option>
+                <option value="Converted">Converted</option>
                 <option value="Lost">Lost</option>
               </select>
             </div>
@@ -297,10 +297,14 @@ function LeadReportContent() {
                       <td className="crm-td px-5 py-4 font-bold text-slate-800 text-sm">{item.name}</td>
                       <td className="crm-td px-5 py-4">
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
-                          item.status === "Won"
+                          item.status === "Converted"
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                             : item.status === "Lost"
                             ? "bg-red-50 text-red-700 border-red-200"
+                            : item.status === "SQL"
+                            ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                            : item.status === "FollowUpDue"
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
                             : "bg-blue-50 text-blue-700 border-blue-200"
                         }`}>
                           {item.status}

@@ -173,7 +173,7 @@ export async function createDealAction(data: {
       return { success: false, message: "Unauthorized: SuperAdmin must access business data via support/impersonation mode." };
     }
 
-    const { dealName, customerId, dealValue, expectedCloseDate, assignedUserId, notes, status = "Open" } = data;
+    const { dealName, customerId, dealValue, expectedCloseDate, assignedUserId, notes, status = "Active" } = data;
 
     if (!dealName || !customerId || !expectedCloseDate || dealValue === undefined) {
       return { success: false, message: "Required fields are missing" };
@@ -463,28 +463,11 @@ export async function updateDealStatusAction(id: string, status: string, lostRea
 
       if (!existingDeal) throw new Error("Deal not found in transaction");
 
-      // Stage-gate Validation
+      // Stage-gate Validation (BRD Variant 1 only)
       const details = existingDeal.opportunityDetail;
-      if (status === "PreSalesReview") {
-        if (!details || !details.budgetRange || !details.timeline || !details.decisionMaker || !details.modulesRequired) {
-          throw new Error("Validation Failed: Must complete required fields (Budget, Timeline, Decision Maker, Modules) in Requirement Gathering first.");
-        }
-      } else if (status === "MeetingScheduled") {
+      if (status === "MeetingScheduled") {
         if (!details || !details.meetingDate || !details.meetingMode || !details.meetingParticipants || !details.meetingAgenda) {
           throw new Error("Validation Failed: Must complete Meeting Details (Date, Mode, Participants, Agenda).");
-        }
-      } else if (status === "DemoConducted") {
-        if (!details || details.meetingStatus !== "Completed" || !details.meetingOutcome) {
-          throw new Error("Validation Failed: Must complete Meeting Status and Outcome Notes first.");
-        }
-      } else if (status === "ProposalSent") {
-        // Can only move to Proposal Sent if demo is accepted/interested
-        if (existingDeal.status === "DemoConducted" && (!details || !details.demoCustomerRating || !details.demoInterestLevel)) {
-          throw new Error("Validation Failed: Must submit Demo Feedback first.");
-        }
-      } else if (status === "RejectedDemo") {
-        if (!details || !details.demoRejectionReason) {
-          throw new Error("Validation Failed: Must provide a rejection reason.");
         }
       }
 
@@ -494,31 +477,25 @@ export async function updateDealStatusAction(id: string, status: string, lostRea
         dataUpdate.lostReason = lostReason;
       }
 
-      let targetStatus = status;
-      if (status === "Won") {
-        targetStatus = "SalesOpportunity";
-        dataUpdate.status = "SalesOpportunity";
-      }
-
       const deal = await tx.deal.update({
         where: { id },
         data: dataUpdate
       });
 
       // Log transition
-      if (existingDeal && existingDeal.status !== targetStatus) {
+      if (existingDeal && existingDeal.status !== status) {
         await tx.dealStageHistory.create({
           data: {
             dealId: deal.id,
             fromStatus: existingDeal.status,
-            toStatus: targetStatus as any,
+            toStatus: status as any,
             changedById: userPayload.id
           }
         });
       }
 
       // 2. Sync Customer status if Won
-      if (status === "Won" || targetStatus === "SalesOpportunity") {
+      if (status === "Won") {
         await tx.customer.update({
           where: { id: deal.customerId },
           data: { status: "ActiveCustomer" }
@@ -652,11 +629,14 @@ export async function restoreDealAction(id: string) {
   }
 }
 
-export async function requestDiscountAction(data: {
+export async function requestDiscountAction(_data: {
   dealId: string;
   discountPercent: number;
   notes?: string;
 }) {
+  // Discount Approval workflow is a Variant 2+ feature — disabled in Variant 1 (VIO-03)
+  return { success: false, message: "Discount approval workflow is not available in Variant 1." };
+  // eslint-disable-next-line no-unreachable
   try {
     const userPayload = await verifyAuth();
     if (!userPayload || !["Admin", "SalesManager", "SalesExecutive"].includes(userPayload.role)) {
@@ -703,10 +683,10 @@ export async function requestDiscountAction(data: {
         },
       });
 
-      // Transition deal status → ApprovalQueue (records stage history automatically)
-      await transitionDealStatus(dealId, "ApprovalQueue", {
+      // Transition deal status (approval workflow disabled in V1 \u2014 kept as Active)
+      await transitionDealStatus(dealId, "Active", {
         actorId: userPayload.id,
-        reason: `Discount of ${discountPercent}% requested — pending manager approval`,
+        reason: `Discount of ${discountPercent}% requested`,
       });
 
       // Create entry in ApprovalHistory, store previous status for rollback
@@ -846,10 +826,10 @@ export async function resolveDiscountAction(data: {
         },
       });
 
-      // Advance deal to ActiveNegotiation after approval (discount applied, negotiation continues)
-      await transitionDealStatus(dealId, "ActiveNegotiation", {
+      // Advance deal to Active after approval
+      await transitionDealStatus(dealId, "Active", {
         actorId: userPayload.id,
-        reason: `Discount of ${deal.discountPercent}% approved — advancing to active negotiation`,
+        reason: `Discount of ${deal.discountPercent}% approved`,
       });
 
       // Find pending ApprovalHistory and update
@@ -907,7 +887,7 @@ export async function resolveDiscountAction(data: {
         select: { id: true, previousStatus: true },
       });
 
-      const restoredStatus = (pendingApprovalForReject?.previousStatus as any) ?? "ActiveNegotiation";
+      const restoredStatus = (pendingApprovalForReject?.previousStatus as any) ?? "Active";
 
       await prisma.deal.update({
         where: { id: dealId },

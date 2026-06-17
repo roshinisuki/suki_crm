@@ -13,15 +13,7 @@ import { Search, Filter, Briefcase, TrendingUp, AlertTriangle, CheckCircle, Cloc
 const STAGES = {
   SalesOpportunity: "New Opportunity",
   RequirementGathering: "Requirement Gathering",
-  PreSalesReview: "Pre-Sales Review",
   MeetingScheduled: "Meeting Scheduled",
-  DemoConducted: "Demo Conducted",
-  RejectedDemo: "Rejected Demo",
-  ProposalSent: "Proposal Sent",
-  ApprovalQueue: "Approval Queue",
-  ActiveNegotiation: "Negotiation",
-  Won: "Closed Won",
-  Lost: "Closed Lost"
 };
 
 export default function SalesOpportunitiesPage() {
@@ -115,12 +107,7 @@ export default function SalesOpportunitiesPage() {
               <option value="">All Stages</option>
               <option value="SalesOpportunity">New Opportunity</option>
               <option value="RequirementGathering">Requirement Gathering</option>
-              <option value="PreSalesReview">Pre-Sales Review</option>
               <option value="MeetingScheduled">Meeting Scheduled</option>
-              <option value="DemoConducted">Demo Conducted</option>
-              <option value="RejectedDemo">Rejected Demo</option>
-              <option value="ProposalSent">Proposal Sent</option>
-              <option value="Overdue">Overdue</option>
             </select>
           </div>
         </div>
@@ -180,10 +167,6 @@ export default function SalesOpportunitiesPage() {
                         ) : deal.status === "RequirementGathering" ? (
                           <span className="px-2.5 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200">
                             Draft (Req Gathering)
-                          </span>
-                        ) : deal.status === "PreSalesReview" ? (
-                          <span className="px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-lg border border-amber-200">
-                            Under Review
                           </span>
                         ) : (
                           <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg border border-slate-200">

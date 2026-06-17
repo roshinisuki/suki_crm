@@ -5,7 +5,7 @@ import { verifyAuth } from "@/lib/auth";
 import { logAudit, computeDiff, inferSeverity } from "@/lib/audit";
 import { dispatchNotification, dispatchNotificationsToMany } from "@/lib/notifications";
 import { revalidatePath } from "next/cache";
-type LeadStatus = "New" | "Contacted" | "Qualified" | "Proposal" | "Negotiation" | "Won" | "Lost";
+type LeadStatus = "New" | "Contacted" | "FollowUpDue" | "SQL" | "Qualified" | "Converted" | "Lost";
 type LeadSource = "Website" | "Referral" | "SocialMedia" | "Email" | "Event" | "ColdCall" | "Partner" | "Other";
 import { buildScope, checkRecordScope } from "@/lib/scopes";
 
@@ -59,7 +59,15 @@ export async function getLeadsAction(filters?: {
       orderBy: { createdAt: "desc" },
     });
 
-    return { success: true, data: leads };
+    // BRD V1: coerce any legacy forbidden statuses to Qualified on read
+    const FORBIDDEN_LEAD_STATUSES = ["ProposalSent", "Negotiation", "ActiveNegotiation"];
+    const sanitized = leads.map(l =>
+      FORBIDDEN_LEAD_STATUSES.includes(l.status)
+        ? { ...l, status: "Qualified" }
+        : l
+    );
+
+    return { success: true, data: sanitized };
   } catch (error) {
     console.error("Get Leads Error:", error);
     return { success: false, message: "Failed to fetch leads." };
@@ -126,7 +134,13 @@ export async function getLeadByIdAction(id: string) {
       return { success: false, message: "Lead not found (deleted)." };
     }
 
-    return { success: true, data: lead };
+    // BRD V1: coerce legacy forbidden statuses on read
+    const FORBIDDEN_LEAD_STATUSES = ["ProposalSent", "Negotiation", "ActiveNegotiation"];
+    const sanitized = FORBIDDEN_LEAD_STATUSES.includes(lead.status)
+      ? { ...lead, status: "Qualified" }
+      : lead;
+
+    return { success: true, data: sanitized };
   } catch (error) {
     console.error("Get Lead By ID Error:", error);
     return { success: false, message: "Failed to fetch lead details." };
@@ -254,6 +268,12 @@ export async function updateLeadAction(
     // Tenant check: SuperAdmin supportMode check
     if (userPayload.role === "SuperAdmin" && (!userPayload.supportMode || !userPayload.companyId)) {
       return { success: false, message: "Unauthorized: SuperAdmin must access business data via support/impersonation mode." };
+    }
+
+    // BRD V1: reject forbidden lead status values
+    const FORBIDDEN_LEAD_STATUSES = ["ProposalSent", "Negotiation", "ActiveNegotiation"];
+    if (data.status && FORBIDDEN_LEAD_STATUSES.includes(data.status)) {
+      return { success: false, message: `Lead status "${data.status}" is not valid in Variant 1.` };
     }
 
     const lead = await prisma.lead.findUnique({ where: { id } });

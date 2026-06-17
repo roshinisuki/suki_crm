@@ -60,11 +60,11 @@ async function main() {
   const passwordHash = await bcrypt.hash("password123", 10);
   const usersData = [
     { email: "admin@sukisoftware.com", name: "System Admin", role: "Admin" },
-    { email: "lead@sukisoftware.com", name: "Sarah Lead", role: "SalesManager" },
-    { email: "exec1@sukisoftware.com", name: "John Executive", role: "SalesExecutive" },
-    { email: "exec2@sukisoftware.com", name: "Emma Executive", role: "SalesExecutive" },
-    { email: "exec3@sukisoftware.com", name: "Michael Exec", role: "SalesExecutive" },
-    { email: "exec4@sukisoftware.com", name: "Sophia Exec", role: "SalesExecutive" },
+    { email: "lead@sukisoftware.com", name: "Vikram Iyer", role: "SalesManager" },
+    { email: "exec1@sukisoftware.com", name: "Arjun Mehta", role: "SalesExecutive" },
+    { email: "exec2@sukisoftware.com", name: "Priya Nair", role: "SalesExecutive" },
+    { email: "exec3@sukisoftware.com", name: "Karthik Reddy", role: "SalesExecutive" },
+    { email: "exec4@sukisoftware.com", name: "Deepa Krishnan", role: "SalesExecutive" },
   ];
   const createdUsers: Record<string, any> = {};
   for (const u of usersData) {
@@ -91,16 +91,16 @@ async function main() {
   // ---- Customers ----
   console.log("Seeding customers...");
   const customersData = [
-    { code: "CUST-001", name: "Tech Innovators Inc.", email: "contact@techinnovators.com", phone: "555-1001", city: "New York", status: "Active" },
-    { code: "CUST-002", name: "Global Solutions LLC", email: "contact@globalsolutions.com", phone: "555-1002", city: "San Francisco", status: "Active" },
-    { code: "CUST-003", name: "Alpha Retailers", email: "contact@alpharetail.com", phone: "555-1003", city: "Chicago", status: "Active" },
-    { code: "CUST-004", name: "Beta Logistics", email: "contact@beta.com", phone: "555-1004", city: "Miami", status: "Active" },
-    { code: "CUST-005", name: "Gamma Healthcare", email: "contact@gamma.com", phone: "555-1005", city: "Boston", status: "Inactive" },
-    { code: "CUST-006", name: "Delta Manufacturing", email: "contact@delta.com", phone: "555-1006", city: "Seattle", status: "Active" },
-    { code: "CUST-007", name: "Epsilon Edu", email: "contact@epsilon.com", phone: "555-1007", city: "Austin", status: "Inactive" },
-    { code: "CUST-008", name: "Zeta Finance", email: "contact@zeta.com", phone: "555-1008", city: "Denver", status: "Active" },
-    { code: "CUST-009", name: "Eta Real Estate", email: "contact@eta.com", phone: "555-1009", city: "Atlanta", status: "Active" },
-    { code: "CUST-010", name: "Theta Energy", email: "contact@theta.com", phone: "555-1010", city: "Houston", status: "Active" },
+    { code: "CUST-001", name: "Tata Motors Ltd.", email: "procurement@tatamotors.com", phone: "+91-9876501001", city: "Pune", status: "Active" },
+    { code: "CUST-002", name: "Ashok Leyland Industries", email: "supply@ashokleyland.com", phone: "+91-9845501002", city: "Chennai", status: "Active" },
+    { code: "CUST-003", name: "L&T Heavy Engineering", email: "vendor@larsentoubro.com", phone: "+91-9823501003", city: "Mumbai", status: "Active" },
+    { code: "CUST-004", name: "JSW Steel Ltd.", email: "ops@jswsteel.com", phone: "+91-9912501004", city: "Bangalore", status: "Active" },
+    { code: "CUST-005", name: "TVS Motor Company", email: "procurement@tvsmotors.com", phone: "+91-9898501005", city: "Hosur", status: "Inactive" },
+    { code: "CUST-006", name: "Bharat Forge Ltd.", email: "supply@bharatforge.com", phone: "+91-9867501006", city: "Pune", status: "Active" },
+    { code: "CUST-007", name: "Amara Raja Batteries", email: "contact@amararaja.com", phone: "+91-9876501007", city: "Hyderabad", status: "Inactive" },
+    { code: "CUST-008", name: "Bosch India Pvt. Ltd.", email: "vendor@boschindia.com", phone: "+91-9845501008", city: "Bangalore", status: "Active" },
+    { code: "CUST-009", name: "Mahindra & Mahindra", email: "procurement@mahindra.com", phone: "+91-9823501009", city: "Mumbai", status: "Active" },
+    { code: "CUST-010", name: "Kirloskar Electric Co.", email: "supply@kirloskar.com", phone: "+91-9912501010", city: "Bangalore", status: "Active" },
   ];
   const createdCustomers: any[] = [];
   for (const c of customersData) {
@@ -286,18 +286,18 @@ async function main() {
   // ---- Contacts ----
   console.log("Seeding contacts...");
   const contactsData = [
-    { name: "Alice Johnson", email: "alice.johnson@example.com", phone: "555-2001", company: "Tech Innovators Inc.", title: "CTO", status: "Active" },
-    { name: "Bob Martinez", email: "bob.martinez@example.com", phone: "555-2002", company: "Global Solutions LLC", title: "VP Sales", status: "Active" },
-    { name: "Carol White", email: "carol.white@example.com", phone: "555-2003", company: "Alpha Retailers", title: "Procurement Head", status: "Active" },
-    { name: "David Brown", email: "david.brown@example.com", phone: "555-2004", company: "Beta Logistics", title: "Operations Manager", status: "Active" },
-    { name: "Eve Davis", email: "eve.davis@example.com", phone: "555-2005", company: "Gamma Healthcare", title: "IT Director", status: "Inactive" },
-    { name: "Frank Wilson", email: "frank.wilson@example.com", phone: "555-2006", company: "Delta Manufacturing", title: "Plant Manager", status: "Active" },
-    { name: "Grace Lee", email: "grace.lee@example.com", phone: "555-2007", company: "Zeta Finance", title: "CFO", status: "Active" },
-    { name: "Henry Taylor", email: "henry.taylor@example.com", phone: "555-2008", company: "Eta Real Estate", title: "Director", status: "Active" },
-    { name: "Iris Anderson", email: "iris.anderson@example.com", phone: "555-2009", company: "Theta Energy", title: "Sustainability Lead", status: "Active" },
-    { name: "Jack Thomas", email: "jack.thomas@example.com", phone: "555-2010", company: "Epsilon Edu", title: "Head of Learning", status: "Inactive" },
-    { name: "Karen Jackson", email: "karen.jackson@example.com", phone: "555-2011", company: "Tech Innovators Inc.", title: "Product Manager", status: "Active" },
-    { name: "Liam Harris", email: "liam.harris@example.com", phone: "555-2012", company: "Global Solutions LLC", title: "Senior Engineer", status: "Active" },
+    { name: "Rajesh Sharma", email: "rajesh.sharma@tatamotors.com", phone: "+91-9876502001", company: "Tata Motors Ltd.", title: "VP Procurement", status: "Active" },
+    { name: "Anita Desai", email: "anita.desai@ashokleyland.com", phone: "+91-9845502002", company: "Ashok Leyland Industries", title: "Supply Chain Head", status: "Active" },
+    { name: "Sunil Nair", email: "sunil.nair@larsentoubro.com", phone: "+91-9823502003", company: "L&T Heavy Engineering", title: "Technical Director", status: "Active" },
+    { name: "Meenakshi Pillai", email: "meenakshi@jswsteel.com", phone: "+91-9912502004", company: "JSW Steel Ltd.", title: "Operations Manager", status: "Active" },
+    { name: "Ganesh Iyer", email: "ganesh.iyer@tvsmotors.com", phone: "+91-9898502005", company: "TVS Motor Company", title: "Purchase Manager", status: "Inactive" },
+    { name: "Kavitha Rajan", email: "kavitha@bharatforge.com", phone: "+91-9867502006", company: "Bharat Forge Ltd.", title: "Plant Manager", status: "Active" },
+    { name: "Mohan Krishnan", email: "mohan@amararaja.com", phone: "+91-9876502007", company: "Amara Raja Batteries", title: "R&D Head", status: "Active" },
+    { name: "Sunita Kapoor", email: "sunita.kapoor@boschindia.com", phone: "+91-9845502008", company: "Bosch India Pvt. Ltd.", title: "Quality Director", status: "Active" },
+    { name: "Prakash Rao", email: "prakash.rao@mahindra.com", phone: "+91-9823502009", company: "Mahindra & Mahindra", title: "CFO", status: "Active" },
+    { name: "Divya Menon", email: "divya.menon@kirloskar.com", phone: "+91-9912502010", company: "Kirloskar Electric Co.", title: "Sales Director", status: "Active" },
+    { name: "Ramesh Patel", email: "ramesh.patel@tatamotors.com", phone: "+91-9876502011", company: "Tata Motors Ltd.", title: "IT Manager", status: "Active" },
+    { name: "Lakshmi Venkat", email: "lakshmi.v@jswsteel.com", phone: "+91-9845502012", company: "JSW Steel Ltd.", title: "Senior Engineer", status: "Active" },
   ];
   const createdContacts: any[] = [];
   for (let i = 0; i < contactsData.length; i++) {
@@ -362,42 +362,95 @@ async function main() {
 
   // ---- Leads ----
   console.log("Seeding leads...");
-  const leadNames = [
-    "Alice Johnson", "Bob Smith", "Charlie Brown", "Diana Prince",
-    "Evan Wright", "Fiona Green", "George Hall", "Hannah Scott",
-    "Ian Adams", "Julia Baker", "Kevin Clark", "Laura Davis"
+  const leadsData = [
+    { name: "Ravi Kumar",     email: "ravi.kumar@tatamotors.com",       phone: "+91-9876543210", city: "Pune",        source: "Exhibition",     notes: "Interested in hydraulic press maintenance contract. Met at IMTEX 2026." },
+    { name: "Suresh Reddy",   email: "suresh.reddy@ashokleyland.com",   phone: "+91-9845123456", city: "Chennai",     source: "Referral",      notes: "Enquiry for CNC machine parts supply — referred by Bosch India account." },
+    { name: "Anita Sharma",   email: "anita.sharma@larsen.com",         phone: "+91-9823456789", city: "Mumbai",     source: "Cold Call",     notes: "Requires custom steel fabrication for auto components — urgent requirement Q3." },
+    { name: "Vikram Singh",   email: "vikram.singh@jswsteel.com",       phone: "+91-9912345678", city: "Bangalore",  source: "LinkedIn",      notes: "Looking for industrial automation vendor. Currently evaluating 3 suppliers." },
+    { name: "Priya Nair",     email: "priya.nair@tvsmotors.com",        phone: "+91-9898765432", city: "Hosur",      source: "Website",       notes: "Submitted RFQ for 500 units of precision-machined components per month." },
+    { name: "Arun Kumar",     email: "arun.kumar@bharatforge.com",      phone: "+91-9867890123", city: "Pune",        source: "WhatsApp",      notes: "Forging process upgrade enquiry. Wants technical demo at plant." },
+    { name: "Karthik Iyer",   email: "karthik.iyer@amararaja.com",      phone: "+91-9876012345", city: "Hyderabad",  source: "Email Campaign",notes: "Battery assembly line equipment requirement — timeline: 6 months." },
+    { name: "Deepa Menon",    email: "deepa.menon@boschindia.com",      phone: "+91-9845234567", city: "Bangalore",  source: "Referral",      notes: "Quality control system upgrade for fuel injector line. Budget pre-approved." },
+    { name: "Rajesh Patel",   email: "rajesh.patel@mahindra.com",       phone: "+91-9823678901", city: "Mumbai",     source: "Exhibition",     notes: "Tractor transmission component sourcing. Visited stall at Auto Expo 2026." },
+    { name: "Sunita Kapoor",  email: "sunita.kapoor@kirloskar.com",     phone: "+91-9912456789", city: "Bangalore",  source: "Cold Call",     notes: "Motor winding upgrade project. Technical evaluation stage." },
+    { name: "Mohit Jain",     email: "mohit.jain@cummins.co.in",        phone: "+91-9867012345", city: "Pune",        source: "LinkedIn",      notes: "Generator set components — annual contract potential ₹45L." },
+    { name: "Kavitha Rajan",  email: "kavitha.rajan@thermax.com",       phone: "+91-9876789012", city: "Pune",        source: "Website",       notes: "Boiler maintenance services RFQ. Decision expected by end of month." },
   ];
-  const leadStatuses = ["New", "Contacted", "Qualified", "Proposal", "Negotiation", "Won", "Lost"];
-  const leadSources = ["Website", "Referral", "SocialMedia", "Email", "Event", "ColdCall", "Partner", "Other"];
-  for (let i = 0; i < leadNames.length; i++) {
+  const leadStatuses = ["New", "Contacted", "FollowUpDue", "SQL", "Qualified", "Converted", "Lost"];
+  const createdLeads: { id: string; name: string }[] = [];
+  for (let i = 0; i < leadsData.length; i++) {
     const exec = execs[i % execs.length];
+    const ld = leadsData[i];
+    const leadId = uuidv4();
     await prisma.lead.create({
       data: {
-        id: uuidv4(),
+        id: leadId,
         leadCode: `LEAD-${String(i + 1).padStart(4, "0")}`,
-        name: leadNames[i],
-        email: `lead${i + 1}@example.com`,
-        phone: `555-300${i}`,
-        city: ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix"][i % 5],
+        name: ld.name,
+        email: ld.email,
+        phone: ld.phone,
+        city: ld.city,
         status: leadStatuses[i % leadStatuses.length],
         assignedUserId: exec.id,
-        leadSource: leadSources[i % leadSources.length],
-        notes: `Sample lead created via seed script.`,
+        leadSource: ld.source,
+        notes: ld.notes,
         slaStatus: "Pending",
       },
     });
+    createdLeads.push({ id: leadId, name: ld.name });
   }
-  console.log(`${leadNames.length} leads created.`);
+  console.log(`${leadsData.length} leads created.`);
+
+  // ---- Lead Follow-ups (time-distributed for correct filter behaviour) ----
+  console.log("Seeding lead follow-ups...");
+  // daysOffset > 0 → future (shows in Follow-up Due filter)
+  // daysOffset = 0 → today  (shows in Follow-up Due filter)
+  // daysOffset < 0 → past   (Pending = Overdue; Completed = ignored by filters)
+  const leadFuData = [
+    // ── FUTURE / TODAY → Follow-Up Due ──
+    { idx: 0, days:  1, status: "Pending",   remarks: "Call to finalise hydraulic press maintenance scope at Tata Motors." },
+    { idx: 1, days:  2, status: "Pending",   remarks: "Site visit at Ashok Leyland Chennai — CNC parts spec discussion." },
+    { idx: 2, days:  5, status: "Pending",   remarks: "Follow up on steel fabrication quotation sent to L&T Mumbai." },
+    { idx: 4, days:  3, status: "Pending",   remarks: "Demo call for precision-machined components — TVS Hosur plant." },
+    { idx: 6, days:  0, status: "Pending",   remarks: "TODAY: Battery assembly line equipment call — Amara Raja." },
+    // ── PAST + Pending → Overdue ──
+    { idx: 3, days: -3, status: "Pending",   remarks: "OVERDUE: Industrial automation shortlist — JSW Bangalore not responded." },
+    { idx: 5, days: -5, status: "Pending",   remarks: "OVERDUE: Forging demo at Bharat Forge Pune — needs urgent reschedule." },
+    { idx: 7, days: -1, status: "Pending",   remarks: "OVERDUE: QC system callback for Bosch Bangalore fuel injector line." },
+    // ── PAST + Completed → should NOT appear in Due or Overdue ──
+    { idx: 8, days: -7, status: "Completed", remarks: "DONE: Auto Expo follow-up with Mahindra Mumbai — positive outcome." },
+    { idx: 9, days: -2, status: "Completed", remarks: "DONE: Kirloskar motor winding initial call — quote sent." },
+    { idx: 10, days: -4, status: "Completed", remarks: "DONE: Cummins Pune generator specs confirmed — proposal stage." },
+  ];
+  for (const fu of leadFuData) {
+    const lead = createdLeads[fu.idx];
+    if (!lead) continue;
+    const exec = execs[fu.idx % execs.length];
+    const meetingDate = new Date(now);
+    meetingDate.setDate(meetingDate.getDate() + fu.days);
+    await prisma.followUp.create({
+      data: {
+        id: uuidv4(),
+        leadId: lead.id,
+        assignedUserId: exec.id,
+        nextMeetingDate: meetingDate,
+        remarks: fu.remarks,
+        status: fu.status,
+        updatedAt: now,
+      },
+    });
+  }
+  console.log(`${leadFuData.length} lead follow-ups created.`);
 
   // ---- Deals ----
   console.log("Seeding deals...");
   const dealNames = [
-    "Enterprise CRM License", "SaaS Subscription Annual", "Custom Integration Project",
-    "Training & Consulting", "Support Contract Renewal", "Mobile App Development",
-    "Data Migration Service", "API Gateway Setup", "Cloud Infrastructure Audit",
-    "Security Compliance Review"
+    "CNC Machine Parts Supply — Tata Motors", "Hydraulic Press Maintenance Contract", "Precision Components Annual AMC",
+    "Steel Fabrication Q3 Order — L&T", "Industrial Automation Pilot — JSW", "Forging Equipment Upgrade — Bharat Forge",
+    "Battery Assembly Line Equipment", "Quality Control System — Bosch", "Tractor Component Sourcing — Mahindra",
+    "Generator Set Components — Cummins Annual"
   ];
-  const dealStatuses = ["New", "Contacted", "Qualified", "Proposal", "Negotiation", "Won", "Lost"];
+  const dealStatuses = ["Active", "Won", "Lost"];
   for (let i = 0; i < dealNames.length; i++) {
     const exec = execs[i % execs.length];
     const customer = createdCustomers[i % createdCustomers.length];

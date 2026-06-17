@@ -5,6 +5,13 @@ import { verifyAuth } from "@/lib/auth";
 import { buildScope } from "@/lib/scopes";
 
 export async function getForecastDataAction() {
+  // Forecast is a Variant 2+ module — disabled in Variant 1 (BRD §6)
+  return {
+    success: false,
+    message: "Forecast module is not available in Variant 1.",
+    data: null
+  };
+  // eslint-disable-next-line no-unreachable
   try {
     const userPayload = await verifyAuth();
     if (!userPayload || userPayload.role === "Customer") {
@@ -18,19 +25,14 @@ export async function getForecastDataAction() {
 
     const scope = buildScope(userPayload, "Deal");
 
-    // Define standard probabilities for weighted revenue forecasting
+    // Define standard probabilities for weighted revenue forecasting (BRD V1 stages)
     const stageProbabilities: Record<string, number> = {
       SalesOpportunity: 0.1,
-      PipelineQualified: 0.2,
-      MeetingScheduled: 0.3,
-      DemoConducted: 0.5,
-      ProposalSent: 0.7,
-      ActiveNegotiation: 0.85,
-      ApprovalQueue: 0.9,
-      Forecast: 0.95,
+      RequirementGathering: 0.3,
+      MeetingScheduled: 0.5,
+      Active: 0.7,
       Won: 1.0,
       Lost: 0.0,
-      Active: 0.5,
     };
 
     // Fetch all deals with their assigned user details

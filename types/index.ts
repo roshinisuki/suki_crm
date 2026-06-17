@@ -37,7 +37,7 @@ export interface Lead {
   email: string | null;
   phone: string | null;
   city: string | null;
-  status: "New" | "Contacted" | "Qualified" | "ProposalSent" | "Negotiation" | "Converted" | "Lost";
+  status: "New" | "Contacted" | "FollowUpDue" | "SQL" | "Qualified" | "Converted" | "Lost";
   assignedUserId: string | null;
   assignedUser?: Partial<User>;
   createdAt?: string;

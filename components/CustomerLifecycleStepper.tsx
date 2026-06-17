@@ -24,14 +24,16 @@ export default function CustomerLifecycleStepper({ currentStage }: { currentStag
 
   // Fallback mappings
   if (activeIdx === -1) {
-    if (currentStage === "New" || currentStage === "Contacted") activeIdx = 0;
-    else if (currentStage === "Qualified") activeIdx = 1;
-    else if (["Open", "ProposalSent", "Negotiation"].includes(currentStage)) activeIdx = 2;
-    else if (currentStage === "Draft" || currentStage === "Sent") activeIdx = 3;
-    else if (currentStage === "Approved" || currentStage === "ContractReview") activeIdx = 4;
-    else if (currentStage === "Won" || currentStage === "PaymentPending") activeIdx = 5;
-    else if (currentStage === "SubscriptionActive") activeIdx = 6;
-    else if (currentStage === "ActiveCustomer") activeIdx = 8;
+    if (currentStage === "New" || currentStage === "Contacted" || currentStage === "FollowUpDue") activeIdx = 0;
+    else if (currentStage === "SQL") activeIdx = 1;
+    else if (currentStage === "Qualified") activeIdx = 2;
+    else if (currentStage === "Converted") activeIdx = 3;
+    else if (["Open", "ProposalSent", "Negotiation"].includes(currentStage)) activeIdx = 4;
+    else if (currentStage === "Draft" || currentStage === "Sent") activeIdx = 5;
+    else if (currentStage === "Approved" || currentStage === "ContractReview") activeIdx = 6;
+    else if (currentStage === "Won" || currentStage === "PaymentPending") activeIdx = 7;
+    else if (currentStage === "SubscriptionActive") activeIdx = 8;
+    else if (currentStage === "ActiveCustomer") activeIdx = 10;
     else activeIdx = 0;
   }
 

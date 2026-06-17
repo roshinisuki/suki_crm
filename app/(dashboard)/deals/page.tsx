@@ -16,14 +16,10 @@ import { FormField, Input, Select, Textarea } from "@/components/ui/FormField";
 import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { getInitials, getAvatarColor, formatDate, formatCurrency, cn } from "@/lib/ui-utils";
 import { Plus, Search, Download, Eye, Pencil, Trash2, Briefcase, TrendingUp, CheckCircle, XCircle } from "lucide-react";
-const STAGES = [
-  "SalesOpportunity", "PipelineQualified", "MeetingScheduled",
-  "DemoConducted", "ProposalSent", "ApprovalQueue",
-  "ActiveNegotiation", "Won", "Lost"
-];
+const STAGES = ["Active", "Won", "Lost"];
 const emptyForm = {
   id: "", dealName: "", customerId: "", dealValue: "",
-  expectedCloseDate: "", assignedUserId: "", notes: "", status: "SalesOpportunity",
+  expectedCloseDate: "", assignedUserId: "", notes: "", status: "Active",
 };
 
 export default function DealsPage() {
@@ -315,7 +311,7 @@ export default function DealsPage() {
             </FormField>
             <FormField label="Stage" required>
               <Select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
-                {STAGES.map(s => <option key={s} value={s}>{s === "ProposalSent" ? "Proposal Sent" : s}</option>)}
+                {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
               </Select>
             </FormField>
             <FormField label="Assigned To" required>

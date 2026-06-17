@@ -2,7 +2,7 @@ export type Role = "SuperAdmin" | "Admin" | "SalesManager" | "SalesExecutive" | 
 
 export type CustomerStatus = "Prospect" | "ActiveCustomer" | "Renewed" | "Churned";
 
-export type LeadStatus = "New" | "Contacted" | "Qualified" | "ProposalSent" | "Negotiation" | "Converted" | "Lost";
+export type LeadStatus = "New" | "Contacted" | "FollowUpDue" | "SQL" | "Qualified" | "Converted" | "Lost";
 
 export type CommunicationChannel = "Email" | "WhatsApp" | "SMS";
 
@@ -24,17 +24,9 @@ export type SlaStatus = "Pending" | "Warning" | "Breached" | "Met";
 
 export type LeadSource = "Website" | "Facebook" | "Instagram" | "LinkedIn" | "Referral" | "WalkIn" | "ColdCall" | "Partner";
 
-export type DealStatus =
-  | "Active"
-  | "Won"
-  | "Lost"
+export type OpportunityStage =
   | "SalesOpportunity"
   | "RequirementGathering"
-  | "PreSalesReview"
-  | "MeetingScheduled"
-  | "DemoConducted"
-  | "RejectedDemo"
-  | "ProposalSent"
-  | "ActiveNegotiation"
-  | "ApprovalQueue"
-  | "Forecast";
+  | "MeetingScheduled";
+
+export type DealStatus = "Active" | "Won" | "Lost";

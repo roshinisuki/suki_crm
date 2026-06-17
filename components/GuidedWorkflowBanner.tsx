@@ -10,15 +10,13 @@ import {
   XCircle,
   Calendar,
   Plus,
-  FileText,
-  Percent,
   AlertCircle,
   Undo2,
-  Lock,
+  Briefcase,
 } from "lucide-react";
 import { updateLeadAction } from "@/app/actions/leads";
 import { cancelFollowUpAction } from "@/app/actions/followUps";
-import { updateDealStatusAction, resolveDiscountAction } from "@/app/actions/deals";
+import { updateDealStatusAction } from "@/app/actions/deals";
 
 type BannerProps = {
   entityType: "lead" | "followup" | "deal";
@@ -55,10 +53,10 @@ export default function GuidedWorkflowBanner({
   // 1. Leads Workflow Actions
   const handleMarkSQL = async () => {
     setLoading(true);
-    const res = await updateLeadAction(entityId, { status: "Qualified" });
+    const res = await updateLeadAction(entityId, { status: "SQL" });
     setLoading(false);
     if (res.success) {
-      toast.success("Lead qualified! A Contact profile has been automatically created.");
+      toast.success("Lead marked as SQL (Sales Qualified Lead).");
       handleRefresh();
     } else {
       toast.error(res.message);
@@ -158,7 +156,7 @@ export default function GuidedWorkflowBanner({
           </button>
         </div>
       );
-    } else if (status === "Qualified") {
+    } else if (status === "SQL") {
       title = "Lead is Sales Qualified (SQL)";
       description = "Next Action: Move to Follow-Up. Schedule a meeting with the client to begin qualification.";
       bgClass = "bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent border-emerald-500/20";
@@ -234,66 +232,25 @@ export default function GuidedWorkflowBanner({
       );
     }
   } else if (entityType === "deal") {
-    // Pipeline stages
-    if (
-      ["SalesOpportunity", "PipelineQualified", "MeetingScheduled", "DemoConducted"].includes(status)
-    ) {
-      title = `Sales Stage: ${status.replace(/([A-Z])/g, " $1").trim()}`;
-      description = "Next Action: Finalize demonstration and prepare formal proposal version for customer review.";
+    // BRD Variant 1 pipeline stages — guide toward Active Deal conversion
+    if (["SalesOpportunity", "RequirementGathering", "MeetingScheduled"].includes(status)) {
+      title = `Pipeline Stage: ${status.replace(/([A-Z])/g, " $1").trim()}`;
+      description = "Next Action: Complete the requirement gathering and schedule a customer meeting, then convert to an Active Deal.";
+      bgClass = "bg-gradient-to-r from-blue-500/10 to-transparent border-blue-500/20";
+      icon = <Briefcase className="text-blue-500 shrink-0" size={20} />;
       actions = (
         <button
-          onClick={() => router.push(`/proposals?action=create&dealId=${entityId}`)}
+          onClick={() => router.push(`/sales-pipeline/${entityId}`)}
           className="btn-primary text-xs flex items-center gap-1.5"
         >
-          <FileText size={14} /> Create Proposal <ArrowRight size={12} />
+          <ArrowRight size={14} /> Open Opportunity <ArrowRight size={12} />
         </button>
       );
-    } else if (status === "ProposalSent") {
-      title = "Proposal Sent to Customer";
-      description = "Next Action: Awaiting client decision. You can view proposal version history or resolve status to Approved / Rejected.";
+    } else if (status === "Active") {
+      title = "Active Deal";
+      description = "Next Action: Close this deal. Mark as Won when customer confirms, or Lost if the opportunity is no longer viable.";
       bgClass = "bg-gradient-to-r from-indigo-500/10 to-transparent border-indigo-500/20";
-      icon = <FileText className="text-indigo-500 shrink-0" size={20} />;
-      actions = (
-        <button
-          onClick={() => router.push(`/proposals?dealId=${entityId}`)}
-          className="btn-primary text-xs flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700"
-        >
-          <FileText size={14} /> View Proposals
-        </button>
-      );
-    } else if (status === "ActiveNegotiation") {
-      title = "Active Negotiations";
-      description = "Next Action: Negotiate price/terms. You can request discount approvals if they exceed the 15% manager limit.";
-      bgClass = "bg-gradient-to-r from-amber-500/10 to-transparent border-amber-500/20";
-      icon = <Percent className="text-amber-500 shrink-0" size={20} />;
-      actions = (
-        <button
-          onClick={() => router.push(`/deals/${entityId}?action=discount`)}
-          className="btn-primary text-xs flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700"
-        >
-          <Percent size={14} /> Request Discount
-        </button>
-      );
-    } else if (status === "ApprovalQueue") {
-      title = "Awaiting Discount Approval";
-      description = "Next Action: Deal is locked. Manager or Admin must review the discount request and Approve/Reject in the negotiation queue.";
-      bgClass = "bg-gradient-to-r from-rose-500/10 to-transparent border-rose-500/20";
-      icon = <Lock className="text-rose-500 shrink-0" size={20} />;
-      if (["Admin", "SalesManager"].includes(user?.role ?? "")) {
-        actions = (
-          <button
-            onClick={() => router.push(`/deals/${entityId}`)}
-            className="btn-primary text-xs flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700"
-          >
-            <CheckCircle size={14} /> Resolve Approval
-          </button>
-        );
-      }
-    } else if (status === "Forecast") {
-      title = "Opportunity Forecast Stage";
-      description = "Next Action: Move to close. Verify that contract terms and payments are pending, then mark Won or Lost.";
-      bgClass = "bg-gradient-to-r from-violet-500/10 to-transparent border-violet-500/20";
-      icon = <Percent className="text-violet-500 shrink-0" size={20} />;
+      icon = <CheckCircle className="text-indigo-500 shrink-0" size={20} />;
       actions = (
         <div className="flex gap-2">
           <button

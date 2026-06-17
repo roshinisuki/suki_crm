@@ -51,7 +51,7 @@ export async function getSalesAnalyticsAction(dateRange?: string) {
       where: {
         AND: [
           rbacCustomerFilter,
-          { status: { in: ["New", "Contacted", "Qualified", "ProposalSent", "Negotiation"] } }
+          { status: { in: ["New", "Contacted", "FollowUpDue", "SQL", "Qualified"] } }
         ]
       }
     });
@@ -69,7 +69,7 @@ export async function getSalesAnalyticsAction(dateRange?: string) {
       where: {
         AND: [
           rbacDealFilter,
-          { status: { in: ["Open", "ProposalSent", "Negotiation"] } }
+          { status: { in: ["SalesOpportunity", "RequirementGathering", "MeetingScheduled", "Active"] } }
         ]
       }
     });
@@ -94,13 +94,13 @@ export async function getSalesAnalyticsAction(dateRange?: string) {
 
     const totalDealsCount = openDealsCount + wonDealsCount + lostDealsCount;
 
-    // Pipeline Revenue (Sum of deal values for open deals)
+    // Pipeline Revenue (Sum of deal values for active pipeline)
     const pipelineSum = await prisma.deal.aggregate({
       _sum: { dealValue: true },
       where: {
         AND: [
           rbacDealFilter,
-          { status: { in: ["Open", "ProposalSent", "Negotiation"] } }
+          { status: { in: ["SalesOpportunity", "RequirementGathering", "MeetingScheduled", "Active"] } }
         ]
       }
     });
@@ -121,8 +121,7 @@ export async function getSalesAnalyticsAction(dateRange?: string) {
     // Conversion rate: Won / Total Deals
     const conversionRate = totalDealsCount > 0 ? Math.round((wonDealsCount / totalDealsCount) * 100) : 0;
 
-    // 2. Sales Funnel Chart Data
-    // We compute stage counts from both lead status and deals
+    // 2. Sales Funnel Chart Data (BRD Variant 1: Lead → Opportunity → Deal)
     const funnelStages = [
       {
         stage: "New Lead",
@@ -138,20 +137,20 @@ export async function getSalesAnalyticsAction(dateRange?: string) {
       },
       {
         stage: "Qualified",
-        count: await prisma.lead.count({
-          where: { AND: [rbacCustomerFilter, { status: "Qualified" }] }
+        count: await prisma.deal.count({
+          where: { AND: [rbacDealFilter, { status: { in: ["SalesOpportunity", "RequirementGathering"] } }] }
         })
       },
       {
-        stage: "Proposal Sent",
+        stage: "Meeting Scheduled",
         count: await prisma.deal.count({
-          where: { AND: [rbacDealFilter, { status: "ProposalSent" }] }
+          where: { AND: [rbacDealFilter, { status: "MeetingScheduled" }] }
         })
       },
       {
-        stage: "Negotiation",
+        stage: "Active Deal",
         count: await prisma.deal.count({
-          where: { AND: [rbacDealFilter, { status: "Negotiation" }] }
+          where: { AND: [rbacDealFilter, { status: "Active" }] }
         })
       },
       {

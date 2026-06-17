@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 type CustomerStatus = "Prospect" | "ActiveCustomer" | "Renewed" | "Churned";
-type LeadStatus = "New" | "Contacted" | "Qualified" | "Proposal" | "Negotiation" | "Won" | "Lost";
+type LeadStatus = "New" | "Contacted" | "FollowUpDue" | "SQL" | "Qualified" | "Converted" | "Lost";
 
 export async function processVisitOutcome(
   visitId: string,
@@ -16,9 +16,7 @@ export async function processVisitOutcome(
   ];
   
   const qualifiedOutcomes = ["Qualified Lead", "Demo Completed"];
-  const proposalOutcomes = ["Proposal Needed", "Quotation Sent"];
-  const negotiationOutcomes = ["Negotiation Ongoing"];
-  
+
   const closedWonOutcomes = ["Converted", "Closed Won", "Renewed", "Resolved"];
   const closedLostOutcomes = ["Closed Lost", "Not Interested", "Not Qualified", "Churn Risk"];
 
@@ -53,10 +51,6 @@ export async function processVisitOutcome(
       nextLeadStatus = "Converted";
     } else if (closedLostOutcomes.includes(outcome)) {
       nextLeadStatus = "Lost";
-    } else if (negotiationOutcomes.includes(outcome)) {
-      nextLeadStatus = "Negotiation";
-    } else if (proposalOutcomes.includes(outcome)) {
-      nextLeadStatus = "ProposalSent";
     } else if (qualifiedOutcomes.includes(outcome)) {
       nextLeadStatus = "Qualified";
     } else if (followUpOutcomes.includes(outcome)) {

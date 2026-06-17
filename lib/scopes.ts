@@ -53,13 +53,6 @@ export function buildScope(
       case "AuditLog":
         filter.userId = userPayload.id;
         break;
-      case "Proposal":
-        // Proposal visibility for SalesExecutive: must own the Customer or the Deal
-        filter.OR = [
-          { customer: { assignedUserId: userPayload.id } },
-          { deal: { assignedUserId: userPayload.id } }
-        ];
-        break;
       case "Note":
         filter.createdById = userPayload.id;
         break;
@@ -114,11 +107,6 @@ export function checkRecordScope(
         return record.userId === userPayload.id;
       case "Note":
         return record.createdById === userPayload.id;
-      case "Proposal":
-        return (
-          record.customer?.assignedUserId === userPayload.id ||
-          record.deal?.assignedUserId === userPayload.id
-        );
       default:
         return true;
     }
