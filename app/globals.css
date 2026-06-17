@@ -469,7 +469,7 @@ body {
 }
 
 @utility crm-th {
-  padding: 12px 16px;
+  padding: 10px 12px;
   background: var(--surface-offset);
   color: var(--text-secondary);
   font-size: 11px;
@@ -481,10 +481,14 @@ body {
 }
 
 @utility crm-td {
-  padding: 12px 16px;
+  padding: 10px 12px;
   color: var(--text-primary);
   border-bottom: 1px solid var(--border-subtle);
   vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
 }
 
 @utility crm-tr {

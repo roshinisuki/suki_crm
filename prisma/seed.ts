@@ -8,29 +8,30 @@ async function main() {
   const now = new Date();
 
   console.log("Cleaning up existing database records...");
+  // Delete in dependency order (children first, parents last)
   await prisma.callLog.deleteMany({});
-  await prisma.leadOwnerHistory.deleteMany({});
-  await prisma.lead.deleteMany({});
-  await prisma.dealStageHistory.deleteMany({});
-  await prisma.opportunityDetail.deleteMany({});
-  await prisma.proposal.deleteMany({});
-  await prisma.approvalHistory.deleteMany({});
-  await prisma.deal.deleteMany({});
   await prisma.communicationLog.deleteMany({});
   await prisma.note.deleteMany({});
   await prisma.task.deleteMany({});
   await prisma.contact.deleteMany({});
+  await prisma.followUp.deleteMany({});        // references Lead & Customer
+  await prisma.dealStageHistory.deleteMany({});
+  await prisma.opportunityDetail.deleteMany({});
+  await prisma.proposal.deleteMany({});
+  await prisma.approvalHistory.deleteMany({});
+  await prisma.deal.deleteMany({});            // references Customer
+  await prisma.leadOwnerHistory.deleteMany({});
+  await prisma.lead.deleteMany({});            // referenced by FollowUp
+  await prisma.customerVisit.deleteMany({});
+  await prisma.marketingVisit.deleteMany({});
+  await prisma.visitor.deleteMany({});
+  await prisma.subscription.deleteMany({});
   await prisma.auditLog.deleteMany({});
   await prisma.notification.deleteMany({});
   await prisma.notificationPreference.deleteMany({});
   await prisma.passwordResetToken.deleteMany({});
-  await prisma.followUp.deleteMany({});
-  await prisma.marketingVisit.deleteMany({});
-  await prisma.customerVisit.deleteMany({});
-  await prisma.visitor.deleteMany({});
-  await prisma.subscription.deleteMany({});
-  await prisma.customer.deleteMany({});
-  await prisma.user.deleteMany({});
+  await prisma.customer.deleteMany({});        // referenced by Deal, FollowUp, Visit
+  await prisma.user.deleteMany({});            // referenced by almost everything
   await prisma.leadSource.deleteMany({});
 
   // ---- Lead Sources ----
@@ -470,6 +471,154 @@ async function main() {
     });
   }
   console.log(`${dealNames.length} deals created.`);
+
+  // ---- Communication Logs (Calls, Meetings, Notes, Emails) ----
+  console.log("Seeding communication logs (activities)...");
+  const commLogs = [
+    // Calls
+    { channel: "Call", direction: "Outbound", status: "Completed", content: "Initial discussion with client about project requirements and timeline.", duration: 15, outcome: "Interested — requested proposal" },
+    { channel: "Call", direction: "Inbound", status: "Completed", content: "Client called to enquire about pricing for annual maintenance contract.", duration: 8, outcome: "Quote requested" },
+    { channel: "Call", direction: "Outbound", status: "NoAnswer", content: "Follow-up call regarding hydraulic press demo scheduling.", duration: 0, outcome: "No answer — will retry tomorrow" },
+    { channel: "Call", direction: "Outbound", status: "Completed", content: "Contract renewal discussion with existing client.", duration: 22, outcome: "Renewal confirmed for Q3" },
+    // Meetings
+    { channel: "Meeting", direction: "Outbound", status: "Completed", content: "Product demo session for CNC machine parts supply.", duration: 45, location: "Client office, Pune", mode: "In-person", outcome: "Positive — moving to proposal stage" },
+    { channel: "Meeting", direction: "Outbound", status: "Scheduled", content: "Quarterly review meeting with key accounts.", duration: 60, location: "Virtual", mode: "Virtual", outcome: null },
+    { channel: "Meeting", direction: "Inbound", status: "Completed", content: "Onboarding session for new enterprise client.", duration: 90, location: "Client HQ, Bangalore", mode: "In-person", outcome: "Successfully onboarded" },
+    // Notes
+    { channel: "Note", direction: "Outbound", status: "Completed", content: "Internal note: Client prefers email communication over calls. Update preference in CRM." },
+    { channel: "Note", direction: "Outbound", status: "Completed", content: "Competitor analysis completed. Pricing is 12% lower — need management approval for discount." },
+    { channel: "Note", direction: "Outbound", status: "Completed", content: "Site visit observations: Plant capacity at 85%. Expansion planned for Q4." },
+    // Emails
+    { channel: "Email", direction: "Outbound", status: "Delivered", content: "Proposal sent for precision components annual AMC. Attached: quote_v2.pdf" },
+    { channel: "Email", direction: "Outbound", status: "Delivered", content: "Reminder: Demo scheduled for tomorrow at 11:00 AM IST. Meeting link attached." },
+    { channel: "Email", direction: "Inbound", status: "Delivered", content: "Client confirmed receipt of proposal. Will review internally and respond by Friday." },
+  ];
+  for (let i = 0; i < commLogs.length; i++) {
+    const log = commLogs[i];
+    const customer = createdCustomers[i % createdCustomers.length];
+    const lead = createdLeads[i % createdLeads.length];
+    const exec = execs[i % execs.length];
+    const sentAt = new Date(now);
+    sentAt.setDate(sentAt.getDate() - (i % 7));
+    await prisma.communicationLog.create({
+      data: {
+        id: uuidv4(),
+        customerId: customer.id,
+        leadId: lead.id,
+        channel: log.channel,
+        direction: log.direction,
+        status: log.status,
+        content: log.content,
+        sentByUserId: exec.id,
+        sentAt,
+        duration: log.duration ?? null,
+        location: log.location ?? null,
+        mode: log.mode ?? null,
+        outcome: log.outcome ?? null,
+      },
+    });
+  }
+  console.log(`${commLogs.length} communication logs created.`);
+
+  // ---- Notes (for Leads, Contacts, Deals) ----
+  console.log("Seeding notes...");
+  const notesData = [
+    { entityType: "LEAD", content: "Lead came through website enquiry. Interested in enterprise plan. Budget approved.", createdByIdx: 0 },
+    { entityType: "LEAD", content: "Follow-up required next week. Decision maker is on leave until Monday.", createdByIdx: 1 },
+    { entityType: "CONTACT", content: "Prefers morning calls before 10 AM. Do not call on weekends.", createdByIdx: 2 },
+    { entityType: "CONTACT", content: "Key influencer in procurement committee. Maintain relationship.", createdByIdx: 3 },
+    { entityType: "LEAD", content: "Met at Auto Expo 2026. Strong interest in automation solutions.", createdByIdx: 2 },
+    { entityType: "CONTACT", content: "Technical evaluation in progress. Waiting for pilot approval.", createdByIdx: 3 },
+  ];
+  for (let i = 0; i < notesData.length; i++) {
+    const note = notesData[i];
+    const exec = execs[note.createdByIdx % execs.length];
+    let entityId = "";
+    if (note.entityType === "LEAD") entityId = createdLeads[i % createdLeads.length].id;
+    else if (note.entityType === "CONTACT") entityId = createdContacts[i % createdContacts.length].id;
+    await prisma.note.create({
+      data: {
+        id: uuidv4(),
+        content: note.content,
+        createdById: exec.id,
+        entityType: note.entityType,
+        entityId,
+      },
+    });
+  }
+  console.log(`${notesData.length} notes created.`);
+
+  // ---- Additional Follow-ups (realistic mix for filter testing) ----
+  console.log("Seeding additional follow-ups...");
+  const extraFollowUps = [
+    // Pending — future dates
+    { customerIdx: 0, days: 2, status: "Pending", remarks: "Call to confirm demo slot for hydraulic press maintenance." },
+    { customerIdx: 2, days: 5, status: "Pending", remarks: "Follow up on steel fabrication quotation — client reviewing internally." },
+    { customerIdx: 4, days: 1, status: "Pending", remarks: "Check TVS Hosur plant visit availability for precision components demo." },
+    { customerIdx: 6, days: 7, status: "Pending", remarks: "Amara Raja battery assembly line — waiting for technical specs from client." },
+    // Overdue — past dates with Pending status
+    { customerIdx: 1, days: -3, status: "Pending", remarks: "OVERDUE: Ashok Leyland CNC parts follow-up — no response after 3 attempts." },
+    { customerIdx: 3, days: -5, status: "Pending", remarks: "OVERDUE: JSW Steel industrial automation — client delayed decision." },
+    { customerIdx: 5, days: -2, status: "Pending", remarks: "OVERDUE: Bharat Forge forging demo — executive unavailable, needs reschedule." },
+    { customerIdx: 7, days: -4, status: "Pending", remarks: "OVERDUE: Bosch India QC system — budget approval pending from finance." },
+    // Completed — past dates with Completed status
+    { customerIdx: 8, days: -1, status: "Completed", remarks: "DONE: Mahindra tractor component sourcing — proposal accepted." },
+    { customerIdx: 9, days: -6, status: "Completed", remarks: "DONE: Kirloskar motor winding — initial technical call completed, quote sent." },
+  ];
+  for (const fu of extraFollowUps) {
+    const customer = createdCustomers[fu.customerIdx % createdCustomers.length];
+    const exec = execs[fu.customerIdx % execs.length];
+    const meetingDate = new Date(now);
+    meetingDate.setDate(meetingDate.getDate() + fu.days);
+    await prisma.followUp.create({
+      data: {
+        id: uuidv4(),
+        customerId: customer.id,
+        assignedUserId: exec.id,
+        nextMeetingDate: meetingDate,
+        remarks: fu.remarks,
+        status: fu.status,
+        updatedAt: now,
+      },
+    });
+  }
+  console.log(`${extraFollowUps.length} additional follow-ups created.`);
+
+  // ---- Additional Tasks (with overdue, pending, completed mix) ----
+  console.log("Seeding additional tasks...");
+  const extraTasks = [
+    { title: "Prepare proposal for Tata Motors AMC", status: "Pending", priority: "High", days: 2 },
+    { title: "Client follow-up call — Ashok Leyland", status: "Pending", priority: "High", days: -1 },
+    { title: "Update CRM data for Q2 leads", status: "Completed", priority: "Medium", days: -3 },
+    { title: "Schedule demo for JSW Steel automation", status: "Pending", priority: "Medium", days: 5 },
+    { title: "Contract review with legal — Bosch India", status: "Pending", priority: "High", days: 1 },
+    { title: "Collect feedback from Bharat Forge visit", status: "Completed", priority: "Low", days: -2 },
+    { title: "Prepare quarterly sales report", status: "Pending", priority: "Medium", days: 7 },
+    { title: "Onboarding documentation for new client", status: "Pending", priority: "Low", days: 3 },
+    { title: "Respond to RFQ from Kirloskar Electric", status: "Overdue", priority: "High", days: -2 },
+    { title: "Update product catalogue with new SKUs", status: "Completed", priority: "Low", days: -5 },
+  ];
+  for (let i = 0; i < extraTasks.length; i++) {
+    const t = extraTasks[i];
+    const exec = execs[i % execs.length];
+    const contact = i < createdContacts.length ? createdContacts[i] : null;
+    const dueDate = new Date(now);
+    dueDate.setDate(dueDate.getDate() + t.days);
+    await prisma.task.create({
+      data: {
+        id: uuidv4(),
+        taskCode: `TSK-${String(13 + i).padStart(4, "0")}`,
+        title: t.title,
+        description: t.title,
+        status: t.status,
+        priority: t.priority,
+        dueDate,
+        contactId: contact?.id ?? null,
+        assignedTo: exec.id,
+      },
+    });
+  }
+  console.log(`${extraTasks.length} additional tasks created.`);
 
   console.log("\nDatabase seeded successfully! All models populated. ✓");
 }

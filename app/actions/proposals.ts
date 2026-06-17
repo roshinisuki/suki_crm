@@ -1,6 +1,6 @@
 "use server";
 
-// Proposal Management is a Variant 2+ module — disabled in Variant 1 (BRD §6, VIO-02)
+// Proposal Management is a Variant 2+ module Ã¹ disabled in Variant 1 (BRD Âº6, VIO-02)
 const DISABLED = { success: false, message: "Proposal Management is not available in Variant 1.", data: [] as any[] };
 
 export async function getProposalsAction(_params?: { search?: string; status?: string }) {

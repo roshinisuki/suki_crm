@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getFollowUpsListAction } from "@/app/actions/visits";
 import {
   createFollowUpAction,
@@ -69,6 +69,7 @@ export default function FollowUpsPage() {
   const { user } = useAuth();
   const toast = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [followUps, setFollowUps] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -153,6 +154,27 @@ export default function FollowUpsPage() {
       setLoading(false);
     }
   };
+
+  // Sync statusFilter from URL query param (sidebar navigation)
+  useEffect(() => {
+    const status = searchParams.get("status");
+    if (status) {
+      const valid = ["All", "Pending", "Overdue", "Completed", "Cancelled"];
+      if (valid.includes(status)) {
+        setStatusFilter(status as any);
+      }
+    }
+  }, [searchParams]);
+
+  // Sync URL when on-page dropdown changes
+  useEffect(() => {
+    const current = searchParams.get("status");
+    if (statusFilter !== "All" && current !== statusFilter) {
+      router.replace(`/follow-up?status=${statusFilter}`, { scroll: false });
+    } else if (statusFilter === "All" && current) {
+      router.replace(`/follow-up`, { scroll: false });
+    }
+  }, [statusFilter]);
 
   useEffect(() => {
     loadData();

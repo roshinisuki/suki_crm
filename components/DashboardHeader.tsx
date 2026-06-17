@@ -4,9 +4,9 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
 import { logoutAction, saveUserThemeAction, saveUserThemeModeAction } from "@/app/actions/auth";
+import { cn } from "@/lib/ui-utils";
 import { getInitials } from "@/lib/ui-utils";
 import { Search, Bell, ChevronDown, Menu, Settings, User, LogOut, Check, Trash2 } from "lucide-react";
-import { cn } from "@/lib/ui-utils";
 
 const ROLE_LABELS: Record<string, string> = {
   Admin:              "Administrator",
@@ -27,21 +27,17 @@ function useClock() {
 export default function DashboardHeader({
   pageTitle,
   user,
-  setDrawerOpen,
-  toggleCollapse,
-  isCollapsed,
+  toggleSidebar,
 }: {
   pageTitle: string;
   user: any;
-  setDrawerOpen: (v: boolean) => void;
-  toggleCollapse?: () => void;
-  isCollapsed?: boolean;
+  toggleSidebar: () => void;
 }) {
   const router = useRouter();
   const toast = useToast();
   const now = useClock();
 
-  // Theme — initialize from user profile (DB), fallback to localStorage, default to ember/light
+  // Theme — initialize from user profile or localStorage, default to ember/light
   const [activeTheme, setActiveTheme] = useState(() => {
     if (typeof window === "undefined") return user?.theme || "ember";
     return user?.theme || localStorage.getItem("crm-theme-color") || "ember";
@@ -63,15 +59,12 @@ export default function DashboardHeader({
 
   const changeTheme = async (t: string) => {
     setActiveTheme(t);
-    localStorage.setItem("crm-theme-color", t); // cache
-    document.documentElement.setAttribute("data-theme", `${t}-${isDarkMode ? "dark" : "light"}`);
-
-    // Persist to user profile (DB)
+    localStorage.setItem("crm-theme-color", t);
+    const mode = isDarkMode ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", `${t}-${mode}`);
     if (user?.id) {
       const res = await saveUserThemeAction(t);
-      if (!res.success) {
-        toast.warning("Theme saved locally only");
-      }
+      if (!res.success) toast.warning("Theme saved locally only");
     }
   };
 
@@ -79,20 +72,16 @@ export default function DashboardHeader({
     const next = !isDarkMode;
     setIsDarkMode(next);
     const mode = next ? "dark" : "light";
-    localStorage.setItem("crm-theme-mode", mode); // cache
+    localStorage.setItem("crm-theme-mode", mode);
     document.documentElement.setAttribute("data-theme", `${activeTheme}-${mode}`);
     if (next) {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
     }
-
-    // Persist to user profile (DB)
     if (user?.id) {
       const res = await saveUserThemeModeAction(mode);
-      if (!res.success) {
-        toast.warning("Theme mode saved locally only");
-      }
+      if (!res.success) toast.warning("Theme mode saved locally only");
     }
   };
 
@@ -189,18 +178,10 @@ export default function DashboardHeader({
 
       {/* ── Left ── */}
       <div className="flex items-center gap-4">
-        {/* Mobile menu button */}
+        {/* Sidebar toggle button */}
         <button
-          onClick={() => setDrawerOpen(true)}
-          className="md:hidden w-8 h-8 rounded-lg bg-[var(--surface-2)] hover:bg-[var(--surface-offset)] flex items-center justify-center text-[var(--text-secondary)] transition-colors border border-[var(--border)]"
-        >
-          <Menu size={18} />
-        </button>
-
-        {/* Desktop Sidebar Toggle */}
-        <button
-          onClick={toggleCollapse}
-          className="hidden md:flex w-8 h-8 rounded-lg bg-[var(--surface-2)] hover:bg-[var(--surface-offset)] items-center justify-center text-[var(--text-secondary)] transition-colors border border-[var(--border)]"
+          onClick={toggleSidebar}
+          className="w-8 h-8 rounded-lg bg-[var(--surface-2)] hover:bg-[var(--surface-offset)] flex items-center justify-center text-[var(--text-secondary)] transition-colors border border-[var(--border)]"
         >
           <Menu size={18} />
         </button>

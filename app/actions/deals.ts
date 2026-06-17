@@ -639,16 +639,19 @@ export async function requestDiscountAction(_data: {
   // eslint-disable-next-line no-unreachable
   try {
     const userPayload = await verifyAuth();
-    if (!userPayload || !["Admin", "SalesManager", "SalesExecutive"].includes(userPayload.role)) {
+    if (!userPayload) {
+      return { success: false, message: "Unauthorized" };
+    }
+    if (!["Admin", "SalesManager", "SalesExecutive"].includes(userPayload!.role)) {
       return { success: false, message: "Unauthorized" };
     }
 
     // Tenant check: SuperAdmin supportMode check
-    if (userPayload.role === "SuperAdmin" && (!userPayload.supportMode || !userPayload.companyId)) {
+    if (userPayload!.role === "SuperAdmin" && (!userPayload!.supportMode || !userPayload!.companyId)) {
       return { success: false, message: "Unauthorized: SuperAdmin must access business data via support/impersonation mode." };
     }
 
-    const { dealId, discountPercent, notes } = data;
+    const { dealId, discountPercent, notes } = _data;
     if (!dealId || discountPercent === undefined || discountPercent < 0 || discountPercent > 100) {
       return { success: false, message: "Invalid discount request" };
     }
@@ -657,11 +660,11 @@ export async function requestDiscountAction(_data: {
     if (!deal) return { success: false, message: "Deal not found" };
 
     // Access scope check for Deal
-    if (!checkRecordScope(userPayload, deal, "Deal")) {
+    if (!checkRecordScope(userPayload!, deal!, "Deal")) {
       return { success: false, message: "Unauthorized: Access denied." };
     }
 
-    if (deal.isLocked) {
+    if (deal!.isLocked) {
       return { success: false, message: "Cannot request discount on a locked deal" };
     }
 
@@ -670,7 +673,7 @@ export async function requestDiscountAction(_data: {
 
     if (requiresApproval) {
       // Capture the current deal status BEFORE locking (for exact rollback on rejection)
-      const dealStatusBeforeLock = deal.status as string;
+      const dealStatusBeforeLock = deal!.status as string;
 
       // Lock deal and set discount status to Pending
       await prisma.deal.update({
@@ -685,7 +688,7 @@ export async function requestDiscountAction(_data: {
 
       // Transition deal status (approval workflow disabled in V1 \u2014 kept as Active)
       await transitionDealStatus(dealId, "Active", {
-        actorId: userPayload.id,
+        actorId: userPayload!.id,
         reason: `Discount of ${discountPercent}% requested`,
       });
 
@@ -693,7 +696,7 @@ export async function requestDiscountAction(_data: {
       await prisma.approvalHistory.create({
         data: {
           dealId,
-          requestedById: userPayload.id,
+          requestedById: userPayload!.id,
           discountPercent,
           status: "Pending",
           remarks: notes || null,
@@ -702,30 +705,30 @@ export async function requestDiscountAction(_data: {
       });
 
       await logAudit(
-        userPayload.id,
+        userPayload!.id,
         "Deal",
         "Update",
-        `Requested high discount (${discountPercent}%) on deal "${deal.dealName}". Deal is locked pending Admin approval.`,
+        `Requested high discount (${discountPercent}%) on deal "${deal!.dealName}". Deal is locked pending Admin approval.`,
         { resourceId: dealId, severity: "WARN" }
       );
 
       // Notify Managers
       const requester = await prisma.user.findUnique({
-        where: { id: userPayload.id },
+        where: { id: userPayload!.id },
         select: { name: true }
       });
-      const requesterName = requester?.name || userPayload.email;
+      const requesterName = requester?.name || userPayload!.email;
 
       const managers = await prisma.user.findMany({
-        where: { role: { in: ["Admin", "SalesManager"] }, isActive: true, companyId: userPayload.companyId },
+        where: { role: { in: ["Admin", "SalesManager"] }, isActive: true, companyId: userPayload!.companyId },
         select: { id: true }
       });
-      const managerIds = managers.map(m => m.id).filter(id => id !== userPayload.id);
+      const managerIds = managers.map(m => m.id).filter(id => id !== userPayload!.id);
       if (managerIds.length > 0) {
         await dispatchNotificationsToMany({
           userIds: managerIds,
           title: "Discount Approval Required",
-          message: `${requesterName} requested a ${discountPercent}% discount on deal "${deal.dealName}".`,
+          message: `${requesterName} requested a ${discountPercent}% discount on deal "${deal!.dealName}".`,
           type: "deal",
           link: `/deals/${dealId}`
         });
@@ -737,7 +740,7 @@ export async function requestDiscountAction(_data: {
       return { success: true, message: "Discount request submitted. Awaiting manager approval." };
     } else {
       // Auto-approved: update deal value directly
-      const originalValue = deal.dealValue;
+      const originalValue = deal!.dealValue;
       const discountedValue = originalValue * (1 - discountPercent / 100);
 
       await prisma.deal.update({
@@ -754,8 +757,8 @@ export async function requestDiscountAction(_data: {
       await prisma.approvalHistory.create({
         data: {
           dealId,
-          requestedById: userPayload.id,
-          resolvedById: userPayload.id,
+          requestedById: userPayload!.id,
+          resolvedById: userPayload!.id,
           discountPercent,
           status: "Approved",
           remarks: notes || "Auto-approved",
@@ -764,10 +767,10 @@ export async function requestDiscountAction(_data: {
       });
 
       await logAudit(
-        userPayload.id,
+        userPayload!.id,
         "Deal",
         "Update",
-        `Applied auto-approved discount of ${discountPercent}% on deal "${deal.dealName}" (Value reduced from ₹${originalValue} to ₹${discountedValue})`
+        `Applied auto-approved discount of ${discountPercent}% on deal "${deal!.dealName}" (Value reduced from ₹${originalValue} to ₹${discountedValue})`
       );
 
       revalidatePath(`/deals/${dealId}`);

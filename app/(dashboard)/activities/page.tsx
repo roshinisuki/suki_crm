@@ -20,12 +20,20 @@ const TAB_CONFIG: Record<TabType, { label: string; icon: React.ReactNode; channe
   notes: { label: "Notes", icon: <StickyNote size={16} />, channel: "Note" },
 };
 
+function normalizeTab(val: string | null): TabType {
+  const map: Record<string, TabType> = {
+    calls: "calls", meetings: "meetings", notes: "notes",
+    Call: "calls", Meeting: "meetings", Note: "notes",
+  };
+  return map[val || ""] || "calls";
+}
+
 export default function ActivitiesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
 
-  const [activeTab, setActiveTab] = useState<TabType>((searchParams.get("type") as TabType) || "calls");
+  const [activeTab, setActiveTab] = useState<TabType>(normalizeTab(searchParams.get("type")));
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -59,6 +67,14 @@ export default function ActivitiesPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const type = searchParams.get("type");
+    if (type) {
+      const normalized = normalizeTab(type);
+      if (normalized !== activeTab) setActiveTab(normalized);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     fetchData();
@@ -187,7 +203,7 @@ export default function ActivitiesPage() {
                         <>
                           <td className="px-4 py-4 text-xs">{formatDate(item.createdAt)}</td>
                           <td className="px-4 py-4"><span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100">{item.entityType}</span></td>
-                          <td className="px-4 py-4 text-xs font-mono text-slate-500">{item.entityId.slice(0, 8)}...</td>
+                          <td className="px-4 py-4 text-xs font-mono text-slate-500">{(item.entityId || "").slice(0, 8)}...</td>
                           <td className="px-4 py-4 text-xs max-w-sm truncate">{item.content}</td>
                           <td className="px-4 py-4 text-xs">{item.createdBy?.name || "—"}</td>
                         </>
