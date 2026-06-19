@@ -7,7 +7,8 @@ import PageContainer from "@/components/PageContainer";
 import { SummaryCard } from "@/components/ui/SummaryCard";
 import { useToast } from "@/components/ToastProvider";
 import { getUsersAction } from "@/app/actions/users";
-import { Calendar, Clock, CheckCircle, AlertCircle, Download, RefreshCw } from "lucide-react";
+import { Calendar, Clock, CheckCircle, AlertCircle, Download } from "lucide-react";
+import { ReportFilterLayout, FilterField, filterInputClass } from "@/components/reports/ReportFilterLayout";
 
 function FollowUpReportContent() {
   const router = useRouter();
@@ -168,73 +169,36 @@ function FollowUpReportContent() {
         </div>
 
         {/* Filters Panel */}
-        <div className="crm-card p-5 space-y-4">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Filter Follow-Up Report</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Start Date</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-750 bg-slate-50 focus:outline-none cursor-pointer"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">End Date</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-750 bg-slate-50 focus:outline-none cursor-pointer"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Status</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50 cursor-pointer focus:outline-none hover:bg-slate-100/60 transition-colors"
-              >
+        <ReportFilterLayout
+          title="Filter Follow-Up Report"
+          onApply={fetchReportData}
+          onReset={handleClearFilters}
+          onRefresh={fetchReportData}
+          applyLabel="Reload"
+          resetLabel="Clear Filters"
+          filters={[
+            <FilterField label="Start Date" key="start">
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={filterInputClass} />
+            </FilterField>,
+            <FilterField label="End Date" key="end">
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={filterInputClass} />
+            </FilterField>,
+            <FilterField label="Status" key="status">
+              <select value={status} onChange={(e) => setStatus(e.target.value)} className={filterInputClass}>
                 <option value="All">All Statuses</option>
                 <option value="Pending">Pending</option>
                 <option value="Completed">Completed</option>
                 <option value="Overdue">Overdue</option>
               </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Assigned User</label>
-              <select
-                value={assignedUserId}
-                onChange={(e) => setAssignedUserId(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50 cursor-pointer focus:outline-none hover:bg-slate-100/60 transition-colors"
-              >
+            </FilterField>,
+            <FilterField label="Assigned User" key="assigned">
+              <select value={assignedUserId} onChange={(e) => setAssignedUserId(e.target.value)} className={filterInputClass}>
                 <option value="All">All Users</option>
-                {users.map(u => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
+                {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              onClick={handleClearFilters}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-slate-500 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors cursor-pointer border border-slate-250"
-            >
-              Clear Filters
-            </button>
-            <button
-              onClick={fetchReportData}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#C2601A] rounded-xl hover:bg-[#A84F16] transition-colors cursor-pointer"
-            >
-              <RefreshCw size={12} /> Reload
-            </button>
-          </div>
-        </div>
+            </FilterField>,
+          ]}
+        />
 
         {/* Report table */}
         <div className="crm-card overflow-hidden">

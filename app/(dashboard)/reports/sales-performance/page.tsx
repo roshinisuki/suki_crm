@@ -1,17 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/components/AuthProvider";
-import { useCurrency } from "@/components/CurrencyProvider";
-import { useToast } from "@/components/ToastProvider";
+import { PageShell } from "@/components/ui/PageShell";
 import PageContainer from "@/components/PageContainer";
-
-const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
-  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d={d} />
-  </svg>
-);
-const icons = { download: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4 4l-4 4m0 0l-4-4m4 4V4" };
+import { SummaryCard } from "@/components/ui/SummaryCard";
+import { useToast } from "@/components/ToastProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
+import { DollarSign, Trophy, Users, TrendingUp, Download } from "lucide-react";
+import { ReportFilterLayout, FilterField, filterInputClass } from "@/components/reports/ReportFilterLayout";
 
 export default function SalesPerformanceReportPage() {
   const toast = useToast();
@@ -45,68 +41,99 @@ export default function SalesPerformanceReportPage() {
   const handleReset = () => { setFilters({ startDate: "", endDate: "", assignedUserId: "" }); };
 
   const handleExport = () => {
+    if (rows.length === 0) { toast.error("No data to export"); return; }
     const headers = ["Exec Name", "Leads", "Calls", "Meetings", "Visits", "RFQs", "Quotations Sent", "Won Deals", `Revenue (${preferredCurrency})`];
     const rowsData = rows.map(r => [r.name, r.leadsAssigned, r.callsMade, r.meetingsDone, r.visits, r.rfqs, r.quotationsSent, r.wonDeals, r.revenue]);
-    const csv = [headers, ...rowsData].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "sales-performance-report.csv"; a.click();
+    const csv = "\uFEFF" + [headers, ...rowsData].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `sales_performance_report_${new Date().toISOString().split("T")[0]}.csv`; a.click();
     toast.success("CSV exported");
   };
 
   return (
-    <PageContainer className="space-y-4 p-0">
-      <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-slate-800">Sales Performance Report</h1><p className="text-sm text-slate-500 mt-0.5">Per-executive performance metrics</p></div>
-        <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-[#D44D4D] hover:bg-[#C94F4F] cursor-pointer"><Ico d={icons.download} size={16} /> Export CSV</button>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[{ l: "Total Revenue", v: formatCurrency(summary.totalRevenue), c: "text-[#D44D4D]" }, { l: "Total Deals Won", v: summary.totalDealsWon, c: "text-green-600" }, { l: "Total Leads", v: summary.totalLeads, c: "text-blue-600" }, { l: "Avg Revenue/Exec", v: formatCurrency(summary.avgRevenuePerExec), c: "text-amber-600" }].map(card => (
-          <div key={card.l} className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-4"><p className="text-xs font-semibold text-slate-500 uppercase">{card.l}</p><p className={`text-xl font-bold mt-1 ${card.c}`}>{card.v}</p></div>
-        ))}
-      </div>
-
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-4 space-y-3">
-        <div className="flex gap-3 flex-wrap items-end">
-          <div><label className="block text-xs font-semibold text-slate-600 mb-1">Start Date</label><input type="date" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm" /></div>
-          <div><label className="block text-xs font-semibold text-slate-600 mb-1">End Date</label><input type="date" value={filters.endDate} onChange={(e) => setFilters({ ...filters, endDate: e.target.value })} className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm" /></div>
-          <div><label className="block text-xs font-semibold text-slate-600 mb-1">Executive</label><select value={filters.assignedUserId} onChange={(e) => setFilters({ ...filters, assignedUserId: e.target.value })} className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm cursor-pointer"><option value="">All</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div>
+    <PageShell
+      title="Sales Performance Report"
+      subtitle="Per-executive performance metrics"
+      breadcrumb={[{ label: "Reports", href: "/reports" }, { label: "Sales Performance Report" }]}
+      action={
+        <button onClick={handleExport} disabled={rows.length === 0} className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+          <Download size={14} /> Export to CSV
+        </button>
+      }
+    >
+      <PageContainer className="space-y-6">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <SummaryCard label="Total Revenue" value={formatCurrency(summary.totalRevenue)} icon={<DollarSign size={20} />} variant="orange" subtitle="All won deals" />
+          <SummaryCard label="Total Deals Won" value={summary.totalDealsWon} icon={<Trophy size={20} />} variant="green" subtitle="Closed won" />
+          <SummaryCard label="Total Leads" value={summary.totalLeads} icon={<Users size={20} />} variant="blue" subtitle="Assigned leads" />
+          <SummaryCard label="Avg Revenue/Exec" value={formatCurrency(summary.avgRevenuePerExec)} icon={<TrendingUp size={20} />} variant="amber" subtitle="Per executive" />
         </div>
-        <div className="flex gap-2"><button onClick={loadReport} className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-[#D44D4D] hover:bg-[#C94F4F] cursor-pointer">Apply</button><button onClick={handleReset} className="px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer">Reset</button></div>
-      </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead><tr className="bg-slate-50 border-b border-slate-200">
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Exec Name</th>
-            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Leads</th>
-            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Calls</th>
-            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Meetings</th>
-            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Visits</th>
-            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">RFQs</th>
-            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Quotations</th>
-            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Won Deals</th>
-            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Revenue ({preferredCurrency})</th>
-          </tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan={9} className="text-center py-8 text-slate-400">Loading...</td></tr>
-            : rows.length === 0 ? <tr><td colSpan={9} className="text-center py-8 text-slate-400">No data found</td></tr>
-            : rows.map(r => (
-              <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                <td className="px-4 py-3 text-sm font-medium text-slate-800">{r.name}</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.leadsAssigned}</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.callsMade}</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.meetingsDone}</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.visits}</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.rfqs}</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.quotationsSent}</td>
-                <td className="px-4 py-3 text-sm font-medium text-slate-800 text-right">{r.wonDeals}</td>
-                <td className="px-4 py-3 text-sm font-bold text-[#D44D4D] text-right">{formatCurrency(r.revenue)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </PageContainer>
+        {/* Filters Panel */}
+        <ReportFilterLayout
+          title="Filter Performance"
+          onApply={loadReport}
+          onReset={handleReset}
+          onRefresh={loadReport}
+          filters={[
+            <FilterField label="Start Date" key="start">
+              <input type="date" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} className={filterInputClass} />
+            </FilterField>,
+            <FilterField label="End Date" key="end">
+              <input type="date" value={filters.endDate} onChange={(e) => setFilters({ ...filters, endDate: e.target.value })} className={filterInputClass} />
+            </FilterField>,
+            <FilterField label="Executive" key="exec">
+              <select value={filters.assignedUserId} onChange={(e) => setFilters({ ...filters, assignedUserId: e.target.value })} className={filterInputClass}>
+                <option value="">All Executives</option>
+                {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </FilterField>,
+          ]}
+        />
+
+        {/* Data Table */}
+        <div className="crm-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Exec Name</th>
+                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Leads</th>
+                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Calls</th>
+                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Meetings</th>
+                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Visits</th>
+                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">RFQs</th>
+                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Quotations</th>
+                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Won Deals</th>
+                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Revenue ({preferredCurrency})</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr><td colSpan={9} className="text-center py-12 text-slate-400 text-sm">Loading...</td></tr>
+                ) : rows.length === 0 ? (
+                  <tr><td colSpan={9} className="text-center py-12 text-slate-400 text-sm">No data found</td></tr>
+                ) : (
+                  rows.map(r => (
+                    <tr key={r.id} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3 text-sm font-medium text-slate-800">{r.name}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.leadsAssigned}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.callsMade}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.meetingsDone}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.visits}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.rfqs}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.quotationsSent}</td>
+                      <td className="px-4 py-3 text-sm font-semibold text-slate-800 text-right">{r.wonDeals}</td>
+                      <td className="px-4 py-3 text-sm font-bold text-[var(--accent)] text-right">{formatCurrency(r.revenue)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </PageContainer>
+    </PageShell>
   );
 }

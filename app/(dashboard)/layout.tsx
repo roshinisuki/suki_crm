@@ -297,8 +297,8 @@ function SidebarContent({
 
   const reportsSubItems = isVariant2 ? [
     { href: "/reports", label: "All Reports" },
-    { href: "/reports?type=lead", label: "Lead Report" },
-    { href: "/reports?type=followup", label: "Follow-Up Report" },
+    { href: "/reports/leads", label: "Lead Report" },
+    { href: "/reports/followups", label: "Follow-Up Report" },
     { href: "/reports/opportunities", label: "Opportunity Report" },
     { href: "/reports/rfq", label: "RFQ Report" },
     { href: "/reports/quotations", label: "Quotation Report" },
@@ -307,8 +307,8 @@ function SidebarContent({
     { href: "/reports/forecast", label: "Forecast Report" },
     ...(isVariant3 ? reportsSubItemsV3 : []),
   ] : [
-    { href: "/reports?type=lead", label: "Lead Report" },
-    { href: "/reports?type=followup", label: "Follow-Up Report" },
+    { href: "/reports/leads", label: "Lead Report" },
+    { href: "/reports/followups", label: "Follow-Up Report" },
   ];
 
   const userManagementSubItems = isVariant2 ? [

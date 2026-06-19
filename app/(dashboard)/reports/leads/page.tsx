@@ -9,6 +9,9 @@ import { useToast } from "@/components/ToastProvider";
 import { getUsersAction } from "@/app/actions/users";
 import { getLeadSourcesAction } from "@/app/actions/leadSources";
 import { BarChart3, Clock, CheckCircle, AlertCircle, Download, RefreshCw, FileText } from "lucide-react";
+import { ReportFilterLayout, FilterField, filterInputClass } from "@/components/reports/ReportFilterLayout";
+
+const leadStatuses = ["New", "Contacted", "FollowUpDue", "SQL", "Qualified", "Converted", "Lost"];
 
 function LeadReportContent() {
   const router = useRouter();
@@ -176,91 +179,40 @@ function LeadReportContent() {
         </div>
 
         {/* Filters Panel */}
-        <div className="crm-card p-5 space-y-4">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Filter Lead Report</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Start Date</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-750 bg-slate-50 focus:outline-none cursor-pointer"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">End Date</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-750 bg-slate-50 focus:outline-none cursor-pointer"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Status</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50 cursor-pointer focus:outline-none hover:bg-slate-100/60 transition-colors"
-              >
+        <ReportFilterLayout
+          title="Filter Lead Report"
+          onApply={fetchReportData}
+          onReset={handleClearFilters}
+          onRefresh={fetchReportData}
+          applyLabel="Reload"
+          resetLabel="Clear Filters"
+          filters={[
+            <FilterField label="Start Date" key="start">
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={filterInputClass} />
+            </FilterField>,
+            <FilterField label="End Date" key="end">
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={filterInputClass} />
+            </FilterField>,
+            <FilterField label="Status" key="status">
+              <select value={status} onChange={(e) => setStatus(e.target.value)} className={filterInputClass}>
                 <option value="All">All Statuses</option>
-                <option value="New">New</option>
-                <option value="Contacted">Contacted</option>
-                <option value="FollowUpDue">Follow Up Due</option>
-                <option value="SQL">SQL</option>
-                <option value="Qualified">Qualified</option>
-                <option value="Converted">Converted</option>
-                <option value="Lost">Lost</option>
+                {leadStatuses.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Lead Source</label>
-              <select
-                value={leadSource}
-                onChange={(e) => setLeadSource(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50 cursor-pointer focus:outline-none hover:bg-slate-100/60 transition-colors"
-              >
+            </FilterField>,
+            <FilterField label="Lead Source" key="source">
+              <select value={leadSource} onChange={(e) => setLeadSource(e.target.value)} className={filterInputClass}>
                 <option value="All">All Sources</option>
-                {leadSources.map(src => (
-                  <option key={src.id} value={src.name}>{src.name}</option>
-                ))}
+                {leadSources.map(src => <option key={src.id} value={src.name}>{src.name}</option>)}
               </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Assigned User</label>
-              <select
-                value={assignedUserId}
-                onChange={(e) => setAssignedUserId(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-slate-50 cursor-pointer focus:outline-none hover:bg-slate-100/60 transition-colors"
-              >
+            </FilterField>,
+            <FilterField label="Assigned User" key="assigned">
+              <select value={assignedUserId} onChange={(e) => setAssignedUserId(e.target.value)} className={filterInputClass}>
                 <option value="All">All Users</option>
-                {users.map(u => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
+                {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              onClick={handleClearFilters}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-slate-500 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors cursor-pointer border border-slate-250"
-            >
-              Clear Filters
-            </button>
-            <button
-              onClick={fetchReportData}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#C2601A] rounded-xl hover:bg-[#A84F16] transition-colors cursor-pointer"
-            >
-              <RefreshCw size={12} /> Reload
-            </button>
-          </div>
-        </div>
+            </FilterField>,
+          ]}
+        />
 
         {/* Lead report table */}
         <div className="crm-card overflow-hidden">

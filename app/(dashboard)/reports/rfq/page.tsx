@@ -1,16 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/components/AuthProvider";
-import { useToast } from "@/components/ToastProvider";
+import { PageShell } from "@/components/ui/PageShell";
 import PageContainer from "@/components/PageContainer";
+import { SummaryCard } from "@/components/ui/SummaryCard";
+import { useToast } from "@/components/ToastProvider";
+import { getCustomersAction } from "@/app/actions/customers";
+import { FileText, Eye, Calculator, CheckCircle, Archive, Download, Search } from "lucide-react";
+import { ReportFilterLayout, FilterField, filterInputClass } from "@/components/reports/ReportFilterLayout";
 
-const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
-  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d={d} />
-  </svg>
-);
-const icons = { download: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4 4l-4 4m0 0l-4-4m4 4V4" };
 const rfqStatuses = ["New", "UnderReview", "CostingPending", "QuotationCreated", "Closed"];
 
 export default function RFQReportPage() {
@@ -25,7 +23,7 @@ export default function RFQReportPage() {
 
   useEffect(() => {
     fetch("/api/users").then(res => res.json()).then(data => { if (data.success) setUsers(data.data || []); });
-    fetch("/api/customer-master").then(res => res.json()).then(data => { if (data.success) setCustomers(data.data || []); });
+    getCustomersAction().then(res => { if (res?.success && res.data) setCustomers(res.data); });
   }, []);
 
   const loadReport = async () => {
@@ -46,72 +44,125 @@ export default function RFQReportPage() {
 
   useEffect(() => { loadReport(); }, []);
 
-  const handleReset = () => { setFilters({ statuses: [], customerId: "", assignedUserId: "", startDate: "", endDate: "" }); };
+  const handleReset = () => { setFilters({ statuses: [], customerId: "", assignedUserId: "", startDate: "", endDate: "" }); setCustomerSearch(""); };
   const toggleStatus = (s: string) => setFilters(f => ({ ...f, statuses: f.statuses.includes(s) ? f.statuses.filter(x => x !== s) : [...f.statuses, s] }));
 
   const handleExport = () => {
+    if (rfqs.length === 0) { toast.error("No data to export"); return; }
     const headers = ["RFQ Code", "Customer", "Product", "Quantity", "Status", "Assigned To", "Received Date"];
     const rows = rfqs.map(r => [r.rfqCode, r.customerName, r.productName, r.quantity, r.status, r.assignedTo, r.receivedDate ? new Date(r.receivedDate).toLocaleDateString() : ""]);
-    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "rfq-report.csv"; a.click();
+    const csv = "\uFEFF" + [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `rfq_report_${new Date().toISOString().split("T")[0]}.csv`; a.click();
     toast.success("CSV exported");
   };
 
   const filteredCustomers = customers.filter(c => !customerSearch || c.name?.toLowerCase().includes(customerSearch.toLowerCase()) || c.customerCode?.toLowerCase().includes(customerSearch.toLowerCase()));
 
   return (
-    <PageContainer className="space-y-4 p-0">
-      <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-slate-800">RFQ Report</h1><p className="text-sm text-slate-500 mt-0.5">Track RFQ pipeline and conversions</p></div>
-        <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-[#D44D4D] hover:bg-[#C94F4F] cursor-pointer"><Ico d={icons.download} size={16} /> Export CSV</button>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {[{ l: "Total", v: summary.total, c: "text-slate-800" }, { l: "Under Review", v: summary.underReview, c: "text-amber-600" }, { l: "Costing Pending", v: summary.costingPending, c: "text-orange-600" }, { l: "Converted", v: summary.converted, c: "text-green-600" }, { l: "Closed", v: summary.closed, c: "text-blue-600" }].map(card => (
-          <div key={card.l} className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-4"><p className="text-xs font-semibold text-slate-500 uppercase">{card.l}</p><p className={`text-xl font-bold mt-1 ${card.c}`}>{card.v}</p></div>
-        ))}
-      </div>
-
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-4 space-y-3">
-        <div className="flex gap-3 flex-wrap items-end">
-          <div><label className="block text-xs font-semibold text-slate-600 mb-1">Status</label><div className="flex flex-wrap gap-1">{rfqStatuses.map(s => <button key={s} onClick={() => toggleStatus(s)} className={`px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer ${filters.statuses.includes(s) ? "bg-[#D44D4D] text-white" : "bg-slate-100 text-slate-700"}`}>{s}</button>)}</div></div>
-          <div><label className="block text-xs font-semibold text-slate-600 mb-1">Customer</label><input type="text" placeholder="Search..." value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm mb-1 block" /><select value={filters.customerId} onChange={(e) => setFilters({ ...filters, customerId: e.target.value })} className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm cursor-pointer"><option value="">All</option>{filteredCustomers.map(c => <option key={c.id} value={c.id}>{c.customerCode} - {c.name}</option>)}</select></div>
-          <div><label className="block text-xs font-semibold text-slate-600 mb-1">Assigned To</label><select value={filters.assignedUserId} onChange={(e) => setFilters({ ...filters, assignedUserId: e.target.value })} className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm cursor-pointer"><option value="">All</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div>
-          <div><label className="block text-xs font-semibold text-slate-600 mb-1">Start Date</label><input type="date" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm" /></div>
-          <div><label className="block text-xs font-semibold text-slate-600 mb-1">End Date</label><input type="date" value={filters.endDate} onChange={(e) => setFilters({ ...filters, endDate: e.target.value })} className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm" /></div>
+    <PageShell
+      title="RFQ Report"
+      subtitle="Track RFQ pipeline and conversions"
+      breadcrumb={[{ label: "Reports", href: "/reports" }, { label: "RFQ Report" }]}
+      action={
+        <button onClick={handleExport} disabled={rfqs.length === 0} className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+          <Download size={14} /> Export to CSV
+        </button>
+      }
+    >
+      <PageContainer className="space-y-6">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <SummaryCard label="Total RFQs" value={summary.total} icon={<FileText size={20} />} variant="orange" subtitle="All requests" />
+          <SummaryCard label="Under Review" value={summary.underReview} icon={<Eye size={20} />} variant="amber" subtitle="Being reviewed" />
+          <SummaryCard label="Costing Pending" value={summary.costingPending} icon={<Calculator size={20} />} variant="red" subtitle="Awaiting costing" />
+          <SummaryCard label="Converted" value={summary.converted} icon={<CheckCircle size={20} />} variant="green" subtitle="Quotation created" />
+          <SummaryCard label="Closed" value={summary.closed} icon={<Archive size={20} />} variant="blue" subtitle="Closed RFQs" />
         </div>
-        <div className="flex gap-2"><button onClick={loadReport} className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-[#D44D4D] hover:bg-[#C94F4F] cursor-pointer">Apply</button><button onClick={handleReset} className="px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer">Reset</button></div>
-      </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead><tr className="bg-slate-50 border-b border-slate-200">
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">RFQ Code</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Customer</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Product</th>
-            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Qty</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Status</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Assigned To</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Received Date</th>
-          </tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan={7} className="text-center py-8 text-slate-400">Loading...</td></tr>
-            : rfqs.length === 0 ? <tr><td colSpan={7} className="text-center py-8 text-slate-400">No RFQs found</td></tr>
-            : rfqs.map(r => (
-              <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                <td className="px-4 py-3 text-sm font-medium text-slate-800">{r.rfqCode}</td>
-                <td className="px-4 py-3 text-sm text-slate-700">{r.customerName}</td>
-                <td className="px-4 py-3 text-sm text-slate-700">{r.productName}</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.quantity}</td>
-                <td className="px-4 py-3 text-sm text-slate-700">{r.status}</td>
-                <td className="px-4 py-3 text-sm text-slate-700">{r.assignedTo}</td>
-                <td className="px-4 py-3 text-sm text-slate-700">{r.receivedDate ? new Date(r.receivedDate).toLocaleDateString() : "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </PageContainer>
+        {/* Filters Panel */}
+        <ReportFilterLayout
+          title="Filter RFQ Report"
+          stages={rfqStatuses}
+          activeStages={filters.statuses}
+          onToggleStage={toggleStatus}
+          stageLabel="Status"
+          onApply={loadReport}
+          onReset={handleReset}
+          onRefresh={loadReport}
+          filters={[
+            <FilterField label="Customer" key="customer">
+              <select value={filters.customerId} onChange={(e) => setFilters({ ...filters, customerId: e.target.value })} className={filterInputClass}>
+                <option value="">All Customers</option>
+                {filteredCustomers.map(c => <option key={c.id} value={c.id}>{c.customerCode} - {c.name}</option>)}
+              </select>
+            </FilterField>,
+            <FilterField label="Assigned To" key="assigned">
+              <select value={filters.assignedUserId} onChange={(e) => setFilters({ ...filters, assignedUserId: e.target.value })} className={filterInputClass}>
+                <option value="">All Executives</option>
+                {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </FilterField>,
+            <FilterField label="Start Date" key="start">
+              <input type="date" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} className={filterInputClass} />
+            </FilterField>,
+            <FilterField label="End Date" key="end">
+              <input type="date" value={filters.endDate} onChange={(e) => setFilters({ ...filters, endDate: e.target.value })} className={filterInputClass} />
+            </FilterField>,
+          ]}
+        >
+          <div className="relative max-w-xs pt-1">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Search size={14} /></div>
+            <input type="text" placeholder="Search customers..." value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 text-xs font-semibold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20" />
+          </div>
+        </ReportFilterLayout>
+
+        {/* Data Table */}
+        <div className="crm-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">RFQ Code</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Customer</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Product</th>
+                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Qty</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Assigned To</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Received Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr><td colSpan={7} className="text-center py-12 text-slate-400 text-sm">Loading...</td></tr>
+                ) : rfqs.length === 0 ? (
+                  <tr><td colSpan={7} className="text-center py-12 text-slate-400 text-sm">No RFQs found</td></tr>
+                ) : (
+                  rfqs.map(r => (
+                    <tr key={r.id} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3 text-sm font-mono text-xs text-slate-600">{r.rfqCode}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{r.customerName}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{r.productName}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.quantity}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                          r.status === "QuotationCreated" ? "bg-emerald-50 text-emerald-600" :
+                          r.status === "Closed" ? "bg-blue-50 text-blue-600" :
+                          r.status === "CostingPending" ? "bg-orange-50 text-orange-600" :
+                          r.status === "UnderReview" ? "bg-amber-50 text-amber-600" :
+                          "bg-slate-100 text-slate-600"
+                        }`}>{r.status}</span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{r.assignedTo}</td>
+                      <td className="px-4 py-3 text-sm text-slate-500">{r.receivedDate ? new Date(r.receivedDate).toLocaleDateString() : "—"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </PageContainer>
+    </PageShell>
   );
 }
