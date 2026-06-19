@@ -5,13 +5,6 @@ import { verifyAuth } from "@/lib/auth";
 import { buildScope } from "@/lib/scopes";
 
 export async function getForecastDataAction() {
-  // Forecast is a Variant 2+ module — disabled in Variant 1 (BRD §6)
-  return {
-    success: false,
-    message: "Forecast module is not available in Variant 1.",
-    data: null
-  };
-  // eslint-disable-next-line no-unreachable
   try {
     const userPayload = await verifyAuth();
     if (!userPayload) {
@@ -35,6 +28,7 @@ export async function getForecastDataAction() {
       RequirementGathering: 0.3,
       MeetingScheduled: 0.5,
       Active: 0.7,
+      OnHold: 0.2,
       Won: 1.0,
       Lost: 0.0,
     };

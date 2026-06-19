@@ -1,0 +1,63 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { verifyAuth } from "@/lib/auth";
+
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const user = await verifyAuth();
+  if (!user) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const competitor = await prisma.competitor.findFirst({
+    where: { id, companyId: user.companyId },
+    include: {
+      products: { orderBy: { updatedAt: "desc" } },
+      _count: { select: { lostDealAnalyses: true } },
+    },
+  });
+
+  if (!competitor) return NextResponse.json({ success: false, message: "Not found" }, { status: 404 });
+  return NextResponse.json({ success: true, data: competitor });
+}
+
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const user = await verifyAuth();
+  if (!user) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  if (!["Admin", "SalesManager"].includes(user.role ?? "")) {
+    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const body = await request.json();
+
+  const existing = await prisma.competitor.findFirst({ where: { id, companyId: user.companyId } });
+  if (!existing) return NextResponse.json({ success: false, message: "Not found" }, { status: 404 });
+
+  const competitor = await prisma.competitor.update({
+    where: { id },
+    data: {
+      name: body.name,
+      website: body.website,
+      description: body.description,
+      strengths: body.strengths,
+      weaknesses: body.weaknesses,
+      isActive: body.isActive,
+    },
+  });
+
+  return NextResponse.json({ success: true, data: competitor });
+}
+
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const user = await verifyAuth();
+  if (!user) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  if (!["Admin"].includes(user.role ?? "")) {
+    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const existing = await prisma.competitor.findFirst({ where: { id, companyId: user.companyId } });
+  if (!existing) return NextResponse.json({ success: false, message: "Not found" }, { status: 404 });
+
+  await prisma.competitor.delete({ where: { id } });
+  return NextResponse.json({ success: true });
+}

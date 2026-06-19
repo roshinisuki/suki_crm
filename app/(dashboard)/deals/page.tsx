@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getDealsAction, createDealAction, updateDealAction, deleteDealAction } from "@/app/actions/deals";
+import { getDealsAction, createDealAction, updateDealAction, deleteDealAction, updateDealStatusAction } from "@/app/actions/deals";
 import { getCustomersAction } from "@/app/actions/customers";
 import { getUsersAction } from "@/app/actions/users";
 import { useAuth } from "@/components/AuthProvider";
@@ -16,8 +16,8 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, Input, Select, Textarea } from "@/components/ui/FormField";
 import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { getInitials, getAvatarColor, formatDate, cn } from "@/lib/ui-utils";
-import { Plus, Search, Download, Eye, Pencil, Trash2, Briefcase, TrendingUp, CheckCircle, XCircle } from "lucide-react";
-const STAGES = ["Active", "Won", "Lost"];
+import { Plus, Search, Download, Eye, Pencil, Trash2, Briefcase, TrendingUp, CheckCircle, XCircle, PauseCircle } from "lucide-react";
+const STAGES = ["Active", "OnHold", "Won", "Lost"];
 const emptyForm = {
   id: "", dealName: "", customerId: "", dealValue: "",
   expectedCloseDate: "", assignedUserId: "", notes: "", status: "Active",
@@ -71,7 +71,8 @@ export default function DealsPage() {
   // ── KPI ───────────────────────────────────────────────────────────────────
 
   const kpiTotal  = deals.length;
-  const kpiOpen   = deals.filter(d => !["Won", "Lost"].includes(d.status)).length;
+  const kpiOpen   = deals.filter(d => !["Won", "Lost", "OnHold"].includes(d.status)).length;
+  const kpiOnHold = deals.filter(d => d.status === "OnHold").length;
   const kpiWon    = deals.filter(d => d.status === "Won").length;
   const kpiLost   = deals.filter(d => d.status === "Lost").length;
   const kpiValue  = deals.filter(d => d.status === "Won").reduce((s, d) => s + d.dealValue, 0);
@@ -137,6 +138,17 @@ export default function DealsPage() {
     else toast.error(res.message || "Failed.");
   };
 
+  const handleToggleHold = async (d: any) => {
+    const nextStatus = d.status === "OnHold" ? "Active" : "OnHold";
+    const res = await updateDealStatusAction(d.id, nextStatus);
+    if (res.success) {
+      toast.success(nextStatus === "OnHold" ? "Deal put on hold." : "Deal resumed.");
+      loadDeals();
+    } else {
+      toast.error(res.message || "Failed to update status.");
+    }
+  };
+
   const exportCSV = () => {
     const headers = ["Deal Name", "Customer", "Value", "Stage", "Assigned To", "Expected Close", "Status"];
     const rows = filtered.map(d => [
@@ -173,9 +185,10 @@ export default function DealsPage() {
     >
       <PageContainer className="space-y-4 p-0">
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <SummaryCard label="Total Deals" value={kpiTotal.toString()} icon={<Briefcase size={20} />} variant="orange" />
-        <SummaryCard label="Active Deals" value={kpiOpen.toString()} icon={<TrendingUp size={20} />} variant="dark" />
+        <SummaryCard label="Active" value={kpiOpen.toString()} icon={<TrendingUp size={20} />} variant="dark" />
+        <SummaryCard label="On Hold" value={kpiOnHold.toString()} icon={<PauseCircle size={20} />} variant="amber" />
         <SummaryCard label="Won" value={kpiWon.toString()} icon={<CheckCircle size={20} />} variant="light" />
         <SummaryCard label="Total Value" value={formatCurrency(kpiValue)} icon={<TrendingUp size={20} />} variant="light" />
       </div>
@@ -188,7 +201,7 @@ export default function DealsPage() {
           </div>
           <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-40">
             <option value="">All Statuses</option>
-            {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+            {STAGES.map(s => <option key={s} value={s}>{s === "OnHold" ? "On Hold" : s}</option>)}
           </Select>
         </div>
 
@@ -251,6 +264,15 @@ export default function DealsPage() {
                       <div className="flex items-center justify-end gap-1.5">
                         <button onClick={() => router.push(`/deals/${d.id}`)} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"><Eye size={14} /></button>
                         <button onClick={() => openEdit(d)} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"><Pencil size={13} /></button>
+                        {["Admin", "SalesManager"].includes(currentUser?.role || "") && !["Won", "Lost"].includes(d.status) && (
+                          <button
+                            onClick={() => handleToggleHold(d)}
+                            title={d.status === "OnHold" ? "Resume Deal" : "Put On Hold"}
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${d.status === "OnHold" ? "text-amber-600 hover:bg-amber-50" : "text-slate-400 hover:text-amber-600 hover:bg-amber-50"}`}
+                          >
+                            <PauseCircle size={14} />
+                          </button>
+                        )}
                         {["Admin", "SalesManager"].includes(currentUser?.role || "") && (
                           <button onClick={() => handleDelete(d.id, d.dealName)} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"><Trash2 size={13} /></button>
                         )}
@@ -313,7 +335,7 @@ export default function DealsPage() {
             </FormField>
             <FormField label="Stage" required>
               <Select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
-                {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                {STAGES.map(s => <option key={s} value={s}>{s === "OnHold" ? "On Hold" : s}</option>)}
               </Select>
             </FormField>
             <FormField label="Assigned To" required>

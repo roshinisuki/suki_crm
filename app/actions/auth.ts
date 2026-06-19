@@ -612,7 +612,7 @@ export async function updateCompanyVariantAction(variant: number) {
       return { success: false, message: "No company associated" };
     }
 
-    const validVariant = Math.max(1, Math.min(3, Number(variant) || 1));
+    const validVariant = Math.max(1, Math.min(4, Number(variant) || 1));
 
     await prisma.company.update({
       where: { id: userPayload.companyId },

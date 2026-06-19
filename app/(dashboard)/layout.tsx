@@ -13,7 +13,8 @@ import {
   LayoutDashboard, Users, CalendarClock, Briefcase, BookUser,
   CheckSquare, Settings, LogOut, Menu, X, TrendingUp, Building,
   ChevronDown, ChevronUp, Building2, ShieldCheck, PieChart, Activity, ContactRound, ListTodo,
-  Package, FileText, DollarSign, MessageSquare, Clock, Target, Layers, MapPin
+  Package, FileText, DollarSign, MessageSquare, Clock, Target, Layers, MapPin,
+  Swords, Crown, Globe, Trophy
 } from "lucide-react";
 
 // ─── Nav definitions ─────────────────────────────────────────────────────────
@@ -182,6 +183,7 @@ function SidebarContent({
 }) {
   const isVariant2 = (user?.variant || user?.company?.variant || 1) >= 2;
   const isVariant3 = (user?.variant || user?.company?.variant || 1) >= 3;
+  const isVariant4 = (user?.variant || user?.company?.variant || 1) >= 4;
 
   const leadSubItems = [
     { href: "/leads", label: "All Leads" },
@@ -273,6 +275,10 @@ function SidebarContent({
     { href: "/reports/negotiations", label: "Negotiation Report" },
     { href: "/reports/purchase-orders", label: "Purchase Order Report" },
     { href: "/reports/po-conversion", label: "PO Conversion Report" },
+    ...(isVariant4 ? [
+      { href: "/reports/competitor-analysis", label: "Competitor Analysis" },
+      { href: "/reports/target-achievement", label: "Target Achievement Report" },
+    ] : []),
   ] : [];
 
   const settingsSubItemsV3 = isVariant3 ? [
@@ -282,6 +288,11 @@ function SidebarContent({
     { href: "/settings/whatsapp-templates", label: "WhatsApp Templates" },
     { href: "/settings/document-types", label: "Document Types" },
     { href: "/settings/sample-config", label: "Sample Configuration" },
+    ...(isVariant4 ? [
+      { href: "/settings/competitor-master", label: "Competitor Master" },
+      { href: "/settings/loss-reason-master", label: "Loss Reason Master" },
+      { href: "/settings/territories", label: "Territories" },
+    ] : []),
   ] : [];
 
   const reportsSubItems = isVariant2 ? [
@@ -408,6 +419,35 @@ function SidebarContent({
     { href: "/approvals?type=PO", label: "PO Approvals" },
   ];
 
+  // ─── Variant 4 navigation items ───
+  const competitorMgmtSubItems = [
+    { href: "/competitors", label: "Competitors" },
+    { href: "/competitors/products", label: "Competitor Products" },
+    { href: "/competitors/lost-analysis", label: "Lost Deals Analysis" },
+    { href: "/competitors/win-loss", label: "Win/Loss Analysis" },
+  ];
+
+  const keyAccountMgmtSubItems = [
+    { href: "/key-accounts?importance=Critical", label: "Strategic Accounts" },
+    { href: "/key-accounts?view=revenue", label: "Revenue Potential" },
+    { href: "/key-accounts/visits", label: "Visit Schedule" },
+    { href: "/key-accounts/relationships", label: "Relationship Mapping" },
+  ];
+
+  const territoryMgmtSubItems = [
+    { href: "/territories?view=regions", label: "Regions" },
+    { href: "/territories", label: "Sales Territories" },
+    { href: "/territories/accounts", label: "Territory Accounts" },
+    { href: "/territories/performance", label: "Territory Performance" },
+  ];
+
+  const targetMgmtSubItems = [
+    { href: "/targets?type=Monthly", label: "Monthly Targets" },
+    { href: "/targets?type=Quarterly", label: "Quarterly Targets" },
+    { href: "/targets?type=Yearly", label: "Yearly Targets" },
+    { href: "/targets/achievement", label: "Achievement Tracking" },
+  ];
+
   return (
     <>
       {/* ── Logo / Brand ── */}
@@ -482,6 +522,20 @@ function SidebarContent({
                 <ExpandableNavSection label="Purchase Order Mgmt" icon={<FileText size={17} />} subItems={purchaseOrderMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
                 <ExpandableNavSection label="Document Mgmt" icon={<FileText size={17} />} subItems={documentMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
                 <ExpandableNavSection label="Approval Center" icon={<ShieldCheck size={17} />} subItems={approvalCenterSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+              </>
+            )}
+
+            {/* Variant 4 sections — Enterprise Manufacturing CRM */}
+            {isVariant4 && (<>
+                {!collapsed && (
+                  <div className="pt-5 pb-1.5">
+                    <p className="px-3.5 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--sidebar-heading)" }}>Enterprise</p>
+                  </div>
+                )}
+                <ExpandableNavSection label="Competitor Mgmt" icon={<Swords size={17} />} subItems={competitorMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+                <ExpandableNavSection label="Key Account Mgmt" icon={<Crown size={17} />} subItems={keyAccountMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+                <ExpandableNavSection label="Territory Mgmt" icon={<Globe size={17} />} subItems={territoryMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+                <ExpandableNavSection label="Target Mgmt" icon={<Trophy size={17} />} subItems={targetMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
               </>
             )}
           </>

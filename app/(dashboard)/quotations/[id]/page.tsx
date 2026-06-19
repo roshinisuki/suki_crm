@@ -20,6 +20,8 @@ const icons = {
   copy: "M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z",
   send: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8",
   check: "M5 13l4 4L19 7",
+  deal: "M9 7h6m0 10v-3m-6 3v-3M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z",
+  download: "M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2",
 };
 
 const statusColors: Record<string, string> = {
@@ -114,6 +116,125 @@ export default function QuotationDetailPage() {
     } catch { toast.error("Failed"); }
   };
 
+  const handleCreateDeal = () => {
+    setConfirmState({
+      isOpen: true,
+      title: "Create Deal from Quotation",
+      message: `A new deal will be created with value ₹${quotation?.finalAmount?.toFixed(2) || "0"} and linked to this quotation. Continue?`,
+      action: async () => {
+        try {
+          const res = await fetch(`/api/quotations/${id}/create-deal`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          });
+          const data = await res.json();
+          if (data.success) {
+            toast.success("Deal created from quotation");
+            router.push(`/deals/${data.data.id}`);
+          } else {
+            toast.error(data.message || "Failed to create deal");
+          }
+        } catch { toast.error("Failed to create deal"); }
+        setConfirmState({ isOpen: false, title: "", message: "", action: () => {} });
+      },
+    });
+  };
+
+  const handleDownloadPdf = async () => {
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const autoTable = (await import("jspdf-autotable")).default;
+      const q = quotation;
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const margin = 40;
+      let y = margin;
+
+      // Header
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.text("QUOTATION", margin, y);
+      y += 8;
+      doc.setDrawColor(212, 77, 77);
+      doc.setLineWidth(2);
+      doc.line(margin, y, 555, y);
+      y += 24;
+
+      // Quotation meta
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Quotation No: ${q.quotationCode}`, margin, y);
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 400, y);
+      y += 16;
+      doc.text(`Valid Until: ${new Date(q.validUntil).toLocaleDateString()}`, margin, y);
+      doc.text(`Status: ${q.status}`, 400, y);
+      y += 24;
+
+      // Bill To
+      doc.setFont("helvetica", "bold");
+      doc.text("Bill To", margin, y);
+      y += 14;
+      doc.setFont("helvetica", "normal");
+      doc.text(q.customer?.name || "—", margin, y);
+      y += 14;
+      if (q.contact?.name) { doc.text(`Attn: ${q.contact.name}`, margin, y); y += 14; }
+      y += 10;
+
+      // Items table
+      autoTable(doc, {
+        startY: y,
+        head: [["#", "Product Code", "Description", "Qty", "Unit Price", "Total"]],
+        body: (q.items || []).map((it: any, i: number) => [
+          i + 1,
+          it.product?.productCode || "—",
+          it.description,
+          String(it.quantity),
+          `Rs. ${it.unitPrice.toFixed(2)}`,
+          `Rs. ${it.totalPrice.toFixed(2)}`,
+        ]),
+        theme: "striped",
+        headStyles: { fillColor: [212, 77, 77], textColor: 255, fontSize: 9 },
+        bodyStyles: { fontSize: 9 },
+        margin: { left: margin, right: margin },
+      });
+      // @ts-ignore - lastAutoTable is added by the plugin
+      y = (doc as any).lastAutoTable.finalY + 20;
+
+      // Totals
+      const labelX = 380;
+      const valueX = 555;
+      doc.setFontSize(10);
+      doc.text("Subtotal", labelX, y);
+      doc.text(`Rs. ${q.totalAmount.toFixed(2)}`, valueX, y, { align: "right" });
+      y += 16;
+      doc.text(`Discount (${q.discountPercent}%)`, labelX, y);
+      doc.text(`- Rs. ${(q.totalAmount - q.finalAmount).toFixed(2)}`, valueX, y, { align: "right" });
+      y += 18;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Final Amount", labelX, y);
+      doc.text(`Rs. ${q.finalAmount.toFixed(2)}`, valueX, y, { align: "right" });
+      y += 24;
+
+      // Terms
+      if (q.termsAndConditions) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text("Terms & Conditions", margin, y);
+        y += 14;
+        doc.setFont("helvetica", "normal");
+        const terms = doc.splitTextToSize(q.termsAndConditions, 515);
+        doc.text(terms, margin, y);
+      }
+
+      doc.save(`${q.quotationCode}.pdf`);
+      toast.success("PDF downloaded");
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to generate PDF");
+    }
+  };
+
   const handleDelete = () => {
     setConfirmState({
       isOpen: true,
@@ -155,6 +276,10 @@ export default function QuotationDetailPage() {
             <button onClick={handleAccept} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-green-600 hover:bg-green-700 cursor-pointer"><Ico d={icons.check} size={15} /> Mark Accepted</button>
             <button onClick={handleReject} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 cursor-pointer"><Ico d={icons.x} size={15} /> Mark Rejected</button>
           </>}
+          {quotation.status === "Accepted" && !quotation.dealId && (
+            <button onClick={handleCreateDeal} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 cursor-pointer"><Ico d={icons.deal} size={15} /> Create Deal</button>
+          )}
+          <button onClick={handleDownloadPdf} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer"><Ico d={icons.download} size={15} /> Download PDF</button>
           <button onClick={handleDuplicate} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer"><Ico d={icons.copy} size={15} /> Duplicate</button>
           {quotation.status === "Draft" && <button onClick={() => router.push(`/quotations/${id}?edit=1`)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer"><Ico d={icons.edit} size={15} /> Edit</button>}
           <button onClick={handleDelete} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 cursor-pointer"><Ico d={icons.x} size={15} /> Delete</button>

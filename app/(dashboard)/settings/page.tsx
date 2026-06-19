@@ -451,7 +451,7 @@ export default function SettingsPage() {
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">CRM Variant</label>
               <div className="flex gap-2">
-                {[1, 2, 3].map((v) => (
+                {[1, 2, 3, 4].map((v) => (
                   <button
                     key={v}
                     onClick={() => handleUpdateVariant(v)}

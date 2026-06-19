@@ -45,6 +45,12 @@ export async function getContactsAction(params?: {
 
     const { search = "", status = "", contactType = "", customerId = "" } = params || {};
 
+    // Role-based visibility: Finance/Management contacts are restricted.
+    // Only Admin, SalesManager, Finance, and Management roles may view them.
+    // SalesExecutive and other roles are excluded from these sensitive contacts.
+    const restrictedTypes = ["Finance", "Management"];
+    const canViewRestricted = ["Admin", "SalesManager", "Finance", "Management", "SuperAdmin"].includes(user.role);
+
     const contacts = await prisma.contact.findMany({
       where: {
         deletedAt: null,
@@ -52,6 +58,8 @@ export async function getContactsAction(params?: {
         ...(status ? { status } : {}),
         ...(contactType ? { contactType } : {}),
         ...(customerId ? { customerId } : {}),
+        // Apply role-based restriction on Finance/Management contacts
+        ...(!canViewRestricted ? { contactType: { notIn: restrictedTypes } } : {}),
         ...(search
           ? {
               OR: [
@@ -96,6 +104,13 @@ export async function getContactByIdAction(id: string) {
 
     if (!contact || contact.ownerId !== user.id) {
       return { success: false, message: "Contact not found." };
+    }
+
+    // Role-based visibility: block Finance/Management contacts for unauthorized roles
+    const restrictedTypes = ["Finance", "Management"];
+    const canViewRestricted = ["Admin", "SalesManager", "Finance", "Management", "SuperAdmin"].includes(user.role);
+    if (!canViewRestricted && restrictedTypes.includes(contact.contactType)) {
+      return { success: false, message: "Unauthorized: You do not have permission to view this contact." };
     }
 
     return { success: true, data: contact };
