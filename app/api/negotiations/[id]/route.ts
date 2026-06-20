@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
+import { logAudit, extractAuditContext } from "@/lib/audit";
 
 const VALID_STATUSES = ["Active", "PriceRevision", "CommercialDiscussion", "PendingApproval", "Won", "Lost"];
 
@@ -101,6 +102,20 @@ export async function PUT(
     },
   });
 
+  if (body.status && body.status !== existing.status) {
+    await logAudit(user.id, "Negotiation", "StatusChange", `Negotiation ${existing.negotiationCode} status: ${existing.status} → ${body.status}`, {
+      resourceId: id,
+      previousState: { status: existing.status },
+      newState: { status: body.status },
+      context: extractAuditContext(request),
+    });
+  } else {
+    await logAudit(user.id, "Negotiation", "Update", `Updated negotiation ${existing.negotiationCode}`, {
+      resourceId: id,
+      context: extractAuditContext(request),
+    });
+  }
+
   return NextResponse.json({ success: true, data: negotiation });
 }
 
@@ -122,6 +137,12 @@ export async function DELETE(
   await prisma.negotiation.update({
     where: { id },
     data: { deletedAt: new Date(), deletedById: user.id },
+  });
+
+  await logAudit(user.id, "Negotiation", "Delete", `Deleted negotiation ${existing.negotiationCode}`, {
+    resourceId: id,
+    previousState: { negotiationCode: existing.negotiationCode, status: existing.status },
+    context: extractAuditContext(request),
   });
 
   return NextResponse.json({ success: true, message: "Negotiation deleted" });

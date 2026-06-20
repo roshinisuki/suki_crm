@@ -13,63 +13,101 @@ export async function GET(request: Request) {
     const q = searchParams.get("q") || "";
 
     if (!q || q.length < 2) {
-      return NextResponse.json({ success: true, data: { customers: [], visits: [], visitors: [] } });
+      return NextResponse.json({ success: true, data: { leads: [], customers: [], deals: [], contacts: [], pos: [], quotations: [], visits: [], visitors: [] } });
     }
 
     const isExec = userPayload.role === "SalesExecutive";
     const userId = userPayload.id;
+    const companyId = userPayload.companyId;
 
-    const customers = await prisma.customer.findMany({
-      where: {
-        AND: [
-          isExec ? { assignedUserId: userId } : {},
-          {
-            OR: [
-              { name: { contains: q } },
-              { email: { contains: q } },
-              { phone: { contains: q } },
-              { customerCode: { contains: q } },
-            ]
-          }
-        ]
-      },
-      take: 5,
-    });
-
-    const visits = await prisma.marketingVisit.findMany({
-      where: {
-        AND: [
-          isExec ? { executiveId: userId } : {},
-          {
-            OR: [
-              { customer: { name: { contains: q } } },
-              { executive: { name: { contains: q } } },
-            ]
-          }
-        ]
-      },
-      include: { customer: { select: { name: true } }, executive: { select: { name: true } } },
-      take: 5,
-    });
-
-    const visitors = await prisma.visitor.findMany({
-      where: {
-        AND: [
-          isExec ? { hostUserId: userId } : {},
-          {
-            OR: [
-              { visitorName: { contains: q } },
-              { company: { contains: q } },
-            ]
-          }
-        ]
-      },
-      take: 5,
-    });
+    const [leads, customers, deals, contacts, pos, quotations, visits, visitors] = await Promise.all([
+      prisma.lead.findMany({
+        where: {
+          AND: [
+            isExec ? { assignedUserId: userId } : {},
+            { companyId },
+            { OR: [{ name: { contains: q } }, { leadCode: { contains: q } }, { email: { contains: q } }] },
+          ]
+        },
+        take: 5,
+        select: { id: true, name: true, leadCode: true, email: true, phone: true, status: true },
+      }),
+      prisma.customer.findMany({
+        where: {
+          AND: [
+            isExec ? { assignedUserId: userId } : {},
+            { companyId },
+            { OR: [{ name: { contains: q } }, { email: { contains: q } }, { phone: { contains: q } }, { customerCode: { contains: q } }] },
+          ]
+        },
+        take: 5,
+        select: { id: true, name: true, customerCode: true, email: true, phone: true, city: true },
+      }),
+      prisma.deal.findMany({
+        where: {
+          AND: [
+            isExec ? { assignedUserId: userId } : {},
+            { companyId },
+            { OR: [{ dealName: { contains: q } }] },
+          ]
+        },
+        take: 5,
+        select: { id: true, dealName: true, status: true, dealValue: true },
+      }),
+      prisma.contact.findMany({
+        where: {
+          AND: [
+            { companyId },
+            { OR: [{ name: { contains: q } }, { email: { contains: q } }, { phone: { contains: q } }] },
+          ]
+        },
+        take: 5,
+        select: { id: true, name: true, email: true, phone: true, contactType: true, customerId: true },
+      }),
+      prisma.purchaseOrder.findMany({
+        where: {
+          AND: [
+            { companyId },
+            { OR: [{ poCode: { contains: q } }, { poNumber: { contains: q } }] },
+          ]
+        },
+        take: 5,
+        select: { id: true, poCode: true, poNumber: true, status: true, totalAmount: true },
+      }),
+      prisma.quotation.findMany({
+        where: {
+          AND: [
+            { companyId },
+            { OR: [{ quotationCode: { contains: q } }] },
+          ]
+        },
+        take: 5,
+        select: { id: true, quotationCode: true, status: true, finalAmount: true },
+      }),
+      prisma.marketingVisit.findMany({
+        where: {
+          AND: [
+            isExec ? { executiveId: userId } : {},
+            { OR: [{ customer: { name: { contains: q } } }, { executive: { name: { contains: q } } }] },
+          ]
+        },
+        include: { customer: { select: { name: true } }, executive: { select: { name: true } } },
+        take: 5,
+      }),
+      prisma.visitor.findMany({
+        where: {
+          AND: [
+            isExec ? { hostUserId: userId } : {},
+            { OR: [{ visitorName: { contains: q } }, { company: { contains: q } }] },
+          ]
+        },
+        take: 5,
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,
-      data: { customers, visits, visitors }
+      data: { leads, customers, deals, contacts, pos, quotations, visits, visitors }
     });
 
   } catch (error) {

@@ -87,7 +87,7 @@ export default function DashboardHeader({
 
   // Search
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<{ customers: any[]; visits: any[]; visitors: any[] } | null>(null);
+  const [searchResults, setSearchResults] = useState<{ leads: any[]; customers: any[]; deals: any[]; contacts: any[]; pos: any[]; quotations: any[]; visits: any[]; visitors: any[] } | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -195,33 +195,79 @@ export default function DashboardHeader({
             type="text"
             value={searchQuery}
             onChange={e => { setSearchQuery(e.target.value); setIsSearchOpen(true); }}
-            placeholder="Search leads, customers..."
+            placeholder="Search leads, customers, deals, POs..."
             className="w-[280px] lg:w-[360px] h-[38px] pl-9 pr-3 rounded-xl bg-[var(--surface-2)] text-sm text-[var(--text-primary)] placeholder:text-slate-400 border border-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] focus:bg-[var(--surface)] transition-all"
           />
 
           {isSearchOpen && searchResults && (
             <div className="absolute top-full mt-2 w-[360px] right-0 bg-[var(--surface)] border border-[var(--border)] shadow-xl rounded-2xl overflow-hidden z-50">
-              <div className="max-h-80 overflow-y-auto">
-                {searchResults.customers.length === 0 && searchResults.visits.length === 0 && searchResults.visitors.length === 0 ? (
+              <div className="max-h-96 overflow-y-auto">
+                {searchResults.leads.length === 0 && searchResults.customers.length === 0 && searchResults.deals.length === 0 && searchResults.contacts.length === 0 && searchResults.pos.length === 0 && searchResults.quotations.length === 0 && searchResults.visits.length === 0 && searchResults.visitors.length === 0 ? (
                   <div className="p-5 text-center text-xs text-slate-400 font-semibold">No results found for "{searchQuery}"</div>
                 ) : (
                   <>
-                    {searchResults.customers.length > 0 && (
+                    {searchResults.leads.length > 0 && (
                       <div className="p-2">
-                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-1">Leads / Customers</h4>
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-1">Leads</h4>
+                        {searchResults.leads.map((l: any) => (
+                          <div key={l.id} onClick={() => { router.push(`/leads/${l.id}`); setIsSearchOpen(false); setSearchQuery(""); }} className="p-2.5 hover:bg-[var(--surface-2)] rounded-xl cursor-pointer transition-colors flex items-center gap-3">
+                            <div className="w-7 h-7 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center text-[10px] font-bold shrink-0">{getInitials(l.name)}</div>
+                            <div><p className="text-xs font-bold text-[var(--text-primary)] truncate">{l.name}</p><p className="text-[10px] text-slate-400 truncate">{l.leadCode} · {l.email || l.phone || "—"}</p></div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {searchResults.customers.length > 0 && (
+                      <div className="p-2 border-t border-[var(--border-subtle)]">
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-1">Customers</h4>
                         {searchResults.customers.map((c: any) => (
-                          <div
-                            key={c.id}
-                            onClick={() => { router.push(`/leads/${c.id}`); setIsSearchOpen(false); setSearchQuery(""); }}
-                            className="p-2.5 hover:bg-[var(--surface-2)] rounded-xl cursor-pointer transition-colors flex items-center gap-3"
-                          >
-                            <div className="w-7 h-7 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center text-[10px] font-bold shrink-0">
-                              {getInitials(c.name)}
-                            </div>
-                            <div>
-                              <p className="text-xs font-bold text-[var(--text-primary)] truncate">{c.name}</p>
-                              <p className="text-[10px] text-slate-400 truncate">{c.customerCode} · {c.email || c.phone || "—"}</p>
-                            </div>
+                          <div key={c.id} onClick={() => { router.push(`/customer-master/${c.id}`); setIsSearchOpen(false); setSearchQuery(""); }} className="p-2.5 hover:bg-[var(--surface-2)] rounded-xl cursor-pointer transition-colors flex items-center gap-3">
+                            <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold shrink-0">{getInitials(c.name)}</div>
+                            <div><p className="text-xs font-bold text-[var(--text-primary)] truncate">{c.name}</p><p className="text-[10px] text-slate-400 truncate">{c.customerCode} · {c.city || "—"}</p></div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {searchResults.deals.length > 0 && (
+                      <div className="p-2 border-t border-[var(--border-subtle)]">
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-1">Deals</h4>
+                        {searchResults.deals.map((d: any) => (
+                          <div key={d.id} onClick={() => { router.push(`/deals/${d.id}`); setIsSearchOpen(false); setSearchQuery(""); }} className="p-2.5 hover:bg-[var(--surface-2)] rounded-xl cursor-pointer transition-colors">
+                            <p className="text-xs font-bold text-[var(--text-primary)] truncate">{d.dealName}</p>
+                            <p className="text-[10px] text-slate-400 truncate">{d.status} · ₹{(d.dealValue || 0).toLocaleString()}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {searchResults.contacts.length > 0 && (
+                      <div className="p-2 border-t border-[var(--border-subtle)]">
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-1">Contacts</h4>
+                        {searchResults.contacts.map((c: any) => (
+                          <div key={c.id} onClick={() => { router.push(`/contacts/${c.id}`); setIsSearchOpen(false); setSearchQuery(""); }} className="p-2.5 hover:bg-[var(--surface-2)] rounded-xl cursor-pointer transition-colors">
+                            <p className="text-xs font-bold text-[var(--text-primary)] truncate">{c.name}</p>
+                            <p className="text-[10px] text-slate-400 truncate">{c.email || c.phone || "—"} · {c.contactType}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {searchResults.pos.length > 0 && (
+                      <div className="p-2 border-t border-[var(--border-subtle)]">
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-1">Purchase Orders</h4>
+                        {searchResults.pos.map((p: any) => (
+                          <div key={p.id} onClick={() => { router.push(`/purchase-orders/${p.id}`); setIsSearchOpen(false); setSearchQuery(""); }} className="p-2.5 hover:bg-[var(--surface-2)] rounded-xl cursor-pointer transition-colors">
+                            <p className="text-xs font-bold text-[var(--text-primary)] truncate">{p.poCode || p.poNumber}</p>
+                            <p className="text-[10px] text-slate-400 truncate">{p.status} · ₹{(p.totalAmount || 0).toLocaleString()}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {searchResults.quotations.length > 0 && (
+                      <div className="p-2 border-t border-[var(--border-subtle)]">
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-1">Quotations</h4>
+                        {searchResults.quotations.map((q: any) => (
+                          <div key={q.id} onClick={() => { router.push(`/quotations/${q.id}`); setIsSearchOpen(false); setSearchQuery(""); }} className="p-2.5 hover:bg-[var(--surface-2)] rounded-xl cursor-pointer transition-colors">
+                            <p className="text-xs font-bold text-[var(--text-primary)] truncate">{q.quotationCode}</p>
+                            <p className="text-[10px] text-slate-400 truncate">{q.status} · ₹{(q.finalAmount || 0).toLocaleString()}</p>
                           </div>
                         ))}
                       </div>
@@ -230,11 +276,7 @@ export default function DashboardHeader({
                       <div className="p-2 border-t border-[var(--border-subtle)]">
                         <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-1">Visits</h4>
                         {searchResults.visits.map((v: any) => (
-                          <div
-                            key={v.id}
-                            onClick={() => { router.push("/marketing-log"); setIsSearchOpen(false); setSearchQuery(""); }}
-                            className="p-2.5 hover:bg-[var(--surface-2)] rounded-xl cursor-pointer transition-colors"
-                          >
+                          <div key={v.id} onClick={() => { router.push("/marketing-log"); setIsSearchOpen(false); setSearchQuery(""); }} className="p-2.5 hover:bg-[var(--surface-2)] rounded-xl cursor-pointer transition-colors">
                             <p className="text-xs font-bold text-[var(--text-primary)] truncate">{v.customer?.name}</p>
                             <p className="text-[10px] text-slate-400 truncate">Rep: {v.executive?.name}</p>
                           </div>

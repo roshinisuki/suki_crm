@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
+import { logAudit, extractAuditContext } from "@/lib/audit";
 
 /**
  * POST /api/purchase-orders/[id]/sync-erp
@@ -157,6 +158,12 @@ export async function POST(
         },
       });
 
+      await logAudit(user.id, "PurchaseOrder", "ERPSync", `Synced PO ${purchaseOrder.poCode} to ERP${erpReferenceNumber ? ` (ref: ${erpReferenceNumber})` : ""}`, {
+        resourceId: id,
+        newState: { erpSyncStatus: "Synced", erpReferenceNumber },
+        context: extractAuditContext(request),
+      });
+
       return NextResponse.json({
         success: true,
         data: updated,
@@ -172,6 +179,12 @@ export async function POST(
           erpSyncStatus: "Failed",
           erpResponse: JSON.stringify({ status: erpResponse.status, body: responseJson }),
         },
+      });
+
+      await logAudit(user.id, "PurchaseOrder", "ERPSyncFailed", `ERP sync failed for PO ${purchaseOrder.poCode} (HTTP ${erpResponse.status})`, {
+        resourceId: id,
+        newState: { erpSyncStatus: "Failed" },
+        context: extractAuditContext(request),
       });
 
       return NextResponse.json(
@@ -192,6 +205,12 @@ export async function POST(
         erpSyncStatus: "Failed",
         erpResponse: JSON.stringify({ error: errorMessage, type: error?.name }),
       },
+    });
+
+    await logAudit(user.id, "PurchaseOrder", "ERPSyncFailed", `ERP sync failed for PO ${purchaseOrder.poCode}: ${errorMessage}`, {
+      resourceId: id,
+      newState: { erpSyncStatus: "Failed" },
+      context: extractAuditContext(request),
     });
 
     return NextResponse.json(

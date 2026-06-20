@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
+import { logAudit, extractAuditContext } from "@/lib/audit";
 
 export async function POST(
   request: NextRequest,
@@ -32,6 +33,13 @@ export async function POST(
       rejectedAt: new Date(),
       rejectionReason: body.rejectionReason,
     },
+  });
+
+  await logAudit(user.id, "Quotation", "Reject", `Rejected quotation ${existing.quotationCode}: ${body.rejectionReason}`, {
+    resourceId: id,
+    previousState: { status: existing.status },
+    newState: { status: "Rejected", rejectionReason: body.rejectionReason },
+    context: extractAuditContext(request),
   });
 
   return NextResponse.json({ success: true, data: quotation });

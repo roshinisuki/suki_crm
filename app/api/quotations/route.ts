@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
+import { logAudit, extractAuditContext } from "@/lib/audit";
 
 export async function GET(request: NextRequest) {
   const user = await verifyAuth();
@@ -87,6 +88,12 @@ export async function POST(request: NextRequest) {
       customer: { select: { id: true, name: true } },
       items: { include: { product: { select: { id: true, name: true, productCode: true } } } },
     },
+  });
+
+  await logAudit(user.id, "Quotation", "Create", `Created quotation ${quotationCode}`, {
+    resourceId: quotation.id,
+    newState: { quotationCode, customerId: body.customerId, totalAmount, finalAmount, status: "Draft" },
+    context: extractAuditContext(request),
   });
 
   return NextResponse.json({ success: true, data: quotation }, { status: 201 });

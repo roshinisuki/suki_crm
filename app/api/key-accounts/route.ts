@@ -1,0 +1,70 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { verifyAuth } from "@/lib/auth";
+
+export async function GET(request: NextRequest) {
+  const user = await verifyAuth();
+  if (!user) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+
+  const { searchParams } = new URL(request.url);
+  const importance = searchParams.get("importance");
+  const view = searchParams.get("view");
+
+  const where: any = { companyId: user.companyId };
+  if (importance && importance !== "All") where.strategicImportance = importance;
+
+  const keyAccounts = await prisma.keyAccount.findMany({
+    where,
+    orderBy: view === "revenue" ? { revenuePotential: "desc" } : { updatedAt: "desc" },
+    include: {
+      customer: {
+        select: { id: true, name: true, city: true, phone: true, email: true, customerCode: true,
+          assignedUser: { select: { id: true, name: true } },
+          deals: { where: { status: "Won" }, select: { dealValue: true } },
+        },
+      },
+      accountManager: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  // Add achieved revenue
+  const data = keyAccounts.map(ka => ({
+    ...ka,
+    achievedRevenue: ka.customer.deals?.reduce((s, d) => s + d.dealValue, 0) ?? 0,
+  }));
+
+  return NextResponse.json({ success: true, data });
+}
+
+export async function POST(request: NextRequest) {
+  const user = await verifyAuth();
+  if (!user) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  if (!["Admin", "SalesManager"].includes(user.role ?? "")) {
+    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
+  }
+
+  const body = await request.json();
+  if (!body.customerId) return NextResponse.json({ success: false, message: "Customer is required" }, { status: 400 });
+  if (!body.accountManagerId) return NextResponse.json({ success: false, message: "Account Manager is required" }, { status: 400 });
+
+  // Check if already a key account
+  const existing = await prisma.keyAccount.findFirst({
+    where: { customerId: body.customerId, companyId: user.companyId },
+  });
+  if (existing) return NextResponse.json({ success: false, message: "Customer is already a key account" }, { status: 400 });
+
+  const keyAccount = await prisma.keyAccount.create({
+    data: {
+      customerId: body.customerId,
+      accountManagerId: body.accountManagerId,
+      revenuePotential: body.revenuePotential ? parseFloat(body.revenuePotential) : null,
+      strategicImportance: body.strategicImportance || "High",
+      relationshipStatus: body.relationshipStatus || null,
+      nextReviewDate: body.nextReviewDate ? new Date(body.nextReviewDate) : null,
+      notes: body.notes || null,
+      companyId: user.companyId,
+    },
+  });
+
+  return NextResponse.json({ success: true, data: keyAccount });
+}

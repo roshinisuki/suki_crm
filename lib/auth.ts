@@ -5,7 +5,9 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error("JWT_SECRET environment variable is missing.");
 }
-const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN || "sukisoftware.com";
+const ALLOWED_DOMAINS = (process.env.ALLOWED_DOMAIN || "sukisoftware.com,sukisoft.com,apexindustries.com,bharatmetalworks.com")
+  .split(",")
+  .map((d) => d.trim().toLowerCase());
 
 export interface TokenPayload {
   id: string;
@@ -18,10 +20,11 @@ export interface TokenPayload {
   exp: number;
 }
 
-/** Returns true if the email belongs to the allowed internal domain */
+/** Returns true if the email belongs to any of the allowed internal domains */
 export function isInternalEmail(email: string): boolean {
   const domain = email.split("@")[1]?.toLowerCase();
-  return domain === ALLOWED_DOMAIN.toLowerCase();
+  if (!domain) return false;
+  return ALLOWED_DOMAINS.includes(domain);
 }
 
 /** Returns true if the role requires an internal (company) email */
@@ -57,10 +60,11 @@ export function requireRole(payload: TokenPayload | null, allowedRoles: string[]
 /** Returns the dashboard URL for a given role */
 export function getRoleRedirect(role: string): string {
   switch (role) {
-    case "Admin":               return "/dashboard";
-    case "SalesManager":       return "/dashboard";
+    case "SuperAdmin":      return "/dashboard";
+    case "Admin":           return "/dashboard";
+    case "SalesManager":    return "/dashboard";
     case "SalesExecutive":  return "/dashboard";
-    case "Customer":            return "/customer/portal";
-    default:                    return "/login";
+    case "Customer":        return "/customer/portal";
+    default:                return "/login";
   }
 }

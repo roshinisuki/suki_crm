@@ -20,7 +20,7 @@ import { verifyAuth, isInternalEmail, requiresInternalEmail, getRoleRedirect } f
 import { logAudit } from "@/lib/audit";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret";
-const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN || "sukisoftware.com";
+const ALLOWED_DOMAINS = (process.env.ALLOWED_DOMAIN || "sukisoftware.com,sukisoft.com,apexindustries.com,bharatmetalworks.com").split(",").map((d) => d.trim());
 const RESET_EXPIRY_MIN = Number(process.env.RESET_TOKEN_EXPIRY_MINUTES) || 15;
 const ACTIVATION_EXPIRY_HRS = Number(process.env.ACTIVATION_TOKEN_EXPIRY_HOURS) || 24;
 
@@ -82,7 +82,7 @@ export async function checkLoginType(email: string) {
     if (requiresInternalEmail(user.role) && !isInternalEmail(normalizedEmail)) {
       return {
         success: false,
-        message: `Only @${ALLOWED_DOMAIN} email addresses are allowed for internal accounts.`,
+        message: `Only approved email domains (${ALLOWED_DOMAINS.join(", ")}) are allowed for internal accounts.`,
       };
     }
 
@@ -117,7 +117,7 @@ export async function loginWithPassword(email: string, password: string, remembe
       await logAudit(user.id, "AUTH", "LOGIN_DOMAIN_REJECTED", `Domain check failed for ${normalizedEmail}`);
       return {
         success: false,
-        message: `Only @${ALLOWED_DOMAIN} email addresses are allowed for internal accounts.`,
+        message: `Only approved email domains (${ALLOWED_DOMAINS.join(", ")}) are allowed for internal accounts.`,
       };
     }
 
@@ -696,7 +696,7 @@ export async function createInternalUserByAdmin(data: {
     if (!isInternalEmail(normalizedEmail)) {
       return {
         success: false,
-        message: `Internal employees must use a @${ALLOWED_DOMAIN} email address.`,
+        message: `Internal employees must use an approved email domain (${ALLOWED_DOMAINS.join(", ")}).`,
       };
     }
 

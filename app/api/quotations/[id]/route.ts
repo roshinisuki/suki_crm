@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
+import { logAudit, extractAuditContext } from "@/lib/audit";
 
 export async function GET(
   request: NextRequest,
@@ -66,6 +67,13 @@ export async function PUT(
     },
   });
 
+  await logAudit(user.id, "Quotation", "Update", `Updated quotation ${existing.quotationCode}`, {
+    resourceId: id,
+    previousState: { status: existing.status, discountPercent: existing.discountPercent },
+    newState: { status: body.status || existing.status, discountPercent: updateData.discountPercent ?? existing.discountPercent },
+    context: extractAuditContext(request),
+  });
+
   return NextResponse.json({ success: true, data: quotation });
 }
 
@@ -87,6 +95,12 @@ export async function DELETE(
   await prisma.quotation.update({
     where: { id },
     data: { deletedAt: new Date(), deletedById: user.id },
+  });
+
+  await logAudit(user.id, "Quotation", "Delete", `Deleted quotation ${existing.quotationCode}`, {
+    resourceId: id,
+    previousState: { quotationCode: existing.quotationCode, status: existing.status },
+    context: extractAuditContext(request),
   });
 
   return NextResponse.json({ success: true, message: "Quotation deleted" });

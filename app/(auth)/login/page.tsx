@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -13,20 +13,6 @@ import {
 } from "@/app/actions/auth";
 
 // ── Icons ───────────────────────────────────────────────────────────────────
-function MailIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px] text-[#75777e]">
-      <rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-    </svg>
-  );
-}
-function LockIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px] text-[#75777e]">
-      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
-  );
-}
 function EyeIcon({ visible }: { visible: boolean }) {
   return visible ? (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
@@ -41,7 +27,7 @@ function EyeIcon({ visible }: { visible: boolean }) {
 }
 function Spinner() {
   return (
-    <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+    <svg className="animate-spin h-4 w-4 text-[#E8732C]" viewBox="0 0 24 24" fill="none">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
@@ -65,29 +51,25 @@ function getStrength(p: string): { level: number; label: string; color: string }
   if (score <= 1) return { level: score, label: "Weak", color: "#ba1a1a" };
   if (score === 2) return { level: score, label: "Fair", color: "#e6a817" };
   if (score === 3) return { level: score, label: "Good", color: "#2e7d32" };
-  return { level: score, label: "Strong", color: "#1565c0" };
+  return { level: score, label: "Strong", color: "#E8732C" };
 }
 
 // ── Inactivity Timeout ───────────────────────────────────────────────────────
-const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
 
 function useInactivityLogout(enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
     let timer: NodeJS.Timeout;
-
     const reset = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
-        // Clear cookie by navigating to login with timeout param
         window.location.href = "/login?reason=timeout";
       }, INACTIVITY_TIMEOUT_MS);
     };
-
     const events = ["mousemove", "keydown", "mousedown", "touchstart", "scroll"];
     events.forEach(e => window.addEventListener(e, reset, { passive: true }));
-    reset(); // start timer
-
+    reset();
     return () => {
       clearTimeout(timer);
       events.forEach(e => window.removeEventListener(e, reset));
@@ -95,29 +77,127 @@ function useInactivityLogout(enabled: boolean) {
   }, [enabled]);
 }
 
-// ── Left Panel ────────────────────────────────────────────────────────────────
-function LeftPanel() {
+// ── Carousel Slides ───────────────────────────────────────────────────────────
+const SLIDES = [
+  {
+    src: "/login-slides/factory.png",
+    headline: "Built for manufacturing. Designed for growth.",
+    sub: "SUKI CRM — Where the factory floor meets the boardroom.",
+  },
+  {
+    src: "/login-slides/sales.png",
+    headline: "Turn every conversation into a closed deal.",
+    sub: "SUKI CRM — Intelligent B2B sales, end to end.",
+  },
+  {
+    src: "/login-slides/warehouse.png",
+    headline: "From dispatch to delivery, every touchpoint tracked.",
+    sub: "SUKI CRM — Operational clarity at enterprise scale.",
+  },
+];
+
+function ImageCarousel() {
+  const [active, setActive] = useState(0);
+  const [fading, setFading] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const goTo = useCallback((idx: number) => {
+    if (idx === active) return;
+    setFading(true);
+    setTimeout(() => {
+      setActive(idx);
+      setFading(false);
+    }, 450);
+  }, [active]);
+
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      setActive(prev => {
+        const next = (prev + 1) % SLIDES.length;
+        return next;
+      });
+    }, 4000);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
+
+  const handleDot = (idx: number) => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    goTo(idx);
+    timerRef.current = setInterval(() => {
+      setActive(prev => (prev + 1) % SLIDES.length);
+    }, 4000);
+  };
+
   return (
-    <div className="hidden lg:flex w-1/2 bg-black flex-col justify-center items-center p-12 text-center relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_50%,rgba(255,255,255,0.03)_0%,transparent_80%)]" />
-      <div className="relative z-10 max-w-md flex flex-col items-center">
-        <div className="w-[144px] h-[144px] rounded-2xl bg-black border border-white/10 flex items-center justify-center mb-10 overflow-hidden">
-          <img src="/logo.png" alt="SUKI CRM" className="w-full h-full object-contain" />
+    <div className="relative w-full h-full overflow-hidden">
+      {SLIDES.map((slide, i) => (
+        <div
+          key={i}
+          className="absolute inset-0 transition-opacity"
+          style={{
+            opacity: i === active ? 1 : 0,
+            transitionDuration: "900ms",
+            transitionTimingFunction: "ease-in-out",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={slide.src}
+            alt={slide.headline}
+            className="w-full h-full object-cover"
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background: "linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.85) 100%)",
+            }}
+          />
         </div>
-        <h1 className="text-[40px] font-semibold text-white mb-6 leading-[1.15] tracking-tight">Welcome to<br /> SUKI  CRM</h1>
-        <p className="text-[#7587a7] text-base leading-[24px] mb-12 font-medium">
-          Secure access to your customer ecosystem. Manage relationships, analyze data, and grow your brand with enterprise-grade precision.
+      ))}
+
+      <div className="absolute bottom-0 left-0 right-0 p-7 z-10">
+        <p
+          className="text-white leading-snug mb-1.5"
+          style={{
+            fontFamily: "'Georgia', 'Times New Roman', serif",
+            fontSize: "15px",
+            fontWeight: 400,
+            letterSpacing: "0.01em",
+          }}
+        >
+          {SLIDES[active].headline}
         </p>
-        <div className="flex items-center gap-3 px-5 py-2.5 rounded-full border border-white/10 bg-white/[0.03]">
-          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="text-[13px] font-semibold text-white/90">Enterprise-grade secure authentication</span>
+        <p className="text-white/50 text-[12px] tracking-wide mb-5">
+          {SLIDES[active].sub}
+        </p>
+
+        <div className="flex items-center gap-2">
+          {SLIDES.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => handleDot(i)}
+              aria-label={`Go to slide ${i + 1}`}
+              style={{
+                width: i === active ? "14px" : "4px",
+                height: "4px",
+                borderRadius: "9999px",
+                backgroundColor: i === active ? "#E8732C" : "rgba(255,255,255,0.35)",
+                transition: "width 300ms ease, background-color 300ms ease",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
+              }}
+            />
+          ))}
         </div>
       </div>
     </div>
   );
 }
+
+// ── Dark input styles ─────────────────────────────────────────────────────────
+const inputClass =
+  "w-full px-4 py-3 rounded-[8px] border border-[#2C2C2A] bg-[#1A1A1A] text-white text-[14px] placeholder:text-[#5F5E5A] focus:outline-none focus:border-[#E8732C] focus:ring-1 focus:ring-[#E8732C]/30 transition-all";
 
 // ════════════════════════════════════════════════════════════════
 // MAIN PAGE
@@ -145,9 +225,7 @@ function LoginContent() {
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Inactivity auto-logout — only active after login (stage won't be email on dashboard)
-  // We attach it here but it only fires after 30min of no activity
-  useInactivityLogout(false); // enabled=false on login page itself — runs on dashboard via layout
+  useInactivityLogout(false);
 
   // Resend countdown timer
   useEffect(() => {
@@ -250,246 +328,299 @@ function LoginContent() {
 
   // ── Shared UI pieces ──
   const ErrorBox = () => error ? (
-    <div className="mb-5 p-3 rounded-[8px] bg-[#ffdad6] border border-[#ffb4ab] text-[13px] text-[#93000a] font-medium text-center">{error}</div>
+    <div className="mb-5 p-3 rounded-[8px] bg-[#3a1212] border border-[#6b2020] text-[13px] text-[#ff9898] font-medium text-center">{error}</div>
   ) : null;
 
   const InfoBox = () => info ? (
-    <div className="mb-5 p-3 rounded-[8px] bg-[#e6f4ea] border border-[#a8d5b0] text-[13px] text-[#2e7d32] font-medium text-center">{info}</div>
+    <div className="mb-5 p-3 rounded-[8px] bg-[#1a2e1a] border border-[#2e5c2e] text-[13px] text-[#7dc97d] font-medium text-center">{info}</div>
   ) : null;
 
   const SubmitBtn = ({ label, loadingLabel }: { label: string; loadingLabel: string }) => (
-    <button type="submit" disabled={loading}
-      className="w-full mt-4 py-3.5 px-6 rounded-[8px] bg-[#C2601A] hover:bg-[#A84F16] text-black text-[14px] font-semibold transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+    <button
+      type="submit"
+      disabled={loading}
+      className="w-full mt-4 py-3.5 px-6 rounded-[8px] text-[14px] font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+      style={{ backgroundColor: "#E8732C", color: "#0A0A0A" }}
+      onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#d4641f"; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#E8732C"; }}
+    >
       {loading ? <><Spinner />{loadingLabel}</> : <>{label}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg></>}
     </button>
   );
 
-  // ════════════════════════════════════════════════════════════════
-  // RENDER
-  // ════════════════════════════════════════════════════════════════
+  const BackBtn = ({ onClick }: { onClick: () => void }) => (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 text-[13px] text-[#5F5E5A] hover:text-white mb-6 transition-colors"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M19 12H5M12 19l-7-7 7-7" />
+      </svg>
+      Back
+    </button>
+  );
+
+  const Banners = () => (
+    <>
+      {resetSuccess && (
+        <div className="mb-5 p-3 rounded-[8px] bg-[#1a2e1a] border border-[#2e5c2e] flex items-center gap-3 text-[13px] text-[#7dc97d]">
+          <CheckIcon />
+          <div>
+            <p className="font-semibold">Password updated successfully</p>
+            <p className="text-[12px] opacity-80">You can now sign in with your new password.</p>
+          </div>
+        </div>
+      )}
+      {activated && (
+        <div className="mb-5 p-3 rounded-[8px] bg-[#1a2e1a] border border-[#2e5c2e] flex items-center gap-3 text-[13px] text-[#7dc97d]">
+          <CheckIcon />
+          <div>
+            <p className="font-semibold">Account activated successfully!</p>
+            <p className="text-[12px] opacity-80">Welcome to SUKI CRM. Sign in with your email and new password.</p>
+          </div>
+        </div>
+      )}
+      {timedOut && (
+        <div className="mb-5 p-3 rounded-[8px] bg-[#2e2010] border border-[#5c3d10] flex items-center gap-3 text-[13px] text-[#e6a817]">
+          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="font-semibold">Session expired</p>
+            <p className="text-[12px] opacity-80">You were logged out due to 30 minutes of inactivity.</p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   return (
-    <main className="min-h-screen flex bg-[#f7f9fb] font-sans">
-      <LeftPanel />
+    <main
+      className="min-h-screen flex"
+      style={{ backgroundColor: "#FFFFFF" }}
+    >
+      <div
+        className="w-full flex overflow-hidden"
+        style={{
+          minHeight: "100vh",
+        }}
+      >
+        {/* LEFT: Image Carousel (40%) */}
+        <div
+          className="hidden lg:block relative flex-none"
+          style={{ width: "40%" }}
+        >
+          <ImageCarousel />
+        </div>
 
-      <div className="flex flex-1 items-center justify-center p-6 lg:p-12">
-        <div className="w-full max-w-[460px]">
+        {/* RIGHT: Form Panel */}
+        <div
+          className="flex-1 flex items-center justify-center px-6 py-9 relative"
+          style={{ 
+            backgroundColor: "#FFFFFF",
+            backgroundImage: "url('/login-bg.jpeg')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundAttachment: "fixed"
+          }}
+        >
+          {/* Dark overlay */}
+          <div className="absolute inset-0 bg-black/40" />
+          
+          {/* Card container */}
+          <div className="relative z-10">
+          <div className="w-full max-w-[420px] p-8 rounded-lg border border-[#2C2C2A] bg-[#0A0A0A] shadow-sm flex flex-col">
+          {/* Logo mark */}
+          <div className="flex items-center gap-2 mb-8">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="SUKI CRM" className="w-6 h-6 object-contain opacity-80" />
+            <span className="text-[13px] text-white tracking-widest uppercase font-medium">SUKI CRM</span>
+          </div>
 
-          {/* ── Success Banner (after password reset) ── */}
-          {resetSuccess && (
-            <div className="mb-6 p-4 rounded-[10px] bg-[#e6f4ea] border border-[#a8d5b0] flex items-center gap-3">
-              <CheckIcon />
-              <div>
-                <p className="text-[13px] font-semibold text-[#2e7d32]">Password updated successfully</p>
-                <p className="text-[12px] text-[#2e7d32]/80">You can now sign in with your new password.</p>
+          <Banners />
+
+          {/* STAGE: EMAIL */}
+          {stage === "email" && (
+            <>
+              <div className="mb-7">
+                <h2 className="text-white mb-2 leading-snug" style={{ fontSize: "18px", fontWeight: 400 }}>
+                  Sign in to SUKI CRM
+                </h2>
+                <p className="text-[13px] text-white leading-[1.5]">
+                  Enter your registered email address to continue.
+                </p>
               </div>
-            </div>
-          )}
-
-          {/* ── Account Activated Banner ── */}
-          {activated && (
-            <div className="mb-6 p-4 rounded-[10px] bg-[#e6f4ea] border border-[#a8d5b0] flex items-center gap-3">
-              <CheckIcon />
-              <div>
-                <p className="text-[13px] font-semibold text-[#2e7d32]">Account activated successfully!</p>
-                <p className="text-[12px] text-[#2e7d32]/80">Welcome to  SUKI  CRM. Sign in with your email and new password.</p>
-              </div>
-            </div>
-          )}
-
-          {/* ── Timeout Banner ── */}
-          {timedOut && (
-            <div className="mb-6 p-4 rounded-[10px] bg-[#fff8e1] border border-[#ffe082] flex items-center gap-3">
-              <svg className="w-4 h-4 text-[#f59e0b] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div>
-                <p className="text-[13px] font-semibold text-[#92400e]">Session expired</p>
-                <p className="text-[12px] text-[#92400e]/80">You were logged out due to 30 minutes of inactivity.</p>
-              </div>
-            </div>
-          )}
-
-          <div className="w-full bg-white rounded-[16px] border border-[#e2e8f0] shadow-[0px_2px_8px_rgba(11,31,58,0.06)] px-8 py-10 sm:px-12 sm:py-12">
-
-            {/* ── STAGE: EMAIL ─────────────────────────────── */}
-            {stage === "email" && (
-              <>
-                <div className="mb-8">
-                  <h2 className="text-[24px] font-semibold text-[#191c1e] mb-2 tracking-[-0.01em]">Sign in to  SUKI  CRM</h2>
-                  <p className="text-[14px] text-[#44474d] leading-[20px]">Enter your registered email address to continue.</p>
+              <ErrorBox />
+              <form onSubmit={handleEmailSubmit} className="space-y-4" noValidate>
+                <div>
+                  <label htmlFor="email" className="block text-[11px] font-medium text-white mb-2 tracking-[0.08em] uppercase">
+                    Email Address
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    required
+                    autoFocus
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="name@company.com"
+                    className={inputClass}
+                  />
                 </div>
-                <ErrorBox />
-                <form onSubmit={handleEmailSubmit} className="space-y-5" noValidate>
-                  <div>
-                    <label htmlFor="email" className="block text-[12px] font-semibold text-[#191c1e] mb-2 tracking-[0.05em] uppercase">Email Address</label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"><MailIcon /></span>
-                      <input id="email" type="email" required autoFocus value={email} onChange={e => setEmail(e.target.value)}
-                        placeholder="name@company.com"
-                        className="w-full pl-11 pr-4 py-3 rounded-[8px] border border-[#e2e8f0] bg-white text-[#191c1e] text-[14px] placeholder:text-[#c4c6ce] focus:outline-none focus:border-[#0b1f3a] focus:ring-2 focus:ring-[#0b1f3a]/20 transition-all" />
-                    </div>
+                <SubmitBtn label="Continue" loadingLabel="Checking…" />
+              </form>
+              <div className="pt-8 text-center">
+                <p className="text-[12px] text-white">Need help? Contact IT Support</p>
+                <p className="text-[11px] text-[#2E2E2C] mt-3">© {new Date().getFullYear()} SUKI CRM. All rights reserved.</p>
+              </div>
+            </>
+          )}
+
+          {/* STAGE: OTP */}
+          {stage === "otp" && (
+            <>
+              <BackBtn onClick={() => { setStage("email"); setError(""); setInfo(""); }} />
+              <div className="mb-6">
+                <h2 className="text-white mb-2" style={{ fontSize: "18px", fontWeight: 400 }}>Verify your email</h2>
+                <p className="text-[13px] text-white leading-[1.5]">
+                  We sent a 6-digit code to <span className="text-white">{email}</span>. Enter it below to activate your account.
+                </p>
+              </div>
+              <InfoBox />
+              <ErrorBox />
+              <div className="flex gap-2.5 justify-center mb-6">
+                {otp.map((digit, i) => (
+                  <input
+                    key={i}
+                    ref={el => { otpRefs.current[i] = el; }}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={e => handleOtpChange(i, e.target.value)}
+                    onKeyDown={e => handleOtpKeyDown(i, e)}
+                    className="w-10 h-12 text-center text-[20px] font-bold text-white rounded-[8px] border-2 border-[#2C2C2A] bg-[#1A1A1A] focus:outline-none focus:border-[#E8732C] focus:ring-1 focus:ring-[#E8732C]/30 transition-all font-mono"
+                  />
+                ))}
+              </div>
+              <button
+                onClick={handleVerifyOtp}
+                disabled={loading || otp.some(d => d === "")}
+                className="w-full py-3.5 px-6 rounded-[8px] text-[14px] font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                style={{ backgroundColor: "#E8732C", color: "#0A0A0A" }}
+              >
+                {loading ? <><Spinner />Verifying…</> : "Verify Code"}
+              </button>
+              <div className="mt-5 text-center">
+                {resendCooldown > 0 ? (
+                  <p className="text-[13px] text-white">Resend available in <span className="text-white">{resendCooldown}s</span></p>
+                ) : (
+                  <button onClick={handleSendOtp} disabled={loading} className="text-[13px] text-[#E8732C] hover:underline disabled:opacity-50">Resend Code</button>
+                )}
+              </div>
+              <div className="pt-8 text-center">
+                <p className="text-[11px] text-[#2E2E2C]">© {new Date().getFullYear()} SUKI CRM. All rights reserved.</p>
+              </div>
+            </>
+          )}
+
+          {/* STAGE: SET PASSWORD */}
+          {stage === "setPassword" && (
+            <>
+              <div className="mb-6">
+                <div className="w-8 h-8 rounded-full bg-[#1a2e1a] flex items-center justify-center mb-4">
+                  <svg className="w-4 h-4 text-[#7dc97d]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-white mb-2" style={{ fontSize: "18px", fontWeight: 400 }}>Set your password</h2>
+                <p className="text-[13px] text-white leading-[1.5]">Create a strong password to secure your SUKI CRM account.</p>
+              </div>
+              <ErrorBox />
+              <form onSubmit={handleSetPassword} className="space-y-4" noValidate>
+                <div>
+                  <label htmlFor="new-password" className="block text-[11px] font-medium text-white mb-2 tracking-[0.08em] uppercase">New Password</label>
+                  <div className="relative">
+                    <input id="new-password" type={showPassword ? "text" : "password"} required autoFocus value={password} onChange={e => setPassword(e.target.value)} placeholder="Min 8 chars, A-Z, 0-9, !@#$" className={`${inputClass} pr-12`} />
+                    <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#5F5E5A] hover:text-white transition-colors"><EyeIcon visible={showPassword} /></button>
                   </div>
-                  <SubmitBtn label="Continue" loadingLabel="Checking…" />
-                </form>
-              </>
-            )}
-
-            {/* ── STAGE: OTP ───────────────────────────────── */}
-            {stage === "otp" && (
-              <>
-                <button onClick={() => { setStage("email"); setError(""); setInfo(""); }} className="flex items-center gap-1.5 text-[13px] text-[#44474d] hover:text-[#0b1f3a] mb-6 transition-colors">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
-                  Back
-                </button>
-                <div className="mb-6">
-                  <h2 className="text-[24px] font-semibold text-[#191c1e] mb-2 tracking-[-0.01em]">Verify your email</h2>
-                  <p className="text-[14px] text-[#44474d] leading-[20px]">
-                    We sent a 6-digit code to <strong className="text-[#191c1e]">{email}</strong>. Enter it below to activate your account.
-                  </p>
-                </div>
-                <InfoBox />
-                <ErrorBox />
-                <div className="flex gap-3 justify-center mb-6">
-                  {otp.map((digit, i) => (
-                    <input
-                      key={i}
-                      ref={el => { otpRefs.current[i] = el; }}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={e => handleOtpChange(i, e.target.value)}
-                      onKeyDown={e => handleOtpKeyDown(i, e)}
-                      className="w-12 h-14 text-center text-[22px] font-bold text-[#0b1f3a] rounded-[10px] border-2 border-[#e2e8f0] bg-white focus:outline-none focus:border-[#0b1f3a] focus:ring-2 focus:ring-[#0b1f3a]/20 transition-all font-mono"
-                    />
-                  ))}
-                </div>
-                <button onClick={handleVerifyOtp} disabled={loading || otp.some(d => d === "")}
-                  className="w-full py-3.5 px-6 rounded-[8px] bg-[#0b1f3a] hover:bg-[#152e52] text-white text-[14px] font-semibold transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                  {loading ? <><Spinner />Verifying…</> : "Verify Code"}
-                </button>
-                <div className="mt-5 text-center">
-                  {resendCooldown > 0 ? (
-                    <p className="text-[13px] text-[#75777e]">Resend available in <span className="font-semibold text-[#0b1f3a]">{resendCooldown}s</span></p>
-                  ) : (
-                    <button onClick={handleSendOtp} disabled={loading} className="text-[13px] font-semibold text-[#0b1f3a] hover:underline disabled:opacity-50">
-                      Resend Code
-                    </button>
+                  {password && (
+                    <div className="mt-2">
+                      <div className="flex gap-1 mb-1">
+                        {[1, 2, 3, 4].map(l => (
+                          <div key={l} className="h-1 flex-1 rounded-full transition-all" style={{ background: strength.level >= l ? strength.color : "#2C2C2A" }} />
+                        ))}
+                      </div>
+                      <p className="text-[11px]" style={{ color: strength.color }}>Strength: <strong>{strength.label}</strong></p>
+                    </div>
                   )}
                 </div>
-              </>
-            )}
-
-            {/* ── STAGE: SET PASSWORD (first login) ────────── */}
-            {stage === "setPassword" && (
-              <>
-                <div className="mb-6">
-                  <div className="w-10 h-10 rounded-full bg-[#e6f4ea] flex items-center justify-center mb-4">
-                    <svg className="w-5 h-5 text-[#2e7d32]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <div>
+                  <label htmlFor="confirm-password" className="block text-[11px] font-medium text-white mb-2 tracking-[0.08em] uppercase">Confirm Password</label>
+                  <div className="relative">
+                    <input id="confirm-password" type={showConfirm ? "text" : "password"} required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Re-enter your password" className={`${inputClass} pr-12`} style={{ borderColor: confirmPassword ? passwordsMatch ? "#2e7d32" : "#ba1a1a" : "#2C2C2A" }} />
+                    <button type="button" onClick={() => setShowConfirm(v => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#5F5E5A] hover:text-white transition-colors"><EyeIcon visible={showConfirm} /></button>
                   </div>
-                  <h2 className="text-[24px] font-semibold text-[#191c1e] mb-2 tracking-[-0.01em]">Set your password</h2>
-                  <p className="text-[14px] text-[#44474d] leading-[20px]">Create a strong password to secure your  SUKI  CRM account.</p>
+                  {confirmPassword && (
+                    <p className={`mt-1.5 text-[11px] font-medium ${passwordsMatch ? "text-[#7dc97d]" : "text-[#ff9898]"}`}>
+                      {passwordsMatch ? "✓ Passwords match" : "✗ Passwords do not match"}
+                    </p>
+                  )}
                 </div>
-                <ErrorBox />
-                <form onSubmit={handleSetPassword} className="space-y-5" noValidate>
-                  <div>
-                    <label htmlFor="new-password" className="block text-[12px] font-semibold text-[#191c1e] mb-2 tracking-[0.05em] uppercase">New Password</label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"><LockIcon /></span>
-                      <input id="new-password" type={showPassword ? "text" : "password"} required autoFocus value={password} onChange={e => setPassword(e.target.value)}
-                        placeholder="Min 8 chars, A-Z, 0-9, !@#$"
-                        className="w-full pl-11 pr-12 py-3 rounded-[8px] border border-[#e2e8f0] bg-white text-[#191c1e] text-[14px] placeholder:text-[#c4c6ce] focus:outline-none focus:border-[#0b1f3a] focus:ring-2 focus:ring-[#0b1f3a]/20 transition-all" />
-                      <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#75777e] hover:text-[#191c1e]"><EyeIcon visible={showPassword} /></button>
-                    </div>
-                    {password && (
-                      <div className="mt-2">
-                        <div className="flex gap-1 mb-1">
-                          {[1, 2, 3, 4].map(l => (
-                            <div key={l} className="h-1.5 flex-1 rounded-full transition-all" style={{ background: strength.level >= l ? strength.color : "#e0e3e5" }} />
-                          ))}
-                        </div>
-                        <p className="text-[12px]" style={{ color: strength.color }}>Strength: <strong>{strength.label}</strong></p>
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <label htmlFor="confirm-password" className="block text-[12px] font-semibold text-[#191c1e] mb-2 tracking-[0.05em] uppercase">Confirm Password</label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"><LockIcon /></span>
-                      <input id="confirm-password" type={showConfirm ? "text" : "password"} required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-                        placeholder="Re-enter your password"
-                        className={`w-full pl-11 pr-12 py-3 rounded-[8px] border bg-white text-[#191c1e] text-[14px] placeholder:text-[#c4c6ce] focus:outline-none focus:ring-2 transition-all ${confirmPassword ? (passwordsMatch ? "border-[#2e7d32] focus:border-[#2e7d32] focus:ring-[#2e7d32]/20" : "border-[#ba1a1a] focus:border-[#ba1a1a] focus:ring-[#ba1a1a]/20") : "border-[#e2e8f0] focus:border-[#0b1f3a] focus:ring-[#0b1f3a]/20"}`} />
-                      <button type="button" onClick={() => setShowConfirm(v => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#75777e] hover:text-[#191c1e]"><EyeIcon visible={showConfirm} /></button>
-                    </div>
-                    {confirmPassword && (
-                      <p className={`mt-1.5 text-[12px] font-medium ${passwordsMatch ? "text-[#2e7d32]" : "text-[#ba1a1a]"}`}>
-                        {passwordsMatch ? "✓ Passwords match" : "✗ Passwords do not match"}
-                      </p>
-                    )}
-                  </div>
-                  {/* Remember Me */}
-                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                    <div className="relative">
-                      <input type="checkbox" className="sr-only" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
-                      <div className={`w-4 h-4 rounded border-2 transition-all flex items-center justify-center ${rememberMe ? "bg-[#0b1f3a] border-[#0b1f3a]" : "border-[#c4c6ce] bg-white"}`}>
-                        {rememberMe && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                      </div>
-                    </div>
-                    <span className="text-[13px] text-[#44474d]">Remember me for <strong className="text-[#191c1e]">7 days</strong></span>
-                  </label>
-                  <SubmitBtn label="Activate Account" loadingLabel="Activating…" />
-                </form>
-              </>
-            )}
-
-            {/* ── STAGE: NORMAL PASSWORD LOGIN ─────────────── */}
-            {stage === "password" && (
-              <>
-                <button onClick={() => { setStage("email"); setError(""); setPassword(""); }} className="flex items-center gap-1.5 text-[13px] text-[#44474d] hover:text-[#0b1f3a] mb-6 transition-colors">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
-                  Back
-                </button>
-                <div className="mb-6">
-                  <h2 className="text-[24px] font-semibold text-[#191c1e] mb-1 tracking-[-0.01em]">Welcome back</h2>
-                  <p className="text-[14px] text-[#44474d]">Signing in as <strong className="text-[#191c1e]">{email}</strong></p>
-                </div>
-                <ErrorBox />
-                <form onSubmit={handlePasswordLogin} className="space-y-5" noValidate>
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label htmlFor="login-password" className="text-[12px] font-semibold text-[#191c1e] tracking-[0.05em] uppercase">Password</label>
-                      <Link href="/forgot-password" className="text-[13px] font-medium text-[#44474d] hover:text-[#0b1f3a] transition-colors">Forgot Password?</Link>
-                    </div>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"><LockIcon /></span>
-                      <input id="login-password" type={showPassword ? "text" : "password"} required autoFocus value={password} onChange={e => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full pl-11 pr-12 py-3 rounded-[8px] border border-[#e2e8f0] bg-white text-[#191c1e] text-[14px] placeholder:text-[#c4c6ce] focus:outline-none focus:border-[#0b1f3a] focus:ring-2 focus:ring-[#0b1f3a]/20 transition-all font-mono tracking-widest" />
-                      <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#75777e] hover:text-[#191c1e] transition-colors"><EyeIcon visible={showPassword} /></button>
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <div className="relative">
+                    <input type="checkbox" className="sr-only" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
+                    <div className={`w-4 h-4 rounded border-2 transition-all flex items-center justify-center ${rememberMe ? "border-[#E8732C]" : "border-[#2C2C2A] bg-[#1A1A1A]"}`} style={{ backgroundColor: rememberMe ? "#E8732C" : "" }}>
+                      {rememberMe && <svg className="w-3 h-3 text-[#0A0A0A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                     </div>
                   </div>
-                  {/* Remember Me */}
-                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                    <div className="relative">
-                      <input type="checkbox" className="sr-only" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
-                      <div className={`w-4 h-4 rounded border-2 transition-all flex items-center justify-center ${rememberMe ? "bg-[#0b1f3a] border-[#0b1f3a]" : "border-[#c4c6ce] bg-white"}`}>
-                        {rememberMe && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                      </div>
-                    </div>
-                    <span className="text-[13px] text-[#44474d]">Remember me for <strong className="text-[#191c1e]">7 days</strong></span>
-                  </label>
-                  <SubmitBtn label="Sign In" loadingLabel="Authenticating…" />
-                </form>
-              </>
-            )}
-
-            {/* ── Footer ───────────────────────────────────── */}
-            {stage === "email" && (
-              <div className="mt-8 pt-8 border-t border-[#eceef0] text-center space-y-2">
-                <p className="text-[13px] text-[#44474d]">Need assistance or lost access?</p>
-                <p className="text-[13px] font-semibold text-[#191c1e] mt-1">Contact IT Support</p>
+                  <span className="text-[13px] text-white">Remember me for <strong className="text-white">7 days</strong></span>
+                </label>
+                <SubmitBtn label="Activate Account" loadingLabel="Activating…" />
+              </form>
+              <div className="pt-6 text-center">
+                <p className="text-[11px] text-[#2E2E2C]">© {new Date().getFullYear()} SUKI CRM. All rights reserved.</p>
               </div>
-            )}
+            </>
+          )}
+
+          {/* STAGE: PASSWORD LOGIN */}
+          {stage === "password" && (
+            <>
+              <BackBtn onClick={() => { setStage("email"); setError(""); setPassword(""); }} />
+              <div className="mb-6">
+                <h2 className="text-white mb-2" style={{ fontSize: "18px", fontWeight: 400 }}>Welcome back</h2>
+                <p className="text-[13px] text-white leading-[1.5]">Signing in as <span className="text-white">{email}</span></p>
+              </div>
+              <ErrorBox />
+              <form onSubmit={handlePasswordLogin} className="space-y-4" noValidate>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label htmlFor="login-password" className="text-[11px] font-medium text-white tracking-[0.08em] uppercase">Password</label>
+                    <Link href="/forgot-password" className="text-[13px] transition-colors" style={{ color: "#E8732C" }}>Forgot?</Link>
+                  </div>
+                  <div className="relative">
+                    <input id="login-password" type={showPassword ? "text" : "password"} required autoFocus value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className={`${inputClass} pr-12 font-mono tracking-widest`} />
+                    <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#5F5E5A] hover:text-white transition-colors"><EyeIcon visible={showPassword} /></button>
+                  </div>
+                </div>
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <div className="relative">
+                    <input type="checkbox" className="sr-only" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
+                    <div className={`w-4 h-4 rounded border-2 transition-all flex items-center justify-center ${rememberMe ? "border-[#E8732C]" : "border-[#2C2C2A] bg-[#1A1A1A]"}`} style={{ backgroundColor: rememberMe ? "#E8732C" : "" }}>
+                      {rememberMe && <svg className="w-3 h-3 text-[#0A0A0A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                    </div>
+                  </div>
+                  <span className="text-[13px] text-white">Remember me for <strong className="text-white">7 days</strong></span>
+                </label>
+                <SubmitBtn label="Sign In" loadingLabel="Authenticating…" />
+              </form>
+              <div className="pt-6 text-center">
+                <p className="text-[11px] text-[#2E2E2C]">© {new Date().getFullYear()} SUKI CRM. All rights reserved.</p>
+              </div>
+            </>
+          )}
+          </div>
           </div>
         </div>
       </div>
@@ -500,8 +631,8 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <main className="min-h-screen flex items-center justify-center bg-[#f7f9fb]">
-        <div className="w-8 h-8 border-4 border-[#0b1f3a] border-t-transparent rounded-full animate-spin" />
+      <main className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#FFFFFF" }}>
+        <div className="w-8 h-8 border-2 border-[#0A0A0A]/20 border-t-[#0A0A0A] rounded-full animate-spin" />
       </main>
     }>
       <LoginContent />

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
+import { logAudit, extractAuditContext } from "@/lib/audit";
 
 export async function POST(
   request: NextRequest,
@@ -23,6 +24,13 @@ export async function POST(
   const quotation = await prisma.quotation.update({
     where: { id },
     data: { status: "Accepted", acceptedAt: new Date() },
+  });
+
+  await logAudit(user.id, "Quotation", "Accept", `Accepted quotation ${existing.quotationCode}`, {
+    resourceId: id,
+    previousState: { status: existing.status },
+    newState: { status: "Accepted" },
+    context: extractAuditContext(request),
   });
 
   return NextResponse.json({ success: true, data: quotation });

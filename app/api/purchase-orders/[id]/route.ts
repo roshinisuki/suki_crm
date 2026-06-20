@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
+import { logAudit, extractAuditContext } from "@/lib/audit";
 
 const VALID_STATUSES = ["New", "UnderValidation", "Approved", "Rejected", "Closed"];
 
@@ -133,6 +134,22 @@ export async function PUT(
     },
   });
 
+  if (body.status && body.status !== existing.status) {
+    await logAudit(user.id, "PurchaseOrder", "StatusChange", `PO ${existing.poCode} status: ${existing.status} → ${body.status}`, {
+      resourceId: id,
+      previousState: { status: existing.status },
+      newState: { status: body.status },
+      context: extractAuditContext(request),
+    });
+  } else {
+    await logAudit(user.id, "PurchaseOrder", "Update", `Updated PO ${existing.poCode}`, {
+      resourceId: id,
+      previousState: { totalAmount: existing.totalAmount, finalAmount: existing.finalAmount },
+      newState: { totalAmount, finalAmount },
+      context: extractAuditContext(request),
+    });
+  }
+
   return NextResponse.json({ success: true, data: purchaseOrder });
 }
 
@@ -154,6 +171,12 @@ export async function DELETE(
   await prisma.purchaseOrder.update({
     where: { id },
     data: { deletedAt: new Date(), deletedById: user.id },
+  });
+
+  await logAudit(user.id, "PurchaseOrder", "Delete", `Deleted PO ${existing.poCode}`, {
+    resourceId: id,
+    previousState: { poCode: existing.poCode, status: existing.status },
+    context: extractAuditContext(request),
   });
 
   return NextResponse.json({ success: true, message: "Purchase order deleted" });
