@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
 import PageContainer from "@/components/PageContainer";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
@@ -27,6 +28,7 @@ const statusColors: Record<string, string> = {
 export default function TargetAchievementPage() {
   const { user } = useAuth();
   const toast = useToast();
+  const { formatCurrency } = useCurrency();
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<any[]>([]);
@@ -128,11 +130,11 @@ export default function TargetAchievementPage() {
         </div>
         <div className="rounded-lg border bg-white p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wider">Total Target</p>
-          <p className="text-2xl font-bold mt-1 text-slate-800">₹{totalTarget.toLocaleString()}</p>
+          <p className="text-2xl font-bold mt-1 text-slate-800">{formatCurrency(totalTarget)}</p>
         </div>
         <div className="rounded-lg border bg-white p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wider">Total Achieved</p>
-          <p className="text-2xl font-bold mt-1 text-slate-800">₹{totalAchieved.toLocaleString()}</p>
+          <p className="text-2xl font-bold mt-1 text-slate-800">{formatCurrency(totalAchieved)}</p>
         </div>
         <div className="rounded-lg border bg-white p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wider">Users On Track (≥80%)</p>
@@ -173,14 +175,14 @@ export default function TargetAchievementPage() {
                     <div className="flex-1 bg-gray-100 rounded-full h-4">
                       <div className="bg-blue-500 rounded-full h-4" style={{ width: `${(vals.target / maxChartVal) * 100}%` }} />
                     </div>
-                    <span className="text-xs text-gray-600 w-24 text-right">₹{vals.target.toLocaleString()}</span>
+                    <span className="text-xs text-gray-600 w-24 text-right">{formatCurrency(vals.target)}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-xs text-gray-400 w-16">Achieved</span>
                     <div className="flex-1 bg-gray-100 rounded-full h-4">
                       <div className="bg-green-500 rounded-full h-4" style={{ width: `${(vals.achieved / maxChartVal) * 100}%` }} />
                     </div>
-                    <span className="text-xs text-gray-600 w-24 text-right">₹{vals.achieved.toLocaleString()}</span>
+                    <span className="text-xs text-gray-600 w-24 text-right">{formatCurrency(vals.achieved)}</span>
                   </div>
                 </div>
               </div>
@@ -222,9 +224,9 @@ export default function TargetAchievementPage() {
                   <td className="px-4 py-3 text-gray-600">{d.territory?.name || "—"}</td>
                   <td className="px-4 py-3 text-gray-600">{d.targetType}</td>
                   <td className="px-4 py-3 text-gray-600">{d.period}</td>
-                  <td className="px-4 py-3 text-right text-gray-600">₹{d.targetAmount.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-right text-gray-600">₹{d.achievedAmount.toLocaleString()}</td>
-                  <td className={`px-4 py-3 text-right ${d.gap < 0 ? "text-green-600" : "text-red-600"}`}>₹{Math.abs(d.gap).toLocaleString()}{d.gap < 0 ? " surplus" : ""}</td>
+                  <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(d.targetAmount)}</td>
+                  <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(d.achievedAmount)}</td>
+                  <td className={`px-4 py-3 text-right ${d.gap < 0 ? "text-green-600" : "text-red-600"}`}>{formatCurrency(Math.abs(d.gap))}{d.gap < 0 ? " surplus" : ""}</td>
                   <td className="px-4 py-3 text-right">
                     <span className={`px-2 py-0.5 rounded-full text-xs ${d.achievementPct >= 80 ? "bg-green-50 text-green-700" : d.achievementPct >= 50 ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{d.achievementPct}%</span>
                   </td>

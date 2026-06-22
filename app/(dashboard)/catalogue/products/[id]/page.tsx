@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
 import PageContainer from "@/components/PageContainer";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
@@ -16,7 +17,7 @@ const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?
 const icons = {
   arrowLeft: "M10 19l-7-7m0 0l7-7m-7 7h18",
   save: "M5 13l4 4L19 7",
-  edit: "M11 4H4a2 2 0 012-2v14a2 2 0 012 2 2h14a2 2 0 012-2V4a2 2 0 00-2-2m-6 12h6m-6-12h6",
+  edit: "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7 M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
   x: "M6 18L18 6M6 6l12 12",
   file: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
   plus: "M12 4v16m8-8H4",
@@ -34,6 +35,7 @@ export default function ProductDetailPage() {
   const router = useRouter();
   const params = useParams();
   const toast = useToast();
+  const { formatCurrency } = useCurrency();
   const [confirmState, setConfirmState] = useState<{isOpen: boolean; title: string; message: string; action: () => void}>({ isOpen: false, title: "", message: "", action: () => {} });
 
   const [formData, setFormData] = useState({
@@ -42,6 +44,8 @@ export default function ProductDetailPage() {
     description: "",
     unit: "",
     basePrice: "",
+    productType: "",
+    minOrderQuantity: "",
     isActive: true,
     datasheetUrl: "",
     brochureUrl: "",
@@ -66,6 +70,8 @@ export default function ProductDetailPage() {
           description: data.data.description || "",
           unit: data.data.unit || "",
           basePrice: data.data.basePrice?.toString() || "",
+          productType: data.data.productType || "",
+          minOrderQuantity: data.data.minOrderQuantity?.toString() || "",
           isActive: data.data.isActive,
           datasheetUrl: data.data.datasheetUrl || "",
           brochureUrl: data.data.brochureUrl || "",
@@ -218,7 +224,7 @@ export default function ProductDetailPage() {
     return (
       <PageContainer>
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-white/20 border-t-transparent" />
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-300 border-t-transparent" />
         </div>
       </PageContainer>
     );
@@ -228,7 +234,7 @@ export default function ProductDetailPage() {
     return (
       <PageContainer>
         <div className="text-center py-12">
-          <p className="text-gray-400">Product not found</p>
+          <p className="text-slate-500">Product not found</p>
         </div>
       </PageContainer>
     );
@@ -239,20 +245,20 @@ export default function ProductDetailPage() {
       <div className="mb-6">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-4"
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors mb-4"
         >
           <Ico d={icons.arrowLeft} size={18} />
           Back to Products
         </button>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">{product.productCode}</h1>
-            <p className="text-gray-400 mt-1">{product.name}</p>
+            <h1 className="text-2xl font-bold text-slate-900">{product.productCode}</h1>
+            <p className="text-slate-500 mt-1">{product.name}</p>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setIsEditing(!isEditing)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-white/10 text-gray-300 hover:bg-white/5 transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-white transition-colors"
             >
               <Ico d={icons.edit} size={18} />
               {isEditing ? "Cancel" : "Edit"}
@@ -272,21 +278,21 @@ export default function ProductDetailPage() {
         <form onSubmit={handleUpdate} className="space-y-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Product Name *</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Product Name *</label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
-                className="w-full px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Category</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Category</label>
               <select
                 value={formData.categoryId}
                 onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
               >
                 <option value="">Select category</option>
                 {categories.map((cat) => (
@@ -297,54 +303,83 @@ export default function ProductDetailPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Description</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D] resize-none"
               rows={4}
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Unit</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Unit</label>
               <input
                 type="text"
                 value={formData.unit}
                 onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Base Price</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Base Price</label>
               <input
                 type="number"
                 step="0.01"
                 value={formData.basePrice}
                 onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Datasheet URL</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Product Type</label>
+              <select
+                value={formData.productType}
+                onChange={(e) => setFormData({ ...formData, productType: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
+              >
+                <option value="">Select type</option>
+                <option value="FinishedGood">Finished Good</option>
+                <option value="RawMaterial">Raw Material</option>
+                <option value="Component">Component</option>
+                <option value="SubAssembly">Sub-Assembly</option>
+                <option value="Consumable">Consumable</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Min Order Quantity</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.minOrderQuantity}
+                onChange={(e) => setFormData({ ...formData, minOrderQuantity: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
+                placeholder="0"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Datasheet URL</label>
               <input
                 type="url"
                 value={formData.datasheetUrl}
                 onChange={(e) => setFormData({ ...formData, datasheetUrl: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Brochure URL</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Brochure URL</label>
               <input
                 type="url"
                 value={formData.brochureUrl}
                 onChange={(e) => setFormData({ ...formData, brochureUrl: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
               />
             </div>
           </div>
@@ -355,23 +390,23 @@ export default function ProductDetailPage() {
               id="isActive"
               checked={formData.isActive}
               onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-              className="w-4 h-4 rounded border border-white/20 bg-white/5 text-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]"
+              className="w-4 h-4 rounded border border-slate-300 bg-white text-[#D44D4D] focus:ring-2 focus:ring-[#D44D4D]"
             />
-            <label htmlFor="isActive" className="text-sm text-gray-300">Active</label>
+            <label htmlFor="isActive" className="text-sm text-slate-700">Active</label>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
             <button
               type="button"
               onClick={() => setIsEditing(false)}
-              className="px-4 py-2.5 rounded-lg border border-white/10 text-gray-300 hover:bg-white/5 transition-colors"
+              className="px-4 py-2.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-white transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={formLoading || !formData.name}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#D44D4D] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               <Ico d={icons.save} size={18} />
               {formLoading ? "Saving..." : "Save Changes"}
@@ -382,39 +417,47 @@ export default function ProductDetailPage() {
         <div className="space-y-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <p className="text-sm text-gray-400 mb-1">Category</p>
-              <p className="text-white">{product.category?.name || "-"}</p>
+              <p className="text-sm text-slate-500 mb-1">Category</p>
+              <p className="text-slate-900">{product.category?.name || "-"}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-400 mb-1">Unit</p>
-              <p className="text-white">{product.unit || "-"}</p>
+              <p className="text-sm text-slate-500 mb-1">Unit</p>
+              <p className="text-slate-900">{product.unit || "-"}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-400 mb-1">Base Price</p>
-              <p className="text-white">{product.basePrice ? `₹${product.basePrice.toFixed(2)}` : "-"}</p>
+              <p className="text-sm text-slate-500 mb-1">Base Price</p>
+              <p className="text-slate-900">{product.basePrice ? formatCurrency(product.basePrice) : "-"}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-400 mb-1">Status</p>
+              <p className="text-sm text-slate-500 mb-1">Status</p>
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${product.isActive ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-800"}`}>
                 {product.isActive ? "Active" : "Inactive"}
               </span>
             </div>
+            <div>
+              <p className="text-sm text-slate-500 mb-1">Product Type</p>
+              <p className="text-slate-900">{product.productType ? product.productType.replace(/([A-Z])/g, ' $1').trim() : "-"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-slate-500 mb-1">Min Order Quantity</p>
+              <p className="text-slate-900">{product.minOrderQuantity || "-"}</p>
+            </div>
           </div>
           {product.description && (
             <div>
-              <p className="text-sm text-gray-400 mb-1">Description</p>
-              <p className="text-white">{product.description}</p>
+              <p className="text-sm text-slate-500 mb-1">Description</p>
+              <p className="text-slate-900">{product.description}</p>
             </div>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {product.datasheetUrl && (
               <div>
-                <p className="text-sm text-gray-400 mb-1">Datasheet</p>
+                <p className="text-sm text-slate-500 mb-1">Datasheet</p>
                 <a
                   href={product.datasheetUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-400 hover:text-blue-300 flex items-center gap-2"
+                  className="text-blue-600 hover:text-blue-700 flex items-center gap-2"
                 >
                   <Ico d={icons.file} size={16} />
                   View Datasheet
@@ -423,12 +466,12 @@ export default function ProductDetailPage() {
             )}
             {product.brochureUrl && (
               <div>
-                <p className="text-sm text-gray-400 mb-1">Brochure</p>
+                <p className="text-sm text-slate-500 mb-1">Brochure</p>
                 <a
                   href={product.brochureUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-purple-400 hover:text-purple-300 flex items-center gap-2"
+                  className="text-purple-600 hover:text-purple-700 flex items-center gap-2"
                 >
                   <Ico d={icons.file} size={16} />
                   View Brochure
@@ -440,8 +483,8 @@ export default function ProductDetailPage() {
       )}
 
       {/* Specifications Section */}
-      <div className="border-t border-white/10 pt-6">
-        <h2 className="text-xl font-bold text-white mb-4">Specifications</h2>
+      <div className="border-t border-slate-200 pt-6">
+        <h2 className="text-xl font-bold text-slate-900 mb-4">Specifications</h2>
         
         <form onSubmit={handleAddSpec} className="flex gap-3 mb-6">
           <input
@@ -449,25 +492,25 @@ export default function ProductDetailPage() {
             value={specForm.specKey}
             onChange={(e) => setSpecForm({ ...specForm, specKey: e.target.value })}
             placeholder="Specification Key (e.g., Weight)"
-            className="flex-1 px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+            className="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
           />
           <input
             type="text"
             value={specForm.specValue}
             onChange={(e) => setSpecForm({ ...specForm, specValue: e.target.value })}
             placeholder="Value (e.g., 10kg)"
-            className="flex-1 px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+            className="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
           />
           <input
             type="text"
             value={specForm.unit}
             onChange={(e) => setSpecForm({ ...specForm, unit: e.target.value })}
             placeholder="Unit (e.g., kg)"
-            className="w-32 px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+            className="w-32 px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
           />
           <button
             type="submit"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#D44D4D] text-white font-medium hover:opacity-90 transition-opacity"
           >
             <Ico d={icons.plus} size={18} />
             Add
@@ -475,28 +518,28 @@ export default function ProductDetailPage() {
         </form>
 
         {specs.length === 0 ? (
-          <p className="text-gray-400 text-center py-8">No specifications added yet</p>
+          <p className="text-slate-500 text-center py-8">No specifications added yet</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-white/10 bg-white/5">
+          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-white/10">
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Key</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Value</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Unit</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Actions</th>
+                <tr className="border-b border-slate-200">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Key</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Value</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Unit</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {specs.map((spec) => (
-                  <tr key={spec.id} className="border-b border-white/10">
+                  <tr key={spec.id} className="border-b border-slate-200">
                     <td className="px-4 py-3">{spec.specKey}</td>
                     <td className="px-4 py-3">{spec.specValue}</td>
-                    <td className="px-4 py-3 text-gray-400">{spec.unit || "-"}</td>
+                    <td className="px-4 py-3 text-slate-500">{spec.unit || "-"}</td>
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => handleDeleteSpec(spec.id)}
-                        className="p-1.5 rounded hover:bg-red-500/20 text-red-400 hover:text-red-600 transition-colors"
+                        className="p-1.5 rounded hover:bg-red-50 text-red-600 hover:text-red-600 transition-colors"
                         title="Delete"
                       >
                         <Ico d={icons.x} size={16} />

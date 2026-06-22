@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
 import PageContainer from "@/components/PageContainer";
@@ -37,6 +38,7 @@ export default function RFQDetailPage() {
   const id = params.id as string;
   const toast = useToast();
   const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
 
   const [rfq, setRfq] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -222,7 +224,7 @@ export default function RFQDetailPage() {
             <Field label="Contact" value={rfq.contact?.name} />
             <Field label="Product" value={rfq.product ? `${rfq.product.productCode} - ${rfq.product.name}` : "—"} />
             <Field label="Quantity" value={rfq.quantity?.toString()} />
-            <Field label="Target Price" value={rfq.targetPrice ? `₹${rfq.targetPrice}` : "—"} />
+            <Field label="Target Price" value={rfq.targetPrice ? formatCurrency(rfq.targetPrice) : "—"} />
             <Field label="Delivery Date" value={rfq.deliveryDate ? new Date(rfq.deliveryDate).toLocaleDateString() : "—"} />
             <Field label="Assigned To" value={rfq.assignedUser?.name} />
             <Field label="Received Date" value={new Date(rfq.receivedDate).toLocaleDateString()} />
@@ -297,7 +299,7 @@ export default function RFQDetailPage() {
               {rfq.quotations.map((q: any) => (
                 <button key={q.id} onClick={() => router.push(`/quotations/${q.id}`)} className="flex items-center justify-between w-full p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer">
                   <span className="text-sm font-medium text-slate-700">{q.quotationCode}</span>
-                  <span className="text-sm text-slate-500">₹{q.finalAmount?.toFixed(2)} · {q.status}</span>
+                  <span className="text-sm text-slate-500">{formatCurrency(q.finalAmount)} · {q.status}</span>
                 </button>
               ))}
             </div>

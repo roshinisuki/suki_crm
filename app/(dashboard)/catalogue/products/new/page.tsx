@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
 import PageContainer from "@/components/PageContainer";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
@@ -24,6 +25,7 @@ export default function NewProductPage() {
   const { user } = useAuth();
   const router = useRouter();
   const toast = useToast();
+  const { formatCurrency } = useCurrency();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -31,6 +33,8 @@ export default function NewProductPage() {
     description: "",
     unit: "",
     basePrice: "",
+    productType: "",
+    minOrderQuantity: "",
     isActive: true,
     datasheetUrl: "",
     brochureUrl: "",
@@ -87,35 +91,35 @@ export default function NewProductPage() {
       <div className="mb-6">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-4"
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors mb-4"
         >
           <Ico d={icons.arrowLeft} size={18} />
           Back to Products
         </button>
-        <h1 className="text-2xl font-bold text-white">Add New Product</h1>
-        <p className="text-gray-400 mt-1">Create a new product for your catalogue</p>
+        <h1 className="text-2xl font-bold text-slate-900">Add New Product</h1>
+        <p className="text-slate-500 mt-1">Create a new product for your catalogue</p>
       </div>
 
       <div className="max-w-2xl">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Product Name *</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Product Name *</label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
-                className="w-full px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
                 placeholder="Enter product name"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Category</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Category</label>
               <select
                 value={formData.categoryId}
                 onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
               >
                 <option value="">Select category</option>
                 {categories.map((cat) => (
@@ -126,11 +130,11 @@ export default function NewProductPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Description</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D] resize-none"
               placeholder="Enter product description"
               rows={4}
             />
@@ -138,23 +142,23 @@ export default function NewProductPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Unit</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Unit</label>
               <input
                 type="text"
                 value={formData.unit}
                 onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
                 placeholder="e.g., PCS, KG, MTR"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Base Price</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Base Price</label>
               <input
                 type="number"
                 step="0.01"
                 value={formData.basePrice}
                 onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
                 placeholder="0.00"
               />
             </div>
@@ -162,22 +166,51 @@ export default function NewProductPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Datasheet URL</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Product Type</label>
+              <select
+                value={formData.productType}
+                onChange={(e) => setFormData({ ...formData, productType: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
+              >
+                <option value="">Select type</option>
+                <option value="FinishedGood">Finished Good</option>
+                <option value="RawMaterial">Raw Material</option>
+                <option value="Component">Component</option>
+                <option value="SubAssembly">Sub-Assembly</option>
+                <option value="Consumable">Consumable</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Min Order Quantity</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.minOrderQuantity}
+                onChange={(e) => setFormData({ ...formData, minOrderQuantity: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
+                placeholder="0"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Datasheet URL</label>
               <input
                 type="url"
                 value={formData.datasheetUrl}
                 onChange={(e) => setFormData({ ...formData, datasheetUrl: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
                 placeholder="https://..."
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Brochure URL</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Brochure URL</label>
               <input
                 type="url"
                 value={formData.brochureUrl}
                 onChange={(e) => setFormData({ ...formData, brochureUrl: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]"
                 placeholder="https://..."
               />
             </div>
@@ -189,23 +222,23 @@ export default function NewProductPage() {
               id="isActive"
               checked={formData.isActive}
               onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-              className="w-4 h-4 rounded border border-white/20 bg-white/5 text-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]"
+              className="w-4 h-4 rounded border border-slate-300 bg-white text-[#D44D4D] focus:ring-2 focus:ring-[#D44D4D]"
             />
-            <label htmlFor="isActive" className="text-sm text-gray-300">Active</label>
+            <label htmlFor="isActive" className="text-sm text-slate-700">Active</label>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
             <button
               type="button"
               onClick={() => router.back()}
-              className="px-4 py-2.5 rounded-lg border border-white/10 text-gray-300 hover:bg-white/5 transition-colors"
+              className="px-4 py-2.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-white transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={formLoading || !formData.name}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#D44D4D] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               <Ico d={icons.save} size={18} />
               {formLoading ? "Creating..." : "Create Product"}

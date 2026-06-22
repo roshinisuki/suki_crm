@@ -514,10 +514,10 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         router.push("/deals");
         break;
       case "view-account":
-        router.push("/customers");
+        router.push("/customer-master");
         break;
       case "view-contact":
-        router.push("/customers");
+        router.push("/contacts");
         break;
       default:
         break;

@@ -33,6 +33,7 @@ export async function getTasksAction(params?: {
   status?: string;
   priority?: string;
   assignedUserId?: string;
+  dealId?: string;
 }) {
   try {
     const user = await verifyAuth();
@@ -40,7 +41,7 @@ export async function getTasksAction(params?: {
       return { success: false, message: "Unauthorized" };
     }
 
-    const { search = "", status = "", priority = "", assignedUserId = "" } = params || {};
+    const { search = "", status = "", priority = "", assignedUserId = "", dealId = "" } = params || {};
 
     const where: any = { deletedAt: null };
 
@@ -52,6 +53,7 @@ export async function getTasksAction(params?: {
     }
 
     if (assignedUserId) where.assignedTo = assignedUserId;
+    if (dealId) where.dealId = dealId;
     if (status) where.status = status;
     if (priority) where.priority = priority;
     if (search) {

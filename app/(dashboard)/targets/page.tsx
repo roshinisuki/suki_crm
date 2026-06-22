@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
 import PageContainer from "@/components/PageContainer";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
@@ -33,6 +34,7 @@ function ProgressBar({ pct }: { pct: number }) {
 export default function TargetsPage() {
   const { user } = useAuth();
   const toast = useToast();
+  const { formatCurrency } = useCurrency();
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get("type") as "Monthly" | "Quarterly" | "Yearly") || "Monthly";
   const [tab, setTab] = useState<"Monthly" | "Quarterly" | "Yearly">(initialTab);
@@ -142,8 +144,8 @@ export default function TargetsPage() {
                     <td className="px-4 py-3 font-medium">{t.period}</td>
                     <td className="px-4 py-3 text-gray-600">{t.assignedUser?.name || "—"}</td>
                     <td className="px-4 py-3 text-gray-600">{t.territory?.name || "—"}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">₹{t.targetAmount.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">₹{t.achievedAmount.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(t.targetAmount)}</td>
+                    <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(t.achievedAmount)}</td>
                     <td className="px-4 py-3 text-right">
                       <span className={`px-2 py-0.5 rounded-full text-xs ${pct >= 80 ? "bg-green-50 text-green-700" : pct >= 50 ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{pct}%</span>
                     </td>

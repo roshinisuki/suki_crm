@@ -194,13 +194,24 @@ function SidebarContent({
     { href: "/leads?status=Lost", label: "Lost Leads" },
   ];
 
-  const accountsSubItems = [
+  const accountsSubItems = isVariant2 ? [
+    { href: "/customer-master", label: "All Accounts" },
+    { href: "/customer-master?status=ActiveCustomer", label: "Active Accounts" },
+    { href: "/customer-master?status=Prospect", label: "Prospect Accounts" },
+    { href: "/customer-master?status=Inactive", label: "Inactive Accounts" },
+  ] : [
     { href: "/customer-master", label: "All Accounts" },
     { href: "/customer-master?status=ActiveCustomer", label: "Active Accounts" },
     { href: "/customer-master?status=Prospect", label: "Prospect Accounts" },
   ];
 
-  const contactsSubItems = [
+  const contactsSubItems = isVariant2 ? [
+    { href: "/contacts", label: "All Contacts" },
+    { href: "/contacts?type=Technical", label: "Technical Contacts" },
+    { href: "/contacts?type=Purchase", label: "Purchase Contacts" },
+    { href: "/contacts?type=Finance", label: "Finance Contacts" },
+    { href: "/contacts?type=Management", label: "Management Contacts" },
+  ] : [
     { href: "/contacts", label: "All Contacts" },
     { href: "/contacts?type=Technical", label: "Technical Contacts" },
     { href: "/contacts?type=Purchase", label: "Purchase Contacts" },
@@ -247,9 +258,9 @@ function SidebarContent({
     { href: "/sales-pipeline", label: "All Opportunities" },
     { href: "/sales-pipeline?stage=SalesOpportunity", label: "Qualified" },
     { href: "/sales-pipeline?stage=RequirementGathering", label: "Requirement Gathering" },
+    { href: "/sales-pipeline?stage=MeetingScheduled", label: "Meeting Scheduled" },
     { href: "/sales-pipeline?stage=TechnicalDiscussion", label: "Technical Discussion" },
     { href: "/sales-pipeline?stage=DemoConducted", label: "Demo Conducted" },
-    { href: "/sales-pipeline?stage=MeetingScheduled", label: "Meeting Scheduled" },
     { href: "/sales-pipeline?stage=Overdue", label: "Overdue" },
     { href: "/sales-pipeline?stage=Rejected", label: "Rejected" },
   ] : [
@@ -480,63 +491,65 @@ function SidebarContent({
 
         {!loading && user?.role !== "Customer" && user?.role !== "SuperAdmin" && (
           <>
-            {!collapsed && (
-              <div className="pt-5 pb-1.5">
-                <p className="px-3.5 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--sidebar-heading)" }}>CRM</p>
-              </div>
-            )}
+            {/* ── Lifecycle modules in sales-flow order ── */}
             <ExpandableNavSection label="Leads" icon={<Users size={17} />} subItems={leadSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
             <ExpandableNavSection label="Accounts" icon={<BookUser size={17} />} subItems={accountsSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
             <ExpandableNavSection label="Contacts" icon={<ContactRound size={17} />} subItems={contactsSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
             <ExpandableNavSection label="Activities" icon={<Activity size={17} />} subItems={activitySubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+
+            {isVariant2 && (
+              <ExpandableNavSection label="Customer Visits" icon={<MapPin size={17} />} subItems={customerVisitsSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+            )}
+            {isVariant2 && (
+              <ExpandableNavSection label="Product Catalogue" icon={<Package size={17} />} subItems={productCatalogueSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+            )}
+            {isVariant2 && (
+              <ExpandableNavSection label="RFQ Management" icon={<FileText size={17} />} subItems={rfqSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+            )}
+            {isVariant3 && (
+              <ExpandableNavSection label="Sample Management" icon={<Package size={17} />} subItems={sampleMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+            )}
+
+            <ExpandableNavSection label="Sales Pipeline" icon={<TrendingUp size={17} />} subItems={salesPipelineSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+
+            {isVariant4 && (
+              <ExpandableNavSection label="Competitor Mgmt" icon={<Swords size={17} />} subItems={competitorMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+            )}
+            {isVariant2 && (
+              <ExpandableNavSection label="Quotation Management" icon={<DollarSign size={17} />} subItems={quotationSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+            )}
+            {isVariant3 && (
+              <ExpandableNavSection label="Negotiation Mgmt" icon={<MessageSquare size={17} />} subItems={negotiationMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+            )}
+            {isVariant3 && (
+              <ExpandableNavSection label="Purchase Order Mgmt" icon={<FileText size={17} />} subItems={purchaseOrderMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+            )}
+
+            <ExpandableNavSection label="Deals" icon={<Briefcase size={17} />} subItems={dealSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
             <ExpandableNavSection label="Tasks" icon={<ListTodo size={17} />} subItems={taskSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
             <ExpandableNavSection label="Follow Ups" icon={<CalendarClock size={17} />} subItems={followUpSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-            <ExpandableNavSection label="Sales Pipeline" icon={<TrendingUp size={17} />} subItems={salesPipelineSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-            <ExpandableNavSection label="Deals" icon={<Briefcase size={17} />} subItems={dealSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+
+            {isVariant3 && (
+              <ExpandableNavSection label="Document Mgmt" icon={<FileText size={17} />} subItems={documentMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+            )}
+            {isVariant4 && (
+              <ExpandableNavSection label="Key Account Mgmt" icon={<Crown size={17} />} subItems={keyAccountMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+            )}
+            {isVariant4 && (
+              <ExpandableNavSection label="Territory Mgmt" icon={<Globe size={17} />} subItems={territoryMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+            )}
+            {isVariant4 && (
+              <ExpandableNavSection label="Target Mgmt" icon={<Trophy size={17} />} subItems={targetMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+            )}
+
+            {isVariant2 && (
+              <ExpandableNavSection label="Forecast" icon={<Target size={17} />} subItems={forecastSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
+            )}
+
             <ExpandableNavSection label="Reports" icon={<PieChart size={17} />} subItems={reportsSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-            
-            {/* Variant 2 sections */}
-            {isVariant2 && (<>
-                {!collapsed && (
-                  <div className="pt-5 pb-1.5">
-                    <p className="px-3.5 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--sidebar-heading)" }}>Variant 2</p>
-                  </div>
-                )}
-                <ExpandableNavSection label="Customer Visits" icon={<MapPin size={17} />} subItems={customerVisitsSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-                <ExpandableNavSection label="Product Catalogue" icon={<Package size={17} />} subItems={productCatalogueSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-                <ExpandableNavSection label="RFQ Management" icon={<FileText size={17} />} subItems={rfqSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-                <ExpandableNavSection label="Quotation Management" icon={<DollarSign size={17} />} subItems={quotationSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-                <ExpandableNavSection label="Forecast" icon={<Target size={17} />} subItems={forecastSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-              </>
-            )}
 
-            {/* Variant 3 sections — Manufacturing CRM */}
-            {isVariant3 && (<>
-                {!collapsed && (
-                  <div className="pt-5 pb-1.5">
-                    <p className="px-3.5 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--sidebar-heading)" }}>Manufacturing</p>
-                  </div>
-                )}
-                <ExpandableNavSection label="Sample Management" icon={<Package size={17} />} subItems={sampleMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-                <ExpandableNavSection label="Negotiation Mgmt" icon={<MessageSquare size={17} />} subItems={negotiationMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-                <ExpandableNavSection label="Purchase Order Mgmt" icon={<FileText size={17} />} subItems={purchaseOrderMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-                <ExpandableNavSection label="Document Mgmt" icon={<FileText size={17} />} subItems={documentMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-                <ExpandableNavSection label="Approval Center" icon={<ShieldCheck size={17} />} subItems={approvalCenterSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-              </>
-            )}
-
-            {/* Variant 4 sections — Enterprise Manufacturing CRM */}
-            {isVariant4 && (<>
-                {!collapsed && (
-                  <div className="pt-5 pb-1.5">
-                    <p className="px-3.5 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--sidebar-heading)" }}>Enterprise</p>
-                  </div>
-                )}
-                <ExpandableNavSection label="Competitor Mgmt" icon={<Swords size={17} />} subItems={competitorMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-                <ExpandableNavSection label="Key Account Mgmt" icon={<Crown size={17} />} subItems={keyAccountMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-                <ExpandableNavSection label="Territory Mgmt" icon={<Globe size={17} />} subItems={territoryMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-                <ExpandableNavSection label="Target Mgmt" icon={<Trophy size={17} />} subItems={targetMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
-              </>
+            {isVariant3 && (
+              <ExpandableNavSection label="Approval Center" icon={<ShieldCheck size={17} />} subItems={approvalCenterSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} />
             )}
           </>
         )}

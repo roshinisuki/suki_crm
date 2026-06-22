@@ -7,6 +7,7 @@ import { getCustomersAction } from "@/app/actions/customers";
 import { getUsersAction } from "@/app/actions/users";
 import { useAuth } from "@/components/AuthProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
+import { CURRENCY_SYMBOLS } from "@/lib/currency";
 import { useToast } from "@/components/ToastProvider";
 import { PageShell } from "@/components/ui/PageShell";
 import PageContainer from "@/components/PageContainer";
@@ -21,13 +22,15 @@ const STAGES = ["Active", "OnHold", "Won", "Lost"];
 const emptyForm = {
   id: "", dealName: "", customerId: "", dealValue: "",
   expectedCloseDate: "", assignedUserId: "", notes: "", status: "Active",
+  originalStatus: "Active",
 };
 
 export default function DealsPage() {
   const router = useRouter();
   const toast  = useToast();
   const { user: currentUser } = useAuth();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency, preferredCurrency } = useCurrency();
+  const currencySymbol = CURRENCY_SYMBOLS[preferredCurrency as keyof typeof CURRENCY_SYMBOLS] || "₹";
   const searchParams = useSearchParams();
 
   const [deals,     setDeals]     = useState<any[]>([]);
@@ -102,6 +105,7 @@ export default function DealsPage() {
       id: d.id, dealName: d.dealName, customerId: d.customerId,
       dealValue: String(d.dealValue), expectedCloseDate: d.expectedCloseDate?.substring(0, 10) || "",
       assignedUserId: d.assignedUserId || "", notes: d.notes || "", status: d.status,
+      originalStatus: d.status,
     });
     setIsModalOpen(true);
   };
@@ -124,6 +128,15 @@ export default function DealsPage() {
       ? await updateDealAction({ id: form.id, ...payload })
       : await createDealAction(payload);
     if (res.success) {
+      // Stage changes are ignored by updateDealAction by design — route them
+      // through updateDealStatusAction so the edit-modal Stage select is not a no-op.
+      if (form.id && form.status !== form.originalStatus) {
+        const statusRes = await updateDealStatusAction(form.id, form.status);
+        if (!statusRes.success) {
+          toast.error(statusRes.message || "Deal saved, but stage change failed.");
+          setIsModalOpen(false); loadDeals(); setSaving(false); return;
+        }
+      }
       toast.success(form.id ? "Deal updated." : "Deal created."); setIsModalOpen(false); loadDeals();
     } else {
       toast.error(res.message || "Failed to save deal.");
@@ -325,7 +338,7 @@ export default function DealsPage() {
             </FormField>
             <FormField label="Deal Value" required>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">₹</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">{currencySymbol}</span>
                 <Input
                   type="number" step="0.01" min="1"
                   value={form.dealValue} onChange={e => setForm(p => ({ ...p, dealValue: e.target.value }))}

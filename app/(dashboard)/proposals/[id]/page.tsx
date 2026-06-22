@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getProposalByIdAction, advanceProposalStatusAction, updateProposalAction } from "@/app/actions/proposals";
 import { useAuth } from "@/components/AuthProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
+import { CURRENCY_SYMBOLS } from "@/lib/currency";
 import { useToast } from "@/components/ToastProvider";
 import { Timeline } from "@/components/ui/Timeline";
 import { NotePanel } from "@/components/ui/NotePanel";
@@ -21,7 +22,8 @@ export default function ProposalDetailPage({ params }: { params: Promise<{ id: s
   const router = useRouter();
   const toast = useToast();
   const { user } = useAuth();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency, preferredCurrency } = useCurrency();
+  const currencySymbol = CURRENCY_SYMBOLS[preferredCurrency as keyof typeof CURRENCY_SYMBOLS] || "₹";
 
   const [proposal, setProposal] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -298,7 +300,7 @@ export default function ProposalDetailPage({ params }: { params: Promise<{ id: s
             
             <FormField label="Revised Value" required>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">₹</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">{currencySymbol}</span>
                 <Input
                   type="number" step="0.01" min="0"
                   value={reviseForm.value} onChange={e => setReviseForm(p => ({ ...p, value: e.target.value }))}

@@ -3,18 +3,22 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getDealsAction } from "@/app/actions/deals";
+import { getFollowUpsDueThisWeekAction } from "@/app/actions/activities";
 import { useToast } from "@/components/ToastProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { PageShell } from "@/components/ui/PageShell";
 import { SummaryCard } from "@/components/ui/SummaryCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatDate } from "@/lib/ui-utils";
-import { Search, Filter, Briefcase, TrendingUp, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { Search, Filter, Briefcase, TrendingUp, AlertTriangle, CheckCircle, Clock, CalendarClock } from "lucide-react";
 
 const STAGES = {
-  SalesOpportunity: "New Opportunity",
+  SalesOpportunity: "Qualified",
   RequirementGathering: "Requirement Gathering",
   MeetingScheduled: "Meeting Scheduled",
+  SolutionReview: "Solution Review",
+  ProposalSent: "Proposal Sent",
+  Negotiation: "Negotiation",
 };
 
 export default function SalesOpportunitiesPage() {
@@ -26,17 +30,24 @@ export default function SalesOpportunitiesPage() {
   const initialStage = searchParams.get("stage") || "";
   
   const [deals, setDeals] = useState<any[]>([]);
+  const [followUps, setFollowUps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [stageFilter, setStageFilter] = useState(initialStage);
 
   const fetchDeals = async () => {
     setLoading(true);
-    const res = await getDealsAction();
+    const [res, fuRes] = await Promise.all([
+      getDealsAction(),
+      getFollowUpsDueThisWeekAction(),
+    ]);
     if (res.success && res.data) {
       setDeals(res.data.filter((d: any) => d.status !== "Won" && d.status !== "Lost")); // Only active pipeline
     } else {
       toast.error(res.message || "Failed to load opportunities.");
+    }
+    if (fuRes.success && fuRes.data) {
+      setFollowUps(fuRes.data);
     }
     setLoading(false);
   };
@@ -56,9 +67,12 @@ export default function SalesOpportunitiesPage() {
       let matchStage = true;
       if (stageFilter) {
         if (stageFilter === "Overdue") {
-          // Simplistic overdue logic: created more than 15 days ago and still in early stages
-          const daysOld = (new Date().getTime() - new Date(deal.createdAt).getTime()) / (1000 * 3600 * 24);
-          matchStage = daysOld > 15;
+          // Overdue: expected close date has passed OR stuck in early stages > 15 days
+          const now = new Date().getTime();
+          const closeDatePassed = deal.expectedCloseDate && new Date(deal.expectedCloseDate).getTime() < now;
+          const daysOld = (now - new Date(deal.createdAt).getTime()) / (1000 * 3600 * 24);
+          const stuckInEarlyStage = ["SalesOpportunity", "RequirementGathering"].includes(deal.status) && daysOld > 15;
+          matchStage = closeDatePassed || stuckInEarlyStage;
         } else if (stageFilter === "RequirementGathering") {
           matchStage = deal.status === "RequirementGathering";
         } else {
@@ -74,11 +88,29 @@ export default function SalesOpportunitiesPage() {
   const kpiValue = deals.reduce((sum, d) => sum + d.dealValue, 0);
   const kpiHighPriority = deals.filter(d => d.dealValue > 50000).length; // Example threshold
   
-  // Overdue logic: > 15 days in pipeline
+  // Overdue: expected close date passed OR stuck in early stages > 15 days
   const kpiOverdue = deals.filter(d => {
-    const daysOld = (new Date().getTime() - new Date(d.createdAt).getTime()) / (1000 * 3600 * 24);
-    return daysOld > 15;
+    const now = new Date().getTime();
+    const closeDatePassed = d.expectedCloseDate && new Date(d.expectedCloseDate).getTime() < now;
+    const daysOld = (now - new Date(d.createdAt).getTime()) / (1000 * 3600 * 24);
+    const stuckInEarlyStage = ["SalesOpportunity", "RequirementGathering"].includes(d.status) && daysOld > 15;
+    return closeDatePassed || stuckInEarlyStage;
   }).length;
+
+  // Build a lookup of deals by id so we can enrich follow-up rows with deal info
+  const dealMap = useMemo(() => {
+    const m = new Map<string, any>();
+    deals.forEach(d => m.set(d.id, d));
+    return m;
+  }, [deals]);
+
+  // Follow-ups due this week, enriched with deal data
+  const followUpsThisWeek = useMemo(() => {
+    return followUps.map(fu => ({
+      ...fu,
+      deal: dealMap.get(fu.dealId) || null,
+    }));
+  }, [followUps, dealMap]);
 
   return (
     <PageShell
@@ -107,21 +139,86 @@ export default function SalesOpportunitiesPage() {
               className="pl-9 pr-8 py-2 text-sm border border-slate-200 rounded-lg appearance-none bg-white focus:ring-1 focus:ring-indigo-500"
             >
               <option value="">All Stages</option>
-              <option value="SalesOpportunity">New Opportunity</option>
+              <option value="SalesOpportunity">Qualified</option>
               <option value="RequirementGathering">Requirement Gathering</option>
               <option value="MeetingScheduled">Meeting Scheduled</option>
+              <option value="SolutionReview">Solution Review</option>
+              <option value="ProposalSent">Proposal Sent</option>
+              <option value="Negotiation">Negotiation</option>
             </select>
           </div>
         </div>
       }
     >
       <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <SummaryCard label="Active Opportunities" value={kpiTotal.toString()} icon={<Briefcase size={20} />} variant="indigo" />
           <SummaryCard label="Pipeline Value" value={formatCurrency(kpiValue)} icon={<TrendingUp size={20} />} variant="light" />
           <SummaryCard label="High Priority" value={kpiHighPriority.toString()} icon={<CheckCircle size={20} />} variant="dark" />
           <SummaryCard label="Overdue" value={kpiOverdue.toString()} icon={<AlertTriangle size={20} />} variant="orange" />
+          <SummaryCard label="Follow-ups This Week" value={followUpsThisWeek.length.toString()} icon={<CalendarClock size={20} />} variant="indigo" />
         </div>
+
+        {/* Follow-ups Due This Week */}
+        {followUpsThisWeek.length > 0 && (
+          <div className="crm-card overflow-hidden border-amber-200">
+            <div className="flex items-center gap-2 px-5 py-3 bg-amber-50 border-b border-amber-200">
+              <CalendarClock size={18} className="text-amber-600" />
+              <h3 className="font-bold text-amber-800 text-sm">Follow-ups Due This Week</h3>
+              <span className="ml-auto text-xs font-semibold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
+                {followUpsThisWeek.length} upcoming
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="crm-table">
+                <thead>
+                  <tr className="crm-tr border-b border-slate-200/60">
+                    <th className="crm-th">Deal</th>
+                    <th className="crm-th">Customer</th>
+                    <th className="crm-th">Agenda</th>
+                    <th className="crm-th">Follow-up Date</th>
+                    <th className="crm-th text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {followUpsThisWeek.map(fu => (
+                    <tr key={fu.id} className="crm-tr hover:bg-amber-50/40 transition-colors">
+                      <td className="crm-td">
+                        <p className="font-bold text-slate-800">{fu.deal?.dealName || "—"}</p>
+                        {fu.deal && (
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            {(STAGES as any)[fu.deal.status] || fu.deal.status}
+                          </p>
+                        )}
+                      </td>
+                      <td className="crm-td">
+                        <p className="font-semibold text-slate-700">{fu.customer?.name || fu.deal?.customer?.name || "—"}</p>
+                      </td>
+                      <td className="crm-td text-slate-600 text-sm">
+                        {fu.agenda || "Follow-up meeting"}
+                      </td>
+                      <td className="crm-td">
+                        <span className="inline-flex items-center gap-1 text-amber-700 font-semibold text-sm">
+                          <Clock size={13} /> {formatDate(fu.meetingDate)}
+                        </span>
+                      </td>
+                      <td className="crm-td text-right">
+                        {fu.dealId && (
+                          <button
+                            onClick={() => router.push(`/sales-pipeline/${fu.dealId}`)}
+                            className="px-3 py-1.5 bg-amber-600 text-white font-bold text-xs rounded-lg hover:bg-amber-700 transition-colors shadow-sm"
+                          >
+                            Open Deal →
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         <div className="crm-card overflow-hidden">
           <div className="overflow-x-auto">
@@ -163,8 +260,8 @@ export default function SalesOpportunitiesPage() {
                       </td>
                       <td className="crm-td">
                         {deal.status === "SalesOpportunity" ? (
-                          <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-lg border border-blue-200">
-                            New
+                          <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-200">
+                            Qualified
                           </span>
                         ) : deal.status === "RequirementGathering" ? (
                           <span className="px-2.5 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200">
@@ -183,7 +280,7 @@ export default function SalesOpportunitiesPage() {
                         {deal.status === "SalesOpportunity" ? (
                           <button 
                             onClick={() => router.push(`/sales-pipeline/${deal.id}`)}
-                            className="px-4 py-1.5 bg-blue-600 text-white font-bold text-xs rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                            className="px-4 py-1.5 bg-emerald-600 text-white font-bold text-xs rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
                           >
                             Start Requirement Gathering →
                           </button>

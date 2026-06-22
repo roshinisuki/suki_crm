@@ -4,10 +4,12 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
 import PageContainer from "@/components/PageContainer";
 
 export default function TerritoryAccountsPage() {
   const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
   const toast = useToast();
   const [territories, setTerritories] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -96,7 +98,7 @@ export default function TerritoryAccountsPage() {
                   <td className="px-4 py-3"><Link href={`/territories/${a.territoryId}`} className="text-blue-600 hover:underline">{a.territoryName}</Link></td>
                   <td className="px-4 py-3 text-gray-600">{a.assignedExec}</td>
                   <td className="px-4 py-3 text-gray-600">{a.city || "—"}</td>
-                  <td className="px-4 py-3 text-gray-600">₹{a.revenue.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-gray-600">{formatCurrency(a.revenue)}</td>
                 </tr>
               ))}
             </tbody>

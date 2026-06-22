@@ -623,6 +623,9 @@ model OpportunityDetail {
   approvalProcess      String? @db.NVarChar(Max)
   buyingAuthorityNotes String? @db.NVarChar(Max)
 
+  // ── Requirement Gathering completion ──
+  requirementCompletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

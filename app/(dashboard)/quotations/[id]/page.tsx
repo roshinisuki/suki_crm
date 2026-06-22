@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
 import PageContainer from "@/components/PageContainer";
@@ -41,11 +42,19 @@ export default function QuotationDetailPage() {
   const id = params.id as string;
   const toast = useToast();
   const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
 
   const [quotation, setQuotation] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [confirmState, setConfirmState] = useState<{ isOpen: boolean; title: string; message: string; action: () => void; input?: boolean; inputLabel?: string }>({ isOpen: false, title: "", message: "", action: () => {} });
   const [rejectReason, setRejectReason] = useState("");
+  const [editMode, setEditMode] = useState(false);
+  const [editItems, setEditItems] = useState<any[]>([]);
+  const [editDiscount, setEditDiscount] = useState(0);
+  const [editValidUntil, setEditValidUntil] = useState("");
+  const [editTerms, setEditTerms] = useState("");
+  const [savingItems, setSavingItems] = useState(false);
+  const searchParams = useSearchParams();
 
   const loadQuotation = async () => {
     setLoading(true);
@@ -64,6 +73,73 @@ export default function QuotationDetailPage() {
       fetch("/api/cron/quotations-expire").catch(() => {});
     }
   }, [id]);
+
+  useEffect(() => {
+    if (searchParams.get("edit") === "1" && quotation?.status === "Draft") {
+      setEditMode(true);
+    }
+  }, [searchParams, quotation]);
+
+  const startEdit = () => {
+    if (!quotation) return;
+    setEditItems((quotation.items || []).map((it: any) => ({
+      id: it.id,
+      productId: it.productId || "",
+      description: it.description || "",
+      quantity: String(it.quantity),
+      unitPrice: String(it.unitPrice),
+      notes: it.notes || "",
+    })));
+    setEditDiscount(quotation.discountPercent || 0);
+    setEditValidUntil(quotation.validUntil ? quotation.validUntil.substring(0, 10) : "");
+    setEditTerms(quotation.termsAndConditions || "");
+    setEditMode(true);
+  };
+
+  const handleSaveItems = async () => {
+    setSavingItems(true);
+    try {
+      const res = await fetch(`/api/quotations/${id}/items`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: editItems }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Also update discount/validUntil/notes
+        const updateRes = await fetch(`/api/quotations/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ discountPercent: editDiscount, validUntil: editValidUntil ? new Date(editValidUntil).toISOString() : undefined, termsAndConditions: editTerms }),
+        });
+        const updateData = await updateRes.json();
+        if (updateData.success || updateRes.ok) {
+          toast.success("Quotation updated");
+          setEditMode(false);
+          loadQuotation();
+        } else {
+          toast.success("Items saved");
+          setEditMode(false);
+          loadQuotation();
+        }
+      } else {
+        toast.error(data.message || "Failed to save items");
+      }
+    } catch { toast.error("Failed to save"); }
+    finally { setSavingItems(false); }
+  };
+
+  const addEditItem = () => {
+    setEditItems([...editItems, { id: `new_${Date.now()}`, productId: "", description: "", quantity: "1", unitPrice: "0", notes: "" }]);
+  };
+
+  const removeEditItem = (idx: number) => {
+    setEditItems(editItems.filter((_, i) => i !== idx));
+  };
+
+  const updateEditItem = (idx: number, field: string, value: string) => {
+    setEditItems(editItems.map((it, i) => (i === idx ? { ...it, [field]: value } : it)));
+  };
 
   const handleSend = async () => {
     try {
@@ -120,7 +196,7 @@ export default function QuotationDetailPage() {
     setConfirmState({
       isOpen: true,
       title: "Create Deal from Quotation",
-      message: `A new deal will be created with value ₹${quotation?.finalAmount?.toFixed(2) || "0"} and linked to this quotation. Continue?`,
+      message: `A new deal will be created with value ${formatCurrency(quotation?.finalAmount || 0)} and linked to this quotation. Continue?`,
       action: async () => {
         try {
           const res = await fetch(`/api/quotations/${id}/create-deal`, {
@@ -281,7 +357,9 @@ export default function QuotationDetailPage() {
           )}
           <button onClick={handleDownloadPdf} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer"><Ico d={icons.download} size={15} /> Download PDF</button>
           <button onClick={handleDuplicate} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer"><Ico d={icons.copy} size={15} /> Duplicate</button>
-          {quotation.status === "Draft" && <button onClick={() => router.push(`/quotations/${id}?edit=1`)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer"><Ico d={icons.edit} size={15} /> Edit</button>}
+          {quotation.status === "Draft" && !editMode && <button onClick={startEdit} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer"><Ico d={icons.edit} size={15} /> Edit</button>}
+          {quotation.status === "Draft" && editMode && <button onClick={handleSaveItems} disabled={savingItems} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-green-600 hover:bg-green-700 cursor-pointer disabled:opacity-50"><Ico d={icons.check} size={15} /> {savingItems ? "Saving..." : "Save Changes"}</button>}
+          {quotation.status === "Draft" && editMode && <button onClick={() => setEditMode(false)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer">Cancel</button>}
           <button onClick={handleDelete} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 cursor-pointer"><Ico d={icons.x} size={15} /> Delete</button>
         </div>
       </div>
@@ -301,39 +379,84 @@ export default function QuotationDetailPage() {
 
       {/* Line Items */}
       <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100"><h2 className="text-base font-bold text-slate-800">Line Items</h2></div>
-        <table className="w-full">
-          <thead><tr className="bg-slate-50 border-b border-slate-200">
-            <th className="text-left px-4 py-2 text-xs font-semibold text-slate-600">#</th>
-            <th className="text-left px-4 py-2 text-xs font-semibold text-slate-600">Product Code</th>
-            <th className="text-left px-4 py-2 text-xs font-semibold text-slate-600">Description</th>
-            <th className="text-right px-4 py-2 text-xs font-semibold text-slate-600">Qty</th>
-            <th className="text-right px-4 py-2 text-xs font-semibold text-slate-600">Unit Price</th>
-            <th className="text-right px-4 py-2 text-xs font-semibold text-slate-600">Total</th>
-          </tr></thead>
-          <tbody>
-            {quotation.items?.map((item: any, idx: number) => (
-              <tr key={item.id} className="border-b border-slate-100">
-                <td className="px-4 py-2 text-sm text-slate-500">{idx + 1}</td>
-                <td className="px-4 py-2 text-sm text-slate-700">{item.product?.productCode || "—"}</td>
-                <td className="px-4 py-2 text-sm text-slate-700">{item.description}</td>
-                <td className="px-4 py-2 text-sm text-slate-700 text-right">{item.quantity}</td>
-                <td className="px-4 py-2 text-sm text-slate-700 text-right">₹{item.unitPrice.toFixed(2)}</td>
-                <td className="px-4 py-2 text-sm font-medium text-slate-800 text-right">₹{item.totalPrice.toFixed(2)}</td>
-              </tr>
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="text-base font-bold text-slate-800">Line Items</h2>
+          {editMode && <button onClick={addEditItem} className="text-sm font-medium text-[#D44D4D] hover:underline cursor-pointer">+ Add Item</button>}
+        </div>
+        {editMode ? (
+          <div className="p-4 space-y-3">
+            {editItems.map((item, idx) => (
+              <div key={idx} className="grid grid-cols-12 gap-2 items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                <div className="col-span-5">
+                  <label className="block text-xs font-semibold text-slate-500 mb-0.5">Description</label>
+                  <input type="text" value={item.description} onChange={(e) => updateEditItem(idx, "description", e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]/20" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-slate-500 mb-0.5">Qty</label>
+                  <input type="number" step="0.01" value={item.quantity} onChange={(e) => updateEditItem(idx, "quantity", e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]/20" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-slate-500 mb-0.5">Unit Price</label>
+                  <input type="number" step="0.01" value={item.unitPrice} onChange={(e) => updateEditItem(idx, "unitPrice", e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]/20" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-slate-500 mb-0.5">Total</label>
+                  <p className="text-sm font-medium text-slate-800 py-1.5">{formatCurrency((parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0))}</p>
+                </div>
+                <div className="col-span-1 flex justify-end items-end pb-1.5">
+                  <button onClick={() => removeEditItem(idx)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 cursor-pointer" title="Remove"><Ico d={icons.x} size={14} /></button>
+                </div>
+              </div>
             ))}
-          </tbody>
-          <tfoot><tr className="bg-slate-50 border-t-2 border-slate-200">
-            <td colSpan={5} className="px-4 py-3 text-right text-sm font-semibold text-slate-600">Grand Total</td>
-            <td className="px-4 py-3 text-right text-sm font-bold text-slate-800">₹{quotation.totalAmount.toFixed(2)}</td>
-          </tr><tr className="bg-slate-50">
-            <td colSpan={5} className="px-4 py-2 text-right text-sm text-slate-600">Discount ({quotation.discountPercent}%)</td>
-            <td className="px-4 py-2 text-right text-sm text-slate-600">-₹{(quotation.totalAmount - quotation.finalAmount).toFixed(2)}</td>
-          </tr><tr className="bg-slate-50">
-            <td colSpan={5} className="px-4 py-3 text-right text-sm font-bold text-slate-800">Final Amount</td>
-            <td className="px-4 py-3 text-right text-sm font-bold text-[#D44D4D]">₹{quotation.finalAmount.toFixed(2)}</td>
-          </tr></tfoot>
-        </table>
+            <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-100">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Discount (%)</label>
+                <input type="number" step="0.01" min="0" max="100" value={editDiscount} onChange={(e) => setEditDiscount(parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]/20" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Valid Until</label>
+                <input type="date" value={editValidUntil} onChange={(e) => setEditValidUntil(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]/20" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Terms & Conditions</label>
+                <textarea value={editTerms} onChange={(e) => setEditTerms(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#D44D4D]/20" />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead><tr className="bg-slate-50 border-b border-slate-200">
+              <th className="text-left px-4 py-2 text-xs font-semibold text-slate-600">#</th>
+              <th className="text-left px-4 py-2 text-xs font-semibold text-slate-600">Product Code</th>
+              <th className="text-left px-4 py-2 text-xs font-semibold text-slate-600">Description</th>
+              <th className="text-right px-4 py-2 text-xs font-semibold text-slate-600">Qty</th>
+              <th className="text-right px-4 py-2 text-xs font-semibold text-slate-600">Unit Price</th>
+              <th className="text-right px-4 py-2 text-xs font-semibold text-slate-600">Total</th>
+            </tr></thead>
+            <tbody>
+              {quotation.items?.map((item: any, idx: number) => (
+                <tr key={item.id} className="border-b border-slate-100">
+                  <td className="px-4 py-2 text-sm text-slate-500">{idx + 1}</td>
+                  <td className="px-4 py-2 text-sm text-slate-700">{item.product?.productCode || "—"}</td>
+                  <td className="px-4 py-2 text-sm text-slate-700">{item.description}</td>
+                  <td className="px-4 py-2 text-sm text-slate-700 text-right">{item.quantity}</td>
+                  <td className="px-4 py-2 text-sm text-slate-700 text-right">{formatCurrency(item.unitPrice)}</td>
+                  <td className="px-4 py-2 text-sm font-medium text-slate-800 text-right">{formatCurrency(item.totalPrice)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot><tr className="bg-slate-50 border-t-2 border-slate-200">
+              <td colSpan={5} className="px-4 py-3 text-right text-sm font-semibold text-slate-600">Grand Total</td>
+              <td className="px-4 py-3 text-right text-sm font-bold text-slate-800">{formatCurrency(quotation.totalAmount)}</td>
+            </tr><tr className="bg-slate-50">
+              <td colSpan={5} className="px-4 py-2 text-right text-sm text-slate-600">Discount ({quotation.discountPercent}%)</td>
+              <td className="px-4 py-2 text-right text-sm text-slate-600">-{formatCurrency(quotation.totalAmount - quotation.finalAmount)}</td>
+            </tr><tr className="bg-slate-50">
+              <td colSpan={5} className="px-4 py-3 text-right text-sm font-bold text-slate-800">Final Amount</td>
+              <td className="px-4 py-3 text-right text-sm font-bold text-[#D44D4D]">{formatCurrency(quotation.finalAmount)}</td>
+            </tr></tfoot>
+          </table>
+        )}
       </div>
 
       {/* Status Timeline */}

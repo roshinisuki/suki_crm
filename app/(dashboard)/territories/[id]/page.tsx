@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
 import PageContainer from "@/components/PageContainer";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
@@ -26,6 +27,7 @@ export default function TerritoryDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const toast = useToast();
+  const { formatCurrency } = useCurrency();
   const [territory, setTerritory] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"overview" | "accounts">("overview");
@@ -237,7 +239,7 @@ export default function TerritoryDetailPage() {
                 {territory.salesTargets.map((st: any) => (
                   <div key={st.id} className="flex justify-between py-1.5 border-b last:border-0">
                     <span className="text-gray-600">{st.targetType} · {st.period}</span>
-                    <span className="font-medium text-gray-800">₹{st.targetAmount.toLocaleString()} <span className="text-gray-400">/ ₹{st.achievedAmount.toLocaleString()}</span></span>
+                    <span className="font-medium text-gray-800">{formatCurrency(st.targetAmount)} <span className="text-gray-400">/ {formatCurrency(st.achievedAmount)}</span></span>
                   </div>
                 ))}
               </div>
@@ -277,7 +279,7 @@ export default function TerritoryDetailPage() {
                         <td className="px-4 py-3 font-medium">{a.customer.name}</td>
                         <td className="px-4 py-3 text-gray-600">{a.customer.city || "—"}</td>
                         <td className="px-4 py-3 text-gray-600">{a.customer.assignedUser?.name || "—"}</td>
-                        <td className="px-4 py-3 text-gray-600">₹{revenue.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-gray-600">{formatCurrency(revenue)}</td>
                         {canManage && (
                           <td className="px-4 py-3 text-right">
                             <button onClick={() => handleRemoveAccount(a.id, a.customer.name)} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Remove"><Ico d={icons.trash} /></button>

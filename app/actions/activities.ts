@@ -423,3 +423,48 @@ export async function deleteNoteAction(id: string) {
     return { success: false, message: "Failed to delete note." };
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FOLLOW-UPS DUE THIS WEEK
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function getFollowUpsDueThisWeekAction() {
+  try {
+    const user = await verifyAuth();
+    if (!user || user.role === "Customer") {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const now = new Date();
+    const endOfWeek = new Date();
+    endOfWeek.setDate(now.getDate() + 7);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const where: any = {
+      deletedAt: null,
+      channel: "Meeting",
+      status: "Scheduled",
+      meetingDate: { gte: now, lte: endOfWeek },
+    };
+
+    if (user.role === "SalesExecutive") {
+      where.sentByUserId = user.id;
+    } else if (user.companyId) {
+      where.companyId = user.companyId;
+    }
+
+    const followUps = await prisma.communicationLog.findMany({
+      where,
+      include: {
+        customer: { select: { id: true, name: true, customerCode: true } },
+        sentByUser: { select: { id: true, name: true } },
+      },
+      orderBy: { meetingDate: "asc" },
+    });
+
+    return { success: true, data: followUps };
+  } catch (error) {
+    console.error("getFollowUpsDueThisWeekAction error:", error);
+    return { success: false, message: "Failed to fetch follow-ups." };
+  }
+}

@@ -104,6 +104,8 @@ export async function POST(request: Request) {
         isActive: body.isActive ?? true,
         datasheetUrl: body.datasheetUrl ?? null,
         brochureUrl: body.brochureUrl ?? null,
+        productType: body.productType ?? null,
+        minOrderQuantity: body.minOrderQuantity ? parseFloat(body.minOrderQuantity) : null,
         companyId: user.companyId ?? null,
       },
     });

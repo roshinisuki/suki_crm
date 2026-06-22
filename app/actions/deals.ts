@@ -443,8 +443,13 @@ export async function updateDealStatusAction(id: string, status: string, lostRea
       // MeetingScheduled: only validate meeting details if already in MeetingScheduled stage (re-save)
       // When advancing FROM RequirementGathering, meeting details get filled AFTER entering this stage
       if (status === "MeetingScheduled" && currentStatus === "MeetingScheduled") {
-        if (!details || !details.meetingDate || !details.meetingMode || !details.meetingParticipants || !details.meetingAgenda) {
-          throw new Error("Validation Failed: Must complete Meeting Details (Date, Mode, Participants, Agenda).");
+        if (!details || !details.meetingDate || !details.meetingMode || !details.meetingAgenda) {
+          throw new Error("Validation Failed: Must complete Meeting Details (Date, Mode, Agenda).");
+        }
+      }
+      if (status === "SolutionReview") {
+        if (!details || !details.meetingDate) {
+          throw new Error("Validation Failed: Must schedule a meeting before moving to Solution Review.");
         }
       }
       if (status === "ProposalSent") {
@@ -452,11 +457,8 @@ export async function updateDealStatusAction(id: string, status: string, lostRea
           throw new Error("Validation Failed: Must fill in Proposed Solution before sending proposal.");
         }
       }
-      if (status === "Negotiation") {
-        if (!details || !details.expectedBudget) {
-          throw new Error("Validation Failed: Must fill in Commercial Info (Expected Budget) before negotiation.");
-        }
-      }
+      // Negotiation: no pre-validation needed - negotiation details are filled AFTER entering this stage
+      // (expectedBudget, commercialTerms, negotiationNotes are all filled during negotiation)
 
       // 1. Update status
       const dataUpdate: any = { status: status as any };
@@ -621,9 +623,6 @@ export async function requestDiscountAction(_data: {
   discountPercent: number;
   notes?: string;
 }) {
-  // Discount Approval workflow is a Variant 2+ feature — disabled in Variant 1 (VIO-03)
-  return { success: false, message: "Discount approval workflow is not available in Variant 1." };
-  // eslint-disable-next-line no-unreachable
   try {
     const userPayload = await verifyAuth();
     if (!userPayload) {
@@ -982,5 +981,86 @@ export async function saveOpportunityDetailAction(dealId: string, payload: any) 
   } catch (error: any) {
     console.error("Save Opportunity Detail Error:", error);
     return { success: false, message: error.message || "Failed to save details" };
+  }
+}
+
+export async function createDiscountApprovalAction(data: {
+  dealId: string;
+  discountPercent: number;
+  remarks?: string;
+}) {
+  try {
+    const user = await verifyAuth();
+    if (!user) return { success: false, message: "Unauthorized" };
+    if (user.role === "Customer") return { success: false, message: "Unauthorized" };
+
+    if (!data.dealId || data.discountPercent <= 0) {
+      return { success: false, message: "Deal ID and a positive discount percent are required" };
+    }
+
+    const deal = await prisma.deal.findFirst({
+      where: { id: data.dealId, companyId: user.companyId },
+    });
+    if (!deal) return { success: false, message: "Deal not found" };
+
+    // Check for existing pending discount approval
+    const existingPending = await prisma.approvalHistory.findFirst({
+      where: { dealId: data.dealId, approvalType: "Discount", status: "Pending", deletedAt: null },
+    });
+    if (existingPending) {
+      return { success: false, message: "A pending discount approval already exists for this deal" };
+    }
+
+    // Capture previous status for rollback on rejection
+    const approval = await prisma.approvalHistory.create({
+      data: {
+        dealId: data.dealId,
+        requestedById: user.id,
+        discountPercent: data.discountPercent,
+        status: "Pending",
+        remarks: data.remarks || null,
+        previousStatus: deal.status,
+        approvalType: "Discount",
+        entityType: "Deal",
+        entityId: data.dealId,
+      },
+    });
+
+    // Lock the deal while pending
+    await prisma.deal.update({
+      where: { id: data.dealId },
+      data: { isLocked: true, discountStatus: "Pending" },
+    });
+
+    // Notify admins/managers about the approval request
+    const approvers = await prisma.user.findMany({
+      where: {
+        companyId: user.companyId,
+        role: { in: ["Admin", "SalesManager"] },
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    if (approvers.length > 0) {
+      await dispatchNotificationsToMany({
+        userIds: approvers.map((a) => a.id),
+        title: "Discount Approval Required",
+        message: `${user.email} requested ${data.discountPercent}% discount on deal "${deal.dealName}"`,
+        type: "deal",
+        link: `/approvals`,
+      });
+    }
+
+    await logAudit(user.id, "Deal", "DiscountApprovalRequest", `Requested ${data.discountPercent}% discount on deal "${deal.dealName}"`, {
+      resourceId: data.dealId,
+      newState: { discountPercent: data.discountPercent, approvalId: approval.id },
+    });
+
+    revalidatePath(`/sales-pipeline/${data.dealId}`);
+    return { success: true, data: approval, message: "Discount approval request submitted. Approvers have been notified." };
+  } catch (error: any) {
+    console.error("createDiscountApprovalAction error:", error);
+    return { success: false, message: error.message || "Failed to submit discount approval" };
   }
 }

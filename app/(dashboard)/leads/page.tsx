@@ -28,7 +28,7 @@ const LEAD_SOURCES  = ["Website", "Facebook", "Instagram", "LinkedIn", "Referral
 const emptyForm = {
   id: "", leadCode: "", name: "", email: "",
   phone: "", city: "", status: "New" as any,
-  assignedUserId: "", leadSource: "",
+  assignedUserId: "", leadSource: "", notes: "",
 };
 
 export default function LeadsPage() {
@@ -172,6 +172,7 @@ export default function LeadsPage() {
       id: l.id, leadCode: l.leadCode, name: l.name,
       email: l.email || "", phone: l.phone || "", city: l.city || "",
       status: l.status, assignedUserId: l.assignedUserId || "", leadSource: l.leadSource || "",
+      notes: l.notes || "",
     });
     setFormError("");
     setIsModalOpen(true);
@@ -201,6 +202,7 @@ export default function LeadsPage() {
         status: formData.status,
         assignedUserId: formData.assignedUserId || undefined,
         leadSource: formData.leadSource as any,
+        notes: formData.notes || undefined,
       });
     } else {
       res = await createLeadAction({
@@ -210,6 +212,7 @@ export default function LeadsPage() {
         city: formData.city || undefined,
         assignedUserId: formData.assignedUserId || undefined,
         leadSource: formData.leadSource as any,
+        notes: formData.notes || undefined,
       });
     }
 
@@ -643,6 +646,8 @@ export default function LeadsPage() {
 
           <FormField label="Remarks">
             <Textarea
+              value={formData.notes}
+              onChange={e => setFormData(p => ({ ...p, notes: e.target.value }))}
               placeholder="Any additional notes..."
               rows={3}
             />

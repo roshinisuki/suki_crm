@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
 import PageContainer from "@/components/PageContainer";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
@@ -37,6 +38,7 @@ const statusColors: Record<string, string> = {
 export default function KeyAccountsPage() {
   const { user } = useAuth();
   const toast = useToast();
+  const { formatCurrency } = useCurrency();
   const searchParams = useSearchParams();
   const view = searchParams.get("view");
   const importanceFilter = searchParams.get("importance") || "All";
@@ -184,14 +186,14 @@ export default function KeyAccountsPage() {
                       <div className="flex-1 bg-gray-100 rounded-full h-4 relative">
                         <div className="bg-blue-500 rounded-full h-4" style={{ width: `${(potential / maxVal) * 100}%` }} />
                       </div>
-                      <span className="text-xs text-gray-600 w-20 text-right">₹{potential.toLocaleString()}</span>
+                      <span className="text-xs text-gray-600 w-20 text-right">{formatCurrency(potential)}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-xs text-gray-400 w-16">Achieved</span>
                       <div className="flex-1 bg-gray-100 rounded-full h-4 relative">
                         <div className="bg-green-500 rounded-full h-4" style={{ width: `${(achieved / maxVal) * 100}%` }} />
                       </div>
-                      <span className="text-xs text-gray-600 w-20 text-right">₹{achieved.toLocaleString()}</span>
+                      <span className="text-xs text-gray-600 w-20 text-right">{formatCurrency(achieved)}</span>
                     </div>
                   </div>
                 </div>
@@ -245,7 +247,7 @@ export default function KeyAccountsPage() {
                     <Link href={`/key-accounts/${ka.id}`} className="font-medium text-blue-600 hover:underline">{ka.customer?.name}</Link>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{ka.accountManager?.name || "—"}</td>
-                  <td className="px-4 py-3 text-right text-gray-600">₹{(ka.revenuePotential ?? 0).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(ka.revenuePotential ?? 0)}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded-full text-xs ${importanceColors[ka.strategicImportance] || "bg-gray-100 text-gray-600"}`}>{ka.strategicImportance}</span>
                   </td>

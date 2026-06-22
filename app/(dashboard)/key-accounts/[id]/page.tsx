@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
 import PageContainer from "@/components/PageContainer";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
@@ -39,6 +40,7 @@ export default function KeyAccountDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const toast = useToast();
+  const { formatCurrency } = useCurrency();
   const [ka, setKa] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("overview");
@@ -195,7 +197,7 @@ export default function KeyAccountDetailPage() {
             ) : (
               <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between py-1.5"><span className="text-gray-500">Account Manager</span><span className="font-medium text-gray-800">{ka.accountManager?.name || "—"}</span></div>
-                <div className="flex justify-between py-1.5"><span className="text-gray-500">Revenue Potential</span><span className="font-medium text-gray-800">₹{(ka.revenuePotential ?? 0).toLocaleString()}</span></div>
+                <div className="flex justify-between py-1.5"><span className="text-gray-500">Revenue Potential</span><span className="font-medium text-gray-800">{formatCurrency(ka.revenuePotential ?? 0)}</span></div>
                 <div className="flex justify-between py-1.5"><span className="text-gray-500">Strategic Importance</span><span className={`px-2 py-0.5 rounded-full text-xs ${importanceColors[ka.strategicImportance] || ""}`}>{ka.strategicImportance}</span></div>
                 <div className="flex justify-between py-1.5"><span className="text-gray-500">Relationship Status</span>{ka.relationshipStatus && <span className={`px-2 py-0.5 rounded-full text-xs ${statusColors[ka.relationshipStatus] || ""}`}>{ka.relationshipStatus}</span>}</div>
                 <div className="flex justify-between py-1.5"><span className="text-gray-500">Next Review</span><span className="font-medium text-gray-800">{ka.nextReviewDate ? new Date(ka.nextReviewDate).toLocaleDateString() : "—"}</span></div>
@@ -217,7 +219,7 @@ export default function KeyAccountDetailPage() {
                 <tr key={d.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">{d.dealName}</td>
                   <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">{d.status}</span></td>
-                  <td className="px-4 py-3 text-right text-gray-600">₹{d.dealValue.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(d.dealValue)}</td>
                   <td className="px-4 py-3 text-gray-600">{new Date(d.expectedCloseDate).toLocaleDateString()}</td>
                 </tr>
               )) : <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-500">No deals found.</td></tr>}
@@ -237,7 +239,7 @@ export default function KeyAccountDetailPage() {
                 <tr key={q.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">{q.quotationCode}</td>
                   <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">{q.status}</span></td>
-                  <td className="px-4 py-3 text-right text-gray-600">₹{(q.finalAmount || q.totalAmount).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(q.finalAmount || q.totalAmount)}</td>
                   <td className="px-4 py-3 text-gray-600">{new Date(q.validUntil).toLocaleDateString()}</td>
                 </tr>
               )) : <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-500">No quotations found.</td></tr>}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
 import { useToast } from "@/components/ToastProvider";
 import PageContainer from "@/components/PageContainer";
 
@@ -23,6 +24,7 @@ export default function NewQuotationPage() {
   const searchParams = useSearchParams();
   const toast = useToast();
   const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
 
   const [customers, setCustomers] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
@@ -190,12 +192,12 @@ export default function NewQuotationPage() {
 
         {/* Totals */}
         <div className="bg-slate-50 rounded-xl p-4 space-y-2">
-          <div className="flex justify-between text-sm"><span className="text-slate-600">Grand Total</span><span className="font-medium text-slate-800">₹{totalAmount.toFixed(2)}</span></div>
+          <div className="flex justify-between text-sm"><span className="text-slate-600">Grand Total</span><span className="font-medium text-slate-800">{formatCurrency(totalAmount)}</span></div>
           <div className="flex justify-between items-center text-sm">
             <span className="text-slate-600">Discount %</span>
             <input type="number" step="0.01" value={form.discountPercent} onChange={(e) => setForm({ ...form, discountPercent: e.target.value })} className="w-24 px-2 py-1 rounded-lg bg-white border border-slate-200 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[#D44D4D]/20" />
           </div>
-          <div className="flex justify-between text-sm font-bold border-t border-slate-200 pt-2"><span className="text-slate-800">Final Amount</span><span className="text-[#D44D4D]">₹{finalAmount.toFixed(2)}</span></div>
+          <div className="flex justify-between text-sm font-bold border-t border-slate-200 pt-2"><span className="text-slate-800">Final Amount</span><span className="text-[#D44D4D]">{formatCurrency(finalAmount)}</span></div>
         </div>
 
         <div className="flex gap-3">

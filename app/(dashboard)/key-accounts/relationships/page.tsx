@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/ToastProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
 import PageContainer from "@/components/PageContainer";
 
 const statusColors: Record<string, string> = {
@@ -21,6 +22,7 @@ const contactTypeColors: Record<string, string> = {
 
 export default function KeyAccountRelationshipsPage() {
   const toast = useToast();
+  const { formatCurrency } = useCurrency();
   const [keyAccounts, setKeyAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -81,7 +83,7 @@ export default function KeyAccountRelationshipsPage() {
                   {ka.relationshipStatus && (
                     <span className={`px-2 py-0.5 rounded-full text-xs ${statusColors[ka.relationshipStatus] || ""}`}>{ka.relationshipStatus}</span>
                   )}
-                  <span className="text-sm text-gray-600">₹{(ka.revenuePotential ?? 0).toLocaleString()}</span>
+                  <span className="text-sm text-gray-600">{formatCurrency(ka.revenuePotential ?? 0)}</span>
                 </div>
                 <div className="space-y-2">
                   {["Technical", "Purchase", "Finance", "Management"].map(type => (

@@ -127,6 +127,7 @@ export default function DealDetailPage({ params }: { params: Promise<{ id: strin
   }));
 
   const canApprove = ["Admin", "SalesManager", "SuperAdmin"].includes(user?.role || "");
+  const isVariant2 = (user?.variant || user?.company?.variant || 1) >= 2;
 
   return (
     <div className="page-shell max-w-5xl mx-auto space-y-5">
@@ -194,7 +195,7 @@ export default function DealDetailPage({ params }: { params: Promise<{ id: strin
           <div className="crm-card p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-slate-700">Deal Information</h3>
-              {deal.status === "Negotiation" && !deal.isLocked && (
+              {isVariant2 && deal.status === "Negotiation" && !deal.isLocked && (
                 <button 
                   onClick={() => setIsDiscountModalOpen(true)}
                   className="text-xs font-bold px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors flex items-center gap-1.5"

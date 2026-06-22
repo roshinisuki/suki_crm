@@ -12,7 +12,7 @@ const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?
   </svg>
 );
 
-const icons = { back: "M10 19l-7-7m0 0l7-7m-7 7h18", check: "M5 13l4 4L19 7", x: "M6 18L18 6M6 6l12 12" };
+const icons = { back: "M10 19l-7-7m0 0l7-7m-7 7h18", check: "M5 13l4 4L19 7", x: "M6 18L18 6M6 6l12 12", trash: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" };
 
 const statusColors: Record<string, string> = {
   PLANNED: "bg-blue-100 text-blue-700",
@@ -31,6 +31,7 @@ export default function VisitDetailPage() {
   const [visit, setVisit] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [checkoutForm, setCheckoutForm] = useState({
     meetingSummary: "",
     outcome: "",
@@ -73,6 +74,16 @@ export default function VisitDetailPage() {
       if (data.success) { toast.success("Checked out"); setShowCheckout(false); loadVisit(); }
       else toast.error(data.message || "Failed");
     } catch { toast.error("Failed"); }
+  };
+
+  const handleDelete = async () => {
+    try {
+      const res = await fetch(`/api/visits/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) { toast.success("Visit deleted"); router.push("/visits"); }
+      else toast.error(data.message || "Failed");
+    } catch { toast.error("Failed"); }
+    setConfirmDelete(false);
   };
 
   if (loading) return <PageContainer className="p-6"><p className="text-slate-400">Loading...</p></PageContainer>;
@@ -123,6 +134,7 @@ export default function VisitDetailPage() {
         {visit.status === "CHECKED_IN" && (
           <button onClick={() => setShowCheckout(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-green-600 hover:bg-green-700 cursor-pointer"><Ico d={icons.check} size={16} /> Check Out</button>
         )}
+        <button onClick={() => setConfirmDelete(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 cursor-pointer"><Ico d={icons.trash} size={16} /> Delete</button>
       </div>
 
       {/* Checkout Modal */}
@@ -162,6 +174,19 @@ export default function VisitDetailPage() {
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowCheckout(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer">Cancel</button>
               <button onClick={handleCheckOut} className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-green-600 hover:bg-green-700 cursor-pointer">Complete Check Out</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4">
+            <h3 className="text-lg font-bold text-slate-800">Delete Visit</h3>
+            <p className="text-sm text-slate-600">Are you sure you want to delete this visit? This action cannot be undone.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer">Cancel</button>
+              <button onClick={handleDelete} className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 cursor-pointer">Delete</button>
             </div>
           </div>
         </div>

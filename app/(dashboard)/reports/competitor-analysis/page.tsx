@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ToastProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
 import PageContainer from "@/components/PageContainer";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
@@ -16,6 +17,7 @@ const icons = {
 
 export default function CompetitorAnalysisReportPage() {
   const toast = useToast();
+  const { formatCurrency } = useCurrency();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ from: "", to: "", competitorId: "" });
@@ -137,8 +139,8 @@ export default function CompetitorAnalysisReportPage() {
                     <tr key={c.competitorId} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium">{c.competitorName}</td>
                       <td className="px-4 py-3 text-right text-gray-600">{c.lostCount}</td>
-                      <td className="px-4 py-3 text-right text-gray-600">₹{c.avgTheirPrice.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right text-gray-600">₹{c.avgOurPrice.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(c.avgTheirPrice)}</td>
+                      <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(c.avgOurPrice)}</td>
                       <td className="px-4 py-3 text-right">
                         <span className={`px-2 py-0.5 rounded-full text-xs ${c.priceGapPct > 0 ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
                           {c.priceGapPct > 0 ? "+" : ""}{c.priceGapPct}%

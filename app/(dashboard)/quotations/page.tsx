@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
 import PageContainer from "@/components/PageContainer";
@@ -39,6 +40,7 @@ export default function QuotationListPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const toast = useToast();
+  const { formatCurrency } = useCurrency();
   const [confirmState, setConfirmState] = useState<{ isOpen: boolean; title: string; message: string; action: () => void }>({ isOpen: false, title: "", message: "", action: () => {} });
 
   const statusFilter = searchParams.get("status") || "";
@@ -142,9 +144,9 @@ export default function QuotationListPage() {
                 <tr key={q.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
                   <td className="px-4 py-3 text-sm font-medium text-slate-800">{q.quotationCode}</td>
                   <td className="px-4 py-3 text-sm text-slate-700">{q.customer?.name || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700 text-right">₹{q.totalAmount?.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-sm text-slate-700 text-right">{formatCurrency(q.totalAmount)}</td>
                   <td className="px-4 py-3 text-sm text-slate-700 text-right">{q.discountPercent}%</td>
-                  <td className="px-4 py-3 text-sm font-medium text-slate-800 text-right">₹{q.finalAmount?.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-slate-800 text-right">{formatCurrency(q.finalAmount)}</td>
                   <td className="px-4 py-3"><span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[q.status] || "bg-gray-100 text-gray-600"}`}>{q.status}</span></td>
                   <td className="px-4 py-3 text-sm text-slate-700">{new Date(q.validUntil).toLocaleDateString()}</td>
                   <td className="px-4 py-3">

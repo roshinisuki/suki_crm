@@ -74,6 +74,8 @@ export async function PUT(
         isActive: body.isActive,
         datasheetUrl: body.datasheetUrl,
         brochureUrl: body.brochureUrl,
+        productType: body.productType ?? null,
+        minOrderQuantity: body.minOrderQuantity ? parseFloat(body.minOrderQuantity) : null,
       },
     });
 

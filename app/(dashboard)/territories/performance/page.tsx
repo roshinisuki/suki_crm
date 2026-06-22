@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/ToastProvider";
+import { useCurrency } from "@/components/CurrencyProvider";
 import PageContainer from "@/components/PageContainer";
 
 export default function TerritoryPerformancePage() {
   const toast = useToast();
+  const { formatCurrency } = useCurrency();
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -93,8 +95,8 @@ export default function TerritoryPerformancePage() {
                   <td className="px-4 py-3 text-right text-gray-600">{d.visits}</td>
                   <td className="px-4 py-3 text-right text-gray-600">{d.followUpsDone}</td>
                   <td className="px-4 py-3 text-right text-gray-600">{d.dealsWon}</td>
-                  <td className="px-4 py-3 text-right text-gray-600">₹{d.revenue.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-right text-gray-600">₹{d.targetAmount.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(d.revenue)}</td>
+                  <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(d.targetAmount)}</td>
                   <td className="px-4 py-3 text-right">
                     <span className={`px-2 py-0.5 rounded-full text-xs ${d.targetVsAchieved !== "—" && parseInt(d.targetVsAchieved) >= 100 ? "bg-green-50 text-green-700" : d.targetVsAchieved !== "—" && parseInt(d.targetVsAchieved) >= 50 ? "bg-yellow-50 text-yellow-700" : "bg-gray-100 text-gray-600"}`}>
                       {d.targetVsAchieved}
