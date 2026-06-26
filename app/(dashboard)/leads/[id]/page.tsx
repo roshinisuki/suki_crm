@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 import { CRMSpinner } from "@/components/CRMSpinner";
 import { useState, useEffect, useCallback, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { getLeadByIdAction, convertLeadToDealAction, updateLeadAction, contactLeadAction } from "@/app/actions/leads";
+import { getLeadByIdAction, convertLeadToDealAction, convertLeadV2Action, updateLeadAction, contactLeadAction, qualifyLeadAction, markLeadLostAction, getLeadStatusHistoryAction } from "@/app/actions/leads";
 import { createFollowUpAction, completeFollowUpAction } from "@/app/actions/followUps";
 import { getNotesAction, createNoteAction } from "@/app/actions/notes";
 import { getActivitiesAction } from "@/app/actions/activities";
@@ -22,7 +22,7 @@ import {
   MessageSquare, FileText, XCircle, Zap, Clock,
 } from "lucide-react";
 
-type Tab = "overview" | "followups" | "activities";
+type Tab = "overview" | "followups" | "activities" | "bant";
 
 export default function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -67,10 +67,30 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
   const [lostReason, setLostReason] = useState("");
   const [qualifying, setQualifying] = useState(false);
 
+  // V2 BANT checklist state
+  const [bantBudget, setBantBudget] = useState(false);
+  const [bantAuthority, setBantAuthority] = useState(false);
+  const [bantNeed, setBantNeed] = useState(false);
+  const [bantTimeline, setBantTimeline] = useState("");
+  const [bantSaving, setBantSaving] = useState(false);
+
+  // V2 Convert modal state (3-section accordion)
+  const [convertV2Modal, setConvertV2Modal] = useState(false);
+  const [convertV2Saving, setConvertV2Saving] = useState(false);
+  const [convertSection, setConvertSection] = useState(0); // 0=account, 1=contact, 2=opportunity
+  const [convertForm, setConvertForm] = useState({
+    companyName: "", gstNumber: "", accountType: "Customer", industryType: "", billingAddress: "",
+    contactName: "", contactDesignation: "", contactEmail: "", contactPhone: "", contactCategory: "Technical",
+    oppName: "", oppValue: "", oppCloseDate: "",
+  });
+
+  // V2 Mark Lost with loss reason dropdown
+  const [lossReasons, setLossReasons] = useState<any[]>([]);
+  const [selectedLossReasonId, setSelectedLossReasonId] = useState("");
+
   // Qualification fields
   const [budgetAsked, setBudgetAsked] = useState("");
   const [timelineAsked, setTimelineAsked] = useState("");
-  const [isDecisionMaker, setIsDecisionMaker] = useState(false);
   const [isGenuine, setIsGenuine] = useState(false);
   const [sqlSaving, setSqlSaving] = useState(false);
   const [qualModalOpen, setQualModalOpen] = useState(false);
@@ -144,7 +164,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
 
   // Unified handler for both "Mark Contacted" (lead details) and "Log First Call"
   // (post lead creation). Both UI entry points open the Call Log modal first.
-  // The lead status is NOT updated here â€” it only changes after the user fills
+  // The lead status is NOT updated here - it only changes after the user fills
   // the call details and saves (see handleSaveCallLog -> contactLeadAction).
   const [contacting, setContacting] = useState(false);
   const handleLeadContact = (leadId: string) => {
@@ -154,7 +174,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
     setCallLogModal(true);
   };
 
-  // Save call log via the unified contactLeadAction â€” creates the Call activity
+  // Save call log via the unified contactLeadAction - creates the Call activity
   // AND updates lead status to Contacted in a single atomic operation.
   // Status only changes AFTER the call log is saved with user-provided details.
   const handleSaveCallLog = async (e: React.FormEvent) => {
@@ -178,14 +198,14 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
     setCallSaving(false);
   };
 
-  // After follow-up prompt: "No, still in discussion" â†’ show next actions
-  // (Lead is already Contacted from contactLeadAction â€” no status update needed)
+  // After follow-up prompt: "No, still in discussion" -> show next actions
+  // (Lead is already Contacted from contactLeadAction - no status update needed)
   const handleNoFollowUp = () => {
     setFuPromptModal(false);
     setNextActionModal(true);
   };
 
-  // After follow-up prompt: "Yes, schedule follow-up" â†’ open follow-up form
+  // After follow-up prompt: "Yes, schedule follow-up" -> open follow-up form
   const handleYesFollowUp = () => {
     setFuPromptModal(false);
     setFuFromCallLog(true);
@@ -310,8 +330,8 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
   // Mark as SQL with qualification fields
   const handleMarkSQL = async () => {
     if (!lead) return;
-    if (!budgetAsked.trim() || !timelineAsked.trim() || !isDecisionMaker) {
-      toast.error("Please fill Budget, Timeline, and confirm Decision Maker before marking as SQL.");
+    if (!budgetAsked.trim() || !timelineAsked.trim()) {
+      toast.error("Please fill Budget and Timeline before marking as SQL.");
       return;
     }
     setSqlSaving(true);
@@ -319,15 +339,15 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
       status: "SQL",
       budgetAsked,
       timelineAsked,
-      isDecisionMaker,
       isGenuine,
     });
     if (res.success) {
       toast.success("Lead qualified as SQL!");
+      setQualModalOpen(false);
       load();
       setSuccessOverlay({
         open: true,
-        message: `Lead is now Sales Qualified (SQL). Budget: â‚¹${budgetAsked}, Timeline: ${timelineAsked}`,
+        message: `Lead is now Sales Qualified (SQL). Budget: Rs.${budgetAsked}, Timeline: ${timelineAsked}`,
         primary: { label: "View SQL Leads", href: "/leads?status=SQL", icon: <CheckCircle2 size={16} /> },
         alternate: { label: "Stay on this lead", onClick: () => {} },
       });
@@ -345,12 +365,105 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
 
   const handleConfirmLost = async () => {
     if (!lead || markingLost) return;
-    if (!lostReason.trim()) { toast.error("Please provide a reason for marking this lead as lost."); return; }
+    if (!selectedLossReasonId && !lostReason.trim()) {
+      toast.error("Please select a loss reason.");
+      return;
+    }
     setMarkingLost(true);
-    const res = await updateLeadAction(lead.id, { status: "Lost", lostReason: lostReason.trim() });
-    if (res.success) { toast.success("Lead marked as lost."); setShowLostModal(false); load(); }
-    else { toast.error(res.message || "Failed to update lead."); }
+    // V2: Use markLeadLostAction if we have a lossReasonId, fallback to updateLeadAction
+    if (selectedLossReasonId) {
+      const res = await markLeadLostAction(lead.id, selectedLossReasonId, lostReason.trim() || undefined);
+      if (res.success) { toast.success("Lead marked as lost. Follow-ups cancelled."); setShowLostModal(false); load(); }
+      else { toast.error(res.message || "Failed to update lead."); }
+    } else {
+      const res = await updateLeadAction(lead.id, { status: "Lost", lostReason: lostReason.trim() });
+      if (res.success) { toast.success("Lead marked as lost."); setShowLostModal(false); load(); }
+      else { toast.error(res.message || "Failed to update lead."); }
+    }
     setMarkingLost(false);
+  };
+
+  // V2: BANT Qualify handler
+  const handleBANTQualify = async () => {
+    if (!lead || bantSaving) return;
+    if (!bantBudget || !bantAuthority || !bantNeed) {
+      toast.error("Budget, Authority, and Need must all be confirmed.");
+      return;
+    }
+    if (!bantTimeline || parseInt(bantTimeline) <= 0) {
+      toast.error("Timeline (months) is required.");
+      return;
+    }
+    setBantSaving(true);
+    const res = await qualifyLeadAction(lead.id, {
+      hasBudget: bantBudget,
+      hasAuthority: bantAuthority,
+      hasNeed: bantNeed,
+      timelineMonths: parseInt(bantTimeline),
+    });
+    if (res.success) {
+      toast.success("Lead qualified as SQL via BANT checklist!");
+      load();
+    } else {
+      toast.error(res.message || "Failed to qualify.");
+    }
+    setBantSaving(false);
+  };
+
+  // V2: Open Convert modal with pre-filled data
+  const openConvertV2 = () => {
+    if (!lead) return;
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    setConvertForm({
+      companyName: lead.companyName || lead.name || "",
+      gstNumber: "", accountType: "Customer", industryType: lead.industryType || "", billingAddress: "",
+      contactName: lead.name || "", contactDesignation: lead.designation || "",
+      contactEmail: lead.email || "", contactPhone: lead.phone || "", contactCategory: "Technical",
+      oppName: `Supply - ${lead.companyName || lead.name}`, oppValue: lead.estimatedValue ? String(lead.estimatedValue) : "",
+      oppCloseDate: d.toISOString().substring(0, 10),
+    });
+    setConvertSection(0);
+    setConvertV2Modal(true);
+  };
+
+  // V2: Submit Convert
+  const handleConvertV2 = async () => {
+    if (!lead || convertV2Saving) return;
+    if (!convertForm.companyName.trim()) { toast.error("Company name is required."); return; }
+    if (!convertForm.contactName.trim()) { toast.error("Contact name is required."); return; }
+    if (!convertForm.oppName.trim()) { toast.error("Opportunity name is required."); return; }
+    if (!convertForm.oppCloseDate) { toast.error("Expected close date is required."); return; }
+    setConvertV2Saving(true);
+    const res = await convertLeadV2Action(lead.id, {
+      account: {
+        companyName: convertForm.companyName,
+        gstNumber: convertForm.gstNumber || undefined,
+        accountType: convertForm.accountType,
+        industryType: convertForm.industryType || undefined,
+        billingAddress: convertForm.billingAddress || undefined,
+      },
+      contact: {
+        fullName: convertForm.contactName,
+        designation: convertForm.contactDesignation || undefined,
+        email: convertForm.contactEmail || undefined,
+        phone: convertForm.contactPhone || undefined,
+        contactCategory: convertForm.contactCategory,
+      },
+      opportunity: {
+        opportunityName: convertForm.oppName,
+        estimatedValue: convertForm.oppValue ? parseFloat(convertForm.oppValue) : undefined,
+        expectedCloseDate: convertForm.oppCloseDate,
+      },
+    });
+    if (res.success && res.opportunityId) {
+      toast.success("Lead converted successfully!");
+      setConvertV2Modal(false);
+      router.push(`/sales-pipeline/${res.opportunityId}`);
+    } else {
+      toast.error(res.message || "Failed to convert lead.");
+    }
+    setConvertV2Saving(false);
   };
 
   const handleQualify = async () => {
@@ -426,12 +539,25 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         const ld = res.data as any;
         if (ld.budgetAsked) setBudgetAsked(ld.budgetAsked);
         if (ld.timelineAsked) setTimelineAsked(ld.timelineAsked);
-        if (ld.isDecisionMaker) setIsDecisionMaker(true);
         if (ld.isGenuine) setIsGenuine(true);
+        // V2: Pre-fill BANT from existing lead data
+        if (ld.budgetAsked?.includes("Confirmed")) setBantBudget(true);
+        if (ld.isDecisionMaker) setBantAuthority(true);
+        if (ld.isGenuine) setBantNeed(true);
+        if (ld.timelineAsked) {
+          const m = ld.timelineAsked.match(/(\d+)/);
+          if (m) setBantTimeline(m[1]);
+        }
       } else {
         toast.error("Lead not found.");
         router.push("/leads");
       }
+      // V2: Load loss reasons for mark-lost dropdown
+      try {
+        const lrRes = await fetch("/api/loss-reasons?isActive=true");
+        const lrData = await lrRes.json();
+        if (lrData.success) setLossReasons(lrData.data || []);
+      } catch {}
     } finally {
       setLoading(false);
     }
@@ -506,7 +632,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         setNoteText(""); setNoteType("Note"); setNoteSaving(false); setNoteModal(true);
         break;
       case "convert-lead":
-        openConvertModal();
+        openConvertV2();
         break;
       case "view-sql-leads":
         router.push("/leads?status=SQL");
@@ -544,47 +670,47 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
     { key: "overview",   label: "Overview" },
     { key: "followups",  label: `Follow Ups (${followups.length})` },
     { key: "activities", label: `Activities (${notes.length})` },
+    { key: "bant",       label: "BANT Checklist" },
   ];
 
   return (
-    <div className="page-shell max-w-4xl mx-auto space-y-5">
+    <div className="page-shell space-y-5">
 
-      {/* â”€â”€ Header â”€â”€ */}
-      <div className="flex items-center justify-between gap-4">
+      {/* ---- Header ---- */}
+      <div className="flex items-center justify-between gap-3 py-1">
         <button
           onClick={() => router.push("/leads")}
-          className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800 font-medium transition-colors"
+          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-[var(--primary)] font-medium transition-colors shrink-0"
         >
-          <ArrowLeft size={16} /> Back to Leads
+          <ArrowLeft size={15} /> Back to Leads
         </button>
-        <div className="flex items-center gap-2">
-          {/* Danger button (Mark Lost) â€” only in header; primary CTA is in the banner */}
+        <div className="flex items-center gap-2 shrink-0">
           {wfActions.danger && !isConverted && !isLost && (
             <button
               onClick={() => handleWorkflowAction(wfActions.danger!.id)}
               disabled={markingLost}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
             >
               {wfIcon(wfActions.danger.icon)}
               {markingLost ? "Marking..." : wfActions.danger.label}
             </button>
           )}
           {isConverted && (
-            <span className="text-sm bg-emerald-50 text-emerald-700 px-3 py-2 rounded-xl font-bold border border-emerald-100 flex items-center gap-1.5">
-              <CheckCircle2 size={14} /> Converted
+            <span className="h-8 px-3 text-xs bg-emerald-50 text-emerald-700 rounded-lg font-bold border border-emerald-100 flex items-center gap-1.5">
+              <CheckCircle2 size={13} /> Converted
             </span>
           )}
         </div>
       </div>
 
-      {/* â”€â”€ SLA Countdown Banner (prominent, near top) â”€â”€ */}
+      {/* ---- SLA Countdown Banner (prominent, near top) ---- */}
       {lead.slaStatus === "Pending" && lead.slaResponseDeadline && !isConverted && !isLost && (() => {
         const minsLeft = Math.floor((new Date(lead.slaResponseDeadline).getTime() - Date.now()) / 60000);
         if (minsLeft <= 0) return (
           <div className="crm-card p-3 flex items-center gap-3 border-red-200 bg-red-50">
             <Clock className="text-red-600 shrink-0" size={20} />
             <div>
-              <p className="text-sm font-bold text-red-700">SLA Breached â€” Response overdue</p>
+              <p className="text-sm font-bold text-red-700">SLA Breached - Response overdue</p>
               <p className="text-xs text-red-500">This lead has exceeded the 15-minute response SLA. Log a call immediately.</p>
             </div>
           </div>
@@ -604,7 +730,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         );
       })()}
 
-      {/* â”€â”€ Guided Workflow Banner â”€â”€ */}
+      {/* ---- Guided Workflow Banner ---- */}
       {!isConverted && !isLost && (
         <div className="crm-card p-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -652,7 +778,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       )}
 
-      {/* â”€â”€ Lead Progress Tracker â”€â”€ */}
+      {/* ---- Lead Progress Tracker ---- */}
       {(() => {
         const STAGES = ["New", "Contacted", "SQL", "Qualified", "Converted"];
         const currentIdx = STAGES.indexOf(lead.status);
@@ -697,19 +823,19 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         );
       })()}
 
-      {/* â”€â”€ Lead Summary Card â”€â”€ */}
-      <div className="crm-card p-6">
+      {/* ---- Lead Summary Card ---- */}
+      <div className="crm-card p-5">
         <div className="flex items-start gap-4">
-          <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-black shrink-0", avatarColor)}>
+          <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center text-base font-black shrink-0", avatarColor)}>
             {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-xl font-extrabold text-slate-900">{lead.name}</h1>
-              <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{lead.leadCode}</span>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">{lead.name}</h1>
+              <span className="text-[11px] font-mono font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-400 px-2 py-0.5 rounded">{lead.leadCode}</span>
               <StatusBadge status={lead.status} showDot size="md" />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5 mt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-6 gap-y-2 mt-3">
               {lead.email && (
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <Mail size={13} className="text-slate-400 shrink-0" />
@@ -766,18 +892,27 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       </div>
 
-      {/* â”€â”€ Overview Tab â”€â”€ */}
+      {/* ---- Overview Tab ---- */}
       {tab === "overview" && (
         <div className="crm-card p-5">
           <h3 className="text-sm font-bold text-slate-700 mb-4">Lead Information</h3>
-          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-4">
+          <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-8 gap-y-4">
             {[
               { label: "Full Name",   value: lead.name },
               { label: "Lead Code",   value: lead.leadCode },
-              { label: "Email",       value: lead.email || "â€”" },
-              { label: "Phone",       value: lead.phone || "â€”" },
-              { label: "Lead Source", value: lead.leadSource || "â€”" },
-              { label: "Location",    value: lead.city || "â€”" },
+              { label: "Company",     value: lead.companyName || "-" },
+              { label: "Designation", value: lead.designation || "-" },
+              { label: "Email",       value: lead.email || "-" },
+              { label: "Phone",       value: lead.phone || "-" },
+              { label: "Lead Source", value: lead.leadSource || "-" },
+              { label: "Industry",    value: lead.industryType || "-" },
+              { label: "Est. Value",  value: lead.estimatedValue ? `Rs.${lead.estimatedValue.toLocaleString("en-IN")}` : "-" },
+              { label: "Lead Score",  value: (() => {
+                const score = lead.leadScore ?? 0;
+                const cls = score <= 40 ? "text-rose-600" : score <= 70 ? "text-amber-600" : "text-emerald-600";
+                return <span className={cn("font-bold", cls)}>{score}/100</span>;
+              })() },
+              { label: "Location",    value: lead.city || "-" },
               { label: "Assigned To", value: lead.assignedUser?.name || "Unassigned" },
               { label: "Created",     value: formatDate(lead.createdAt) },
               { label: "SLA Status",  value: (() => {
@@ -789,7 +924,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
                   if (minsLeft <= 0) return <span className="text-red-600 font-bold">Breached</span>;
                   return <span className="text-amber-600 font-bold">{minsLeft} min remaining</span>;
                 }
-                return "â€”";
+                return "-";
               })() },
             ].map(({ label, value }) => (
               <div key={label}>
@@ -810,7 +945,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       )}
 
-      {/* â”€â”€ Follow Ups Tab â”€â”€ */}
+      {/* ---- Follow Ups Tab ---- */}
       {tab === "followups" && (
         <div className="crm-card p-5">
           <div className="flex items-center justify-between mb-5">
@@ -880,7 +1015,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       )}
 
-      {/* â”€â”€ Activities Tab â”€â”€ */}
+      {/* ---- Activities Tab ---- */}
       {tab === "activities" && (
         <div className="crm-card p-5">
           <div className="flex items-center justify-between mb-5">
@@ -928,7 +1063,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
                           {a.duration && <span className="text-[10px] text-slate-400">{a.duration} min</span>}
                           {a.followUpId && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium">Follow-Up</span>}
                         </div>
-                        <p className="text-sm text-slate-700 leading-relaxed">{a.content || a.agenda || "â€”"}</p>
+                        <p className="text-sm text-slate-700 leading-relaxed">{a.content || a.agenda || "-"}</p>
                         {a.outcome && <p className="text-xs text-slate-500 mt-1">Outcome: {a.outcome}</p>}
                         <p className="text-xs text-slate-400 mt-1.5">
                           {a.sentByUser?.name || "System"} &middot; {formatDateTime(a.sentAt)}
@@ -995,7 +1130,119 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       )}
 
-      {/* â”€â”€ Qualification Modal (Mark as SQL) â”€â”€ */}
+      {/* ---- BANT Checklist Tab ---- */}
+      {tab === "bant" && (
+        <div className="crm-card p-5">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="text-sm font-bold text-slate-700">BANT Qualification Checklist</h3>
+              <p className="text-xs text-slate-400 mt-1">Confirm Budget, Authority, Need, and Timeline to qualify as SQL</p>
+            </div>
+            {lead.status === "SQL" && (
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Already SQL Qualified
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            {/* Budget */}
+            <div className={cn(
+              "p-4 rounded-xl border-2 transition-all",
+              bantBudget ? "border-emerald-300 bg-emerald-50/50" : "border-slate-200 bg-slate-50"
+            )}>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={bantBudget}
+                  onChange={e => setBantBudget(e.target.checked)}
+                  disabled={lead.status === "SQL"}
+                  className="w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                />
+                <div>
+                  <span className="text-sm font-bold text-slate-700">B - Budget</span>
+                  <p className="text-xs text-slate-500 mt-0.5">Does the prospect have confirmed budget for this purchase?</p>
+                </div>
+              </label>
+            </div>
+
+            {/* Authority */}
+            <div className={cn(
+              "p-4 rounded-xl border-2 transition-all",
+              bantAuthority ? "border-emerald-300 bg-emerald-50/50" : "border-slate-200 bg-slate-50"
+            )}>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={bantAuthority}
+                  onChange={e => setBantAuthority(e.target.checked)}
+                  disabled={lead.status === "SQL"}
+                  className="w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                />
+                <div>
+                  <span className="text-sm font-bold text-slate-700">A - Authority</span>
+                  <p className="text-xs text-slate-500 mt-0.5">Is the contact person the decision maker / approver?</p>
+                </div>
+              </label>
+            </div>
+
+            {/* Need */}
+            <div className={cn(
+              "p-4 rounded-xl border-2 transition-all",
+              bantNeed ? "border-emerald-300 bg-emerald-50/50" : "border-slate-200 bg-slate-50"
+            )}>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={bantNeed}
+                  onChange={e => setBantNeed(e.target.checked)}
+                  disabled={lead.status === "SQL"}
+                  className="w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                />
+                <div>
+                  <span className="text-sm font-bold text-slate-700">N - Need</span>
+                  <p className="text-xs text-slate-500 mt-0.5">Is there a genuine business need / pain point identified?</p>
+                </div>
+              </label>
+            </div>
+
+            {/* Timeline */}
+            <div className="p-4 rounded-xl border-2 border-slate-200 bg-slate-50">
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">T - Timeline (months)</span>
+                <p className="text-xs text-slate-500 mt-0.5 mb-2">Expected purchase decision timeline in months</p>
+                <input
+                  type="number"
+                  value={bantTimeline}
+                  onChange={e => setBantTimeline(e.target.value)}
+                  disabled={lead.status === "SQL"}
+                  placeholder="e.g. 3"
+                  min="1"
+                  className="w-32 px-3 py-2 text-sm rounded-lg bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+                />
+              </label>
+            </div>
+
+            {/* Qualify button */}
+            {lead.status !== "SQL" && lead.status !== "Converted" && lead.status !== "Lost" && (
+              <div className="pt-3">
+                <button
+                  onClick={handleBANTQualify}
+                  disabled={bantSaving || !bantBudget || !bantAuthority || !bantNeed || !bantTimeline}
+                  className="btn-primary text-sm flex items-center gap-2 disabled:opacity-40"
+                >
+                  {bantSaving ? "Saving..." : <><CheckCircle2 size={15} /> Qualify as SQL</>}
+                </button>
+                {(!bantBudget || !bantAuthority || !bantNeed) && (
+                  <p className="text-xs text-slate-400 mt-2">All three checkboxes (B, A, N) must be confirmed to qualify.</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ---- Qualification Modal (Mark as SQL) ---- */}
       <Modal
         open={qualModalOpen}
         onClose={() => setQualModalOpen(false)}
@@ -1007,16 +1254,16 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
             <button
               type="button"
               onClick={handleMarkSQL}
-              disabled={sqlSaving || !budgetAsked.trim() || !timelineAsked.trim() || !isDecisionMaker}
+              disabled={sqlSaving || !budgetAsked.trim() || !timelineAsked.trim()}
               className="btn-primary text-sm flex items-center gap-1.5 disabled:opacity-40"
             >
-              {sqlSaving ? "Savingâ€¦" : <><CheckCircle2 size={14} /> Mark as SQL</>}
+              {sqlSaving ? "Saving..." : <><CheckCircle2 size={14} /> Mark as SQL</>}
             </button>
           </>
         }
       >
         <div className="p-6 space-y-4">
-          <FormField label="Budget Asked (â‚¹)" required>
+          <FormField label="Budget Asked (Rs.)" required>
             <Input
               type="text"
               value={budgetAsked}
@@ -1038,16 +1285,6 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
             <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
-                checked={isDecisionMaker}
-                onChange={e => setIsDecisionMaker(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
-              />
-              <span className="text-sm text-slate-700">Yes, the contact is the Decision Maker</span>
-            </label>
-            <p className="text-xs text-slate-400 ml-7">Confirm that this contact has authority to make purchasing decisions.</p>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
                 checked={isGenuine}
                 onChange={e => setIsGenuine(e.target.checked)}
                 className="w-4 h-4 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
@@ -1056,15 +1293,15 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
             </label>
             <p className="text-xs text-slate-400 ml-7">Optional: Check if you've verified the prospect's requirement is real.</p>
           </div>
-          <div className={`p-3 rounded-xl text-xs ${budgetAsked.trim() && timelineAsked.trim() && isDecisionMaker ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-amber-50 text-amber-600 border border-amber-100"}`}>
-            {budgetAsked.trim() && timelineAsked.trim() && isDecisionMaker
-              ? "âœ“ All qualification criteria met. Ready to mark as SQL!"
-              : "âš  Fill Budget, Timeline, and confirm Decision Maker to enable SQL promotion."}
+          <div className={`p-3 rounded-xl text-xs ${budgetAsked.trim() && timelineAsked.trim() ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-amber-50 text-amber-600 border border-amber-100"}`}>
+            {budgetAsked.trim() && timelineAsked.trim()
+              ? "\u2713 Budget and timeline provided. Ready to mark as SQL!"
+              : "! Fill Budget and Timeline to enable SQL promotion."}
           </div>
         </div>
       </Modal>
 
-      {/* â”€â”€ Success Overlay (guided flow) â”€â”€ */}
+      {/* ---- Success Overlay (guided flow) ---- */}
       <SuccessOverlay
         open={successOverlay.open}
         message={successOverlay.message}
@@ -1074,7 +1311,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         onClose={() => setSuccessOverlay(o => ({ ...o, open: false }))}
       />
 
-      {/* â”€â”€ Complete Follow-up Modal â”€â”€ */}
+      {/* ---- Complete Follow-up Modal ---- */}
       <Modal
         open={completeFuModal}
         onClose={() => setCompleteFuModal(false)}
@@ -1092,10 +1329,10 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         <form id="complete-fu-form" onSubmit={handleCompleteFollowUp} className="p-6 space-y-4">
           <FormField label="Update Lead Status To">
             <Select value={completeLeadStatus} onChange={e => setCompleteLeadStatus(e.target.value)}>
-              <option value="Contacted">Contacted â€” still in discussion</option>
-              <option value="SQL">SQL â€” Sales Qualified Lead</option>
-              <option value="Qualified">Qualified â€” ready to convert</option>
-              <option value="Lost">Lost â€” no longer interested</option>
+              <option value="Contacted">Contacted - still in discussion</option>
+              <option value="SQL">SQL - Sales Qualified Lead</option>
+              <option value="Qualified">Qualified - ready to convert</option>
+              <option value="Lost">Lost - no longer interested</option>
             </Select>
           </FormField>
           <FormField label="Outcome Remarks" required>
@@ -1111,15 +1348,15 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         </form>
       </Modal>
 
-      {/* â”€â”€ Post-Complete Suggestion Modal â”€â”€ */}
+      {/* ---- Post-Complete Suggestion Modal ---- */}
       <Modal
         open={postCompleteModal}
         onClose={() => setPostCompleteModal(false)}
-        title="Follow-up Completed â€” What's Next?"
+        title="Follow-up Completed - What's Next?"
         subtitle="Choose your next action for this lead."
         footer={
           <button type="button" onClick={handlePostCompleteDone} className="btn-secondary text-sm">
-            Done â€” I'll handle it later
+            Done - I'll handle it later
           </button>
         }
       >
@@ -1193,13 +1430,13 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
             </div>
             <div>
               <p className="text-sm font-bold text-red-800">Mark Lost</p>
-              <p className="text-xs text-red-600">Lead is no longer interested â€” close as lost</p>
+              <p className="text-xs text-red-600">Lead is no longer interested - close as lost</p>
             </div>
           </button>
         </div>
       </Modal>
 
-      {/* â”€â”€ Call Log Modal (mandatory flow from "Mark Contacted" / "Log First Call") â”€â”€ */}
+      {/* ---- Call Log Modal (mandatory flow from "Mark Contacted" / "Log First Call") ---- */}
       <Modal
         open={callLogModal}
         onClose={() => setCallLogModal(false)}
@@ -1215,7 +1452,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         }
       >
         <form id="call-log-form" onSubmit={handleSaveCallLog} className="p-6 space-y-4">
-          {/* Auto-filled lead name â€” no manual search needed */}
+          {/* Auto-filled lead name - no manual search needed */}
           <FormField label="Linked Lead">
             <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-700">
               {lead?.name} <span className="text-xs font-mono text-slate-400 ml-1">{lead?.leadCode}</span>
@@ -1252,11 +1489,11 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         </form>
       </Modal>
 
-      {/* â”€â”€ Follow-up Prompt Modal (after call log saved) â”€â”€ */}
+      {/* ---- Follow-up Prompt Modal (after call log saved) ---- */}
       <Modal
         open={fuPromptModal}
         onClose={() => setFuPromptModal(false)}
-        title="Call Logged â€” Next Step?"
+        title="Call Logged - Next Step?"
         subtitle="Does this lead need a follow-up?"
         footer={
           <>
@@ -1284,7 +1521,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       </Modal>
 
-      {/* â”€â”€ Next Action Modal (after "still in discussion") â”€â”€ */}
+      {/* ---- Next Action Modal (after "still in discussion") ---- */}
       <Modal
         open={nextActionModal}
         onClose={() => setNextActionModal(false)}
@@ -1292,7 +1529,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         subtitle="Lead is now Contacted. Choose your next action."
         footer={
           <button type="button" onClick={handleNextActionDone} className="btn-secondary text-sm">
-            Done â€” I'll handle it later
+            Done - I'll handle it later
           </button>
         }
       >
@@ -1338,7 +1575,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       </Modal>
 
-      {/* â”€â”€ Add Follow-up Modal â”€â”€ */}
+      {/* ---- Add Follow-up Modal ---- */}
       <Modal
         open={fuModal}
         onClose={() => { setFuModal(false); setFuFromCallLog(false); }}
@@ -1386,7 +1623,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
                 >
                   <option value="">Lead owner (default)</option>
                   {executives.map(ex => (
-                    <option key={ex.id} value={ex.id}>{ex.name} â€” {ex.role}</option>
+                    <option key={ex.id} value={ex.id}>{ex.name} - {ex.role}</option>
                   ))}
                 </select>
               )}
@@ -1397,9 +1634,9 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
                 onChange={e => setFuPriority(e.target.value as any)}
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               >
-                <option value="High">ðŸ”´ High</option>
-                <option value="Medium">ðŸŸ¡ Medium</option>
-                <option value="Low">ðŸŸ¢ Low</option>
+                <option value="High">" High</option>
+                <option value="Medium"> Medium</option>
+                <option value="Low"> Low</option>
               </select>
             </FormField>
           </div>
@@ -1415,7 +1652,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         </form>
       </Modal>
 
-      {/* â”€â”€ Add Activity / Note Modal â”€â”€ */}
+      {/* ---- Add Activity / Note Modal ---- */}
       <Modal
         open={noteModal}
         onClose={() => setNoteModal(false)}
@@ -1446,7 +1683,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
             <textarea
               value={noteText}
               onChange={e => setNoteText(e.target.value)}
-              placeholder={noteType === "Call" ? "e.g. Called to discuss delivery timeline. Follow-up needed." : noteType === "Meeting" ? "e.g. Plant visit at Pune facility â€” discussed requirements." : "Add your note here..."}
+              placeholder={noteType === "Call" ? "e.g. Called to discuss delivery timeline. Follow-up needed." : noteType === "Meeting" ? "e.g. Plant visit at Pune facility - discussed requirements." : "Add your note here..."}
               rows={4}
               className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
               required
@@ -1455,7 +1692,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         </form>
       </Modal>
 
-      {/* â”€â”€ Convert to Deal Modal â”€â”€ */}
+      {/* ---- Convert to Deal Modal ---- */}
       <Modal
         open={convertModal}
         onClose={() => setConvertModal(false)}
@@ -1476,7 +1713,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
           </FormField>
           <FormField label="Deal Value (INR)" required>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">â‚¹</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">Rs.</span>
               <Input type="number" value={dealValue} onChange={e => setDealValue(e.target.value)} placeholder="0.00" className="pl-7" required />
             </div>
           </FormField>
@@ -1486,7 +1723,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         </form>
       </Modal>
 
-      {/* â”€â”€ Lost Reason Modal â”€â”€ */}
+      {/* ---- Lost Reason Modal ---- */}
       <Modal
         open={showLostModal}
         onClose={() => setShowLostModal(false)}
@@ -1498,7 +1735,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
             <button
               type="button"
               onClick={handleConfirmLost}
-              disabled={markingLost || !lostReason.trim()}
+              disabled={markingLost || (!selectedLossReasonId && !lostReason.trim())}
               className="btn-danger text-sm flex items-center gap-1.5 disabled:opacity-40"
             >
               {markingLost ? "Marking..." : <><XCircle size={14} /> Confirm Mark Lost</>}
@@ -1516,16 +1753,218 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
               </div>
             </div>
           )}
-          <FormField label="Reason for losing this lead" required>
+          <FormField label="Loss Reason" required>
+            <Select
+              value={selectedLossReasonId}
+              onChange={e => setSelectedLossReasonId(e.target.value)}
+            >
+              <option value="">Select a reason...</option>
+              {lossReasons.map(lr => (
+                <option key={lr.id} value={lr.id}>{lr.name}</option>
+              ))}
+            </Select>
+          </FormField>
+          <FormField label="Additional notes (optional)">
             <textarea
               value={lostReason}
               onChange={e => setLostReason(e.target.value)}
-              placeholder="e.g. Prospect went with competitor, budget constraints, no response, etc."
-              rows={4}
-              required
+              placeholder="Any additional context about why this lead was lost..."
+              rows={3}
               className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
             />
           </FormField>
+        </div>
+      </Modal>
+
+      {/* V2 Convert Lead Modal (3-section accordion) */}
+      <Modal
+        open={convertV2Modal}
+        onClose={() => setConvertV2Modal(false)}
+        title="Convert Lead"
+        subtitle="Create Account + Contact + Opportunity atomically"
+        size="lg"
+        footer={
+          <>
+            <button type="button" onClick={() => setConvertV2Modal(false)} className="btn-secondary text-sm">Cancel</button>
+            {convertSection > 0 && (
+              <button type="button" onClick={() => setConvertSection(s => s - 1)} className="btn-ghost text-sm">Back</button>
+            )}
+            {convertSection < 2 ? (
+              <button type="button" onClick={() => setConvertSection(s => s + 1)} className="btn-primary text-sm">Next</button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleConvertV2}
+                disabled={convertV2Saving}
+                className="btn-primary text-sm flex items-center gap-1.5 disabled:opacity-40"
+              >
+                {convertV2Saving ? <><span className="spinner-brand" /> Converting...</> : <><CheckCircle2 size={14} /> Convert Lead</>}
+              </button>
+            )}
+          </>
+        }
+      >
+        <div className="p-6 space-y-4">
+          {/* Progress indicator */}
+          <div className="flex items-center gap-2 mb-4">
+            {["Account", "Contact", "Opportunity"].map((label, idx) => (
+              <div key={label} className="flex items-center gap-2">
+                <div className={cn(
+                  "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all",
+                  idx === convertSection
+                    ? "bg-[var(--primary)] text-white"
+                    : idx < convertSection
+                    ? "bg-emerald-500 text-white"
+                    : "bg-slate-200 text-slate-400"
+                )}>
+                  {idx < convertSection ? "\u2713" : idx + 1}
+                </div>
+                <span className={cn("text-xs font-semibold", idx === convertSection ? "text-slate-700" : "text-slate-400")}>{label}</span>
+                {idx < 2 && <div className="w-8 h-px bg-slate-200" />}
+              </div>
+            ))}
+          </div>
+
+          {/* Section 0: Account */}
+          {convertSection === 0 && (
+            <div className="space-y-4">
+              <FormField label="Company Name" required>
+                <Input
+                  value={convertForm.companyName}
+                  onChange={e => setConvertForm(p => ({ ...p, companyName: e.target.value }))}
+                  placeholder="ABC Industries Pvt Ltd"
+                />
+              </FormField>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="GSTIN (optional)">
+                  <Input
+                    value={convertForm.gstNumber}
+                    onChange={e => setConvertForm(p => ({ ...p, gstNumber: e.target.value.toUpperCase() }))}
+                    placeholder="27ABCDE1234F1Z5"
+                    maxLength={15}
+                  />
+                </FormField>
+                <FormField label="Account Type">
+                  <Select
+                    value={convertForm.accountType}
+                    onChange={e => setConvertForm(p => ({ ...p, accountType: e.target.value }))}
+                  >
+                    <option value="Customer">Customer</option>
+                    <option value="Reseller">Reseller</option>
+                    <option value="Partner">Partner</option>
+                  </Select>
+                </FormField>
+              </div>
+              <FormField label="Industry">
+                <Select
+                  value={convertForm.industryType}
+                  onChange={e => setConvertForm(p => ({ ...p, industryType: e.target.value }))}
+                >
+                  <option value="">Select...</option>
+                  {["Automotive", "Pharma", "Textile", "FMCG", "Infrastructure", "Others"].map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </Select>
+              </FormField>
+              <FormField label="Billing Address (optional)">
+                <textarea
+                  value={convertForm.billingAddress}
+                  onChange={e => setConvertForm(p => ({ ...p, billingAddress: e.target.value }))}
+                  placeholder="Plot No, Street, City, State, PIN"
+                  rows={2}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 resize-none"
+                />
+              </FormField>
+            </div>
+          )}
+
+          {/* Section 1: Contact */}
+          {convertSection === 1 && (
+            <div className="space-y-4">
+              <FormField label="Contact Name" required>
+                <Input
+                  value={convertForm.contactName}
+                  onChange={e => setConvertForm(p => ({ ...p, contactName: e.target.value }))}
+                  placeholder="John Doe"
+                />
+              </FormField>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Designation">
+                  <Input
+                    value={convertForm.contactDesignation}
+                    onChange={e => setConvertForm(p => ({ ...p, contactDesignation: e.target.value }))}
+                    placeholder="Purchase Manager"
+                  />
+                </FormField>
+                <FormField label="Contact Category">
+                  <Select
+                    value={convertForm.contactCategory}
+                    onChange={e => setConvertForm(p => ({ ...p, contactCategory: e.target.value }))}
+                  >
+                    <option value="Technical">Technical</option>
+                    <option value="Commercial">Commercial</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Management">Management</option>
+                  </Select>
+                </FormField>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Email">
+                  <Input
+                    type="email"
+                    value={convertForm.contactEmail}
+                    onChange={e => setConvertForm(p => ({ ...p, contactEmail: e.target.value }))}
+                    placeholder="john@abc.com"
+                  />
+                </FormField>
+                <FormField label="Phone">
+                  <Input
+                    type="tel"
+                    value={convertForm.contactPhone}
+                    onChange={e => setConvertForm(p => ({ ...p, contactPhone: e.target.value }))}
+                    placeholder="+91 98765 43210"
+                  />
+                </FormField>
+              </div>
+            </div>
+          )}
+
+          {/* Section 2: Opportunity */}
+          {convertSection === 2 && (
+            <div className="space-y-4">
+              <FormField label="Opportunity Name" required>
+                <Input
+                  value={convertForm.oppName}
+                  onChange={e => setConvertForm(p => ({ ...p, oppName: e.target.value }))}
+                  placeholder="Supply of industrial equipment"
+                />
+              </FormField>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Estimated Value (Rs.)">
+                  <Input
+                    type="number"
+                    value={convertForm.oppValue}
+                    onChange={e => setConvertForm(p => ({ ...p, oppValue: e.target.value }))}
+                    placeholder="500000"
+                    min="0"
+                  />
+                </FormField>
+                <FormField label="Expected Close Date" required>
+                  <Input
+                    type="date"
+                    value={convertForm.oppCloseDate}
+                    onChange={e => setConvertForm(p => ({ ...p, oppCloseDate: e.target.value }))}
+                  />
+                </FormField>
+              </div>
+              <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
+                <p className="text-xs text-blue-700">
+                  This will atomically create an Account, Contact, and Opportunity.
+                  The lead will be marked as Converted and all follow-ups will be linked to the new account.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </Modal>
     </div>

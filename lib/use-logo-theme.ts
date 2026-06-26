@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-export type LogoTheme = "orange" | "blue" | "green" | "dark" | "neutral";
+export type LogoTheme = "orange" | "blue" | "green" | "purple" | "dark" | "neutral";
 
 /**
  * Maps a raw data-theme color key + dark-mode flag to a LogoTheme.
@@ -11,9 +11,10 @@ export type LogoTheme = "orange" | "blue" | "green" | "dark" | "neutral";
  */
 export function getLogoTheme(colorKey: string, _isDark: boolean): LogoTheme {
   // Never override the accent color in dark mode.
-  // The sidebar background is always dark — orange/blue/green stays visible.
+  // The sidebar background is always dark — orange/blue/green/purple stays visible.
   // theme="dark" (all-white logo) is only used explicitly on the login page.
   if (colorKey === "obsidian" || colorKey === "neutral") return "dark";
+  if (colorKey === "purple" || colorKey === "black")    return "purple";
   if (colorKey === "forest"   || colorKey === "green")   return "green";
   if (colorKey === "ocean"    || colorKey === "blue")    return "blue";
   return "orange"; // ember / orange / fallback
@@ -25,11 +26,16 @@ export function getLogoTheme(colorKey: string, _isDark: boolean): LogoTheme {
  */
 function readFromDOM(): LogoTheme {
   if (typeof window === "undefined") return "orange";
-  const attr = document.documentElement.getAttribute("data-theme") ?? "ember-light";
+  // New system: separate data-theme attribute (e.g. "orange", "blue")
+  const attr = document.documentElement.getAttribute("data-theme") ?? "orange";
+  // Could be new format ("orange") or legacy ("ember-light")
   const sep = attr.lastIndexOf("-");
   const color = sep > 0 ? attr.slice(0, sep) : attr;
   const mode  = sep > 0 ? attr.slice(sep + 1) : "light";
-  return getLogoTheme(color, mode === "dark");
+  // Also check data-mode attribute (new system)
+  const modeAttr = document.documentElement.getAttribute("data-mode");
+  const isDark = modeAttr === "dark" || mode === "dark";
+  return getLogoTheme(color, isDark);
 }
 
 /**
@@ -59,21 +65,26 @@ export function useLogoTheme(opts?: {
     const mo = new MutationObserver(() => setLogoTheme(readFromDOM()));
     mo.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-theme", "class"],
+      attributeFilter: ["data-theme", "data-mode", "class"],
     });
 
     // Layer 2 — Custom event: explicit notification dispatched by DashboardHeader
     //            covers edge cases where the DOM mutation fires before React commits
     const onThemeChange = (e: Event) => {
-      const detail = (e as CustomEvent<{ color: string; isDark: boolean }>).detail;
-      if (detail?.color !== undefined) {
+      const detail = (e as CustomEvent<{ theme: string; mode: string; color: string; isDark: boolean }>).detail;
+      if (detail?.theme) {
+        setLogoTheme(getLogoTheme(detail.theme, detail.mode === "dark"));
+      } else if (detail?.color) {
         setLogoTheme(getLogoTheme(detail.color, !!detail.isDark));
       }
     };
+    window.addEventListener("suki-theme-change", onThemeChange);
+    // Also listen to legacy event for backward compat
     window.addEventListener("crm-theme-change", onThemeChange);
 
     return () => {
       mo.disconnect();
+      window.removeEventListener("suki-theme-change", onThemeChange);
       window.removeEventListener("crm-theme-change", onThemeChange);
     };
   }, []);

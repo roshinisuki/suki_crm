@@ -19,6 +19,7 @@ import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { getInitials, getAvatarColor, formatDate, cn } from "@/lib/ui-utils";
 import { Plus, Search, Download, Eye, Pencil, Trash2, Briefcase, TrendingUp, CheckCircle, XCircle, PauseCircle } from "lucide-react";
 import { useGlobalLoading } from "@/components/GlobalLoadingProvider";
+import { CRMSpinner } from "@/components/CRMSpinner";
 const STAGES = ["Active", "OnHold", "Won", "Lost"];
 const emptyForm = {
   id: "", dealName: "", customerId: "", dealValue: "",
@@ -238,9 +239,13 @@ export default function DealsPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={8} className="crm-td text-center py-12">
-                  <span className="text-slate-400 text-sm">Loading...</span>
-                </td></tr>
+                <tr>
+                  <td colSpan={8} className="py-12 text-center">
+                    <div className="flex justify-center">
+                      <CRMSpinner size={36} label="Loading deals..." />
+                    </div>
+                  </td>
+                </tr>
               ) : paged.length === 0 ? (
                 <tr><td colSpan={8} className="crm-td text-center py-16">
                   <div className="flex flex-col items-center gap-3">

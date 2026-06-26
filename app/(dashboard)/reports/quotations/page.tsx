@@ -9,6 +9,8 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import { getCustomersAction } from "@/app/actions/customers";
 import { FileText, CheckCircle, XCircle, Clock, Percent, Download, Search } from "lucide-react";
 import { ReportFilterLayout, FilterField, filterInputClass } from "@/components/reports/ReportFilterLayout";
+import ReportActions from "@/components/reports/ReportActions";
+import { CRMSpinner } from "@/components/CRMSpinner";
 
 const quotationStatuses = ["Sent", "UnderReview", "Accepted", "Rejected", "Expired"];
 
@@ -64,9 +66,12 @@ export default function QuotationsReportPage() {
       subtitle="Track quotation performance and acceptance rates"
       breadcrumb={[{ label: "Reports", href: "/reports" }, { label: "Quotations Report" }]}
       action={
-        <button onClick={handleExport} disabled={quotations.length === 0} className="flex items-center gap-2 px-5 py-2.5 bg-[var(--primary)] text-white rounded-xl text-xs font-bold hover:bg-[var(--primary-hover)] transition-colors shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
-          <Download size={14} /> Export to CSV
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleExport} disabled={quotations.length === 0} className="flex items-center gap-2 px-5 py-2.5 bg-[var(--primary)] text-white rounded-xl text-xs font-bold hover:bg-[var(--primary-hover)] transition-colors shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+            <Download size={14} /> Export to CSV
+          </button>
+          <ReportActions reportId="quotations" filters={filters} />
+        </div>
       }
     >
       <PageContainer className="space-y-6">
@@ -128,7 +133,13 @@ export default function QuotationsReportPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr><td colSpan={8} className="text-center py-12 text-slate-400 text-sm">Loading...</td></tr>
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center">
+                      <div className="flex justify-center">
+                        <CRMSpinner size={36} label="Loading report..." />
+                      </div>
+                    </td>
+                  </tr>
                 ) : quotations.length === 0 ? (
                   <tr><td colSpan={8} className="text-center py-12 text-slate-400 text-sm">No quotations found</td></tr>
                 ) : (

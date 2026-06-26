@@ -5,7 +5,7 @@
 //
 // Usage:
 //   <HandshakeLoader />                                    // default: clasp + ripple, blue, 64px
-//   <HandshakeLoader size={96} accent="#FF680B" />          // orange theme, larger
+//   <HandshakeLoader size={96} accent="#F77F00" />          // orange theme, larger
 //   <HandshakeLoader variant="flash" label="Connecting..." />
 //   <HandshakeLoader fullScreen label="Closing the deal..." />
 
@@ -26,7 +26,7 @@ interface HandshakeLoaderProps {
 
 export function HandshakeLoader({
   size = 64,
-  accent = '#009FFD',
+  accent = '#F77F00',
   variant = 'ripple',
   label,
   fullScreen = false,

@@ -7,6 +7,8 @@ import { logoutAction, saveUserThemeAction, saveUserThemeModeAction } from "@/ap
 import { cn } from "@/lib/ui-utils";
 import { getInitials } from "@/lib/ui-utils";
 import { Search, Bell, ChevronDown, Menu, Settings, User, LogOut, Check, Trash2 } from "lucide-react";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { useTheme, THEME_TO_LEGACY, type ThemeName } from "@/lib/useTheme";
 
 const ROLE_LABELS: Record<string, string> = {
   Admin:              "Administrator",
@@ -28,63 +30,50 @@ export default function DashboardHeader({
   pageTitle,
   user,
   toggleSidebar,
+  onMobileMenuClick,
 }: {
   pageTitle: string;
   user: any;
   toggleSidebar: () => void;
+  onMobileMenuClick?: () => void;
 }) {
   const router = useRouter();
   const toast = useToast();
   const now = useClock();
 
-  // Theme — initialize from user profile or localStorage, default to ember/light
-  const [activeTheme, setActiveTheme] = useState(() => {
-    if (typeof window === "undefined") return user?.theme || "ember";
-    return user?.theme || localStorage.getItem("crm-theme-color") || "ember";
-  });
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window === "undefined") return (user?.themeMode || "light") === "dark";
-    return (user?.themeMode || localStorage.getItem("crm-theme-mode") || "light") === "dark";
-  });
+  // Theme — use new useTheme hook
+  const { theme: activeTheme, mode: isDarkMode, setTheme: changeThemeFn, toggleMode: toggleModeFn } = useTheme();
+
+  // Ref guard: only save to backend when theme/mode actually changes
+  const prevThemeRef = useRef<string>(activeTheme);
+  const prevModeRef = useRef<string>(isDarkMode);
 
   useEffect(() => {
-    const mode = isDarkMode ? "dark" : "light";
-    document.documentElement.setAttribute("data-theme", `${activeTheme}-${mode}`);
-    if (isDarkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
+    if (prevThemeRef.current !== activeTheme && user?.id) {
+      const legacyName = THEME_TO_LEGACY[activeTheme as ThemeName] || "ember";
+      saveUserThemeAction(legacyName).then(res => {
+        if (!res.success) toast.warning("Theme saved locally only");
+      });
+      prevThemeRef.current = activeTheme;
     }
-  }, [activeTheme, isDarkMode]);
+  }, [activeTheme, user?.id]);
 
-  const changeTheme = async (t: string) => {
-    setActiveTheme(t);
-    localStorage.setItem("crm-theme-color", t);
-    const mode = isDarkMode ? "dark" : "light";
-    document.documentElement.setAttribute("data-theme", `${t}-${mode}`);
-    window.dispatchEvent(new CustomEvent("crm-theme-change", { detail: { color: t, isDark: isDarkMode } }));
-    if (user?.id) {
-      const res = await saveUserThemeAction(t);
-      if (!res.success) toast.warning("Theme saved locally only");
+  useEffect(() => {
+    if (prevModeRef.current !== isDarkMode && user?.id) {
+      const mode = isDarkMode ? "dark" : "light";
+      saveUserThemeModeAction(mode).then(res => {
+        if (!res.success) toast.warning("Theme mode saved locally only");
+      });
+      prevModeRef.current = isDarkMode;
     }
+  }, [isDarkMode, user?.id]);
+
+  const changeTheme = (t: string) => {
+    changeThemeFn(t as ThemeName);
   };
 
-  const toggleMode = async () => {
-    const next = !isDarkMode;
-    setIsDarkMode(next);
-    const mode = next ? "dark" : "light";
-    localStorage.setItem("crm-theme-mode", mode);
-    document.documentElement.setAttribute("data-theme", `${activeTheme}-${mode}`);
-    if (next) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-    window.dispatchEvent(new CustomEvent("crm-theme-change", { detail: { color: activeTheme, isDark: next } }));
-    if (user?.id) {
-      const res = await saveUserThemeModeAction(mode);
-      if (!res.success) toast.warning("Theme mode saved locally only");
-    }
+  const toggleMode = () => {
+    toggleModeFn();
   };
 
   // Search
@@ -180,10 +169,21 @@ export default function DashboardHeader({
 
       {/* ── Left ── */}
       <div className="flex items-center gap-4">
-        {/* Sidebar toggle button */}
+        {/* Mobile menu button */}
+        {onMobileMenuClick && (
+          <button
+            onClick={onMobileMenuClick}
+            className="md:hidden w-9 h-9 rounded-lg bg-[var(--surface-2)] hover:bg-[var(--surface-offset)] flex items-center justify-center text-[var(--text-secondary)] transition-colors border border-[var(--border)]"
+            aria-label="Open menu"
+          >
+            <Menu size={18} />
+          </button>
+        )}
+
+        {/* Sidebar toggle button (desktop only) */}
         <button
           onClick={toggleSidebar}
-          className="w-7 h-7 rounded-lg bg-[var(--surface-2)] hover:bg-[var(--surface-offset)] flex items-center justify-center text-[var(--text-secondary)] transition-colors border border-[var(--border)]"
+          className="hidden md:flex w-7 h-7 rounded-lg bg-[var(--surface-2)] hover:bg-[var(--surface-offset)] items-center justify-center text-[var(--text-secondary)] transition-colors border border-[var(--border)]"
         >
           <Menu size={15} />
         </button>
@@ -299,26 +299,9 @@ export default function DashboardHeader({
       {/* ── Right ── */}
       <div className="flex items-center gap-2">
 
-        {/* Theme Swatches */}
-        <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 bg-[var(--surface-2)] border border-[var(--border)] rounded-lg">
-          {["ember", "ocean", "forest", "obsidian"].map((themeName) => (
-            <button
-              key={themeName}
-              onClick={() => changeTheme(themeName)}
-              className={cn(
-                "w-3 h-3 rounded-full border transition-transform hover:scale-110",
-                activeTheme === themeName ? "ring-2 ring-offset-1 ring-[var(--border)]" : ""
-              )}
-              style={{
-                backgroundColor: themeName === "ember" ? "#C2601A" : themeName === "ocean" ? "#1E6FD9" : themeName === "forest" ? "#1A7A3C" : "#1A1A1A",
-                borderColor: "rgba(0,0,0,0.1)"
-              }}
-            />
-          ))}
-          <div className="w-px h-3 bg-slate-300 dark:bg-slate-700 mx-0.5" />
-          <button onClick={toggleMode} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-bold text-[8px] uppercase tracking-widest px-0.5">
-            {isDarkMode ? "DARK" : "LIGHT"}
-          </button>
+        {/* Theme Switcher */}
+        <div className="hidden lg:block">
+          <ThemeSwitcher />
         </div>
 
         {/* Date/Time */}

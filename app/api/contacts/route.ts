@@ -61,6 +61,38 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
+    // Validate account_id is provided and account exists
+    if (!body.customerId) {
+      return NextResponse.json({ success: false, message: "Contact must be linked to an account (customerId required)" }, { status: 400 });
+    }
+    const account = await prisma.customer.findUnique({
+      where: { id: body.customerId, deletedAt: null },
+    });
+    if (!account) {
+      return NextResponse.json({ success: false, message: "Account not found" }, { status: 404 });
+    }
+
+    // Auto-detect decision-maker from designation
+    let isDecisionMaker = body.isDecisionMaker;
+    if (body.designation && isDecisionMaker === undefined) {
+      const decisionMakerKeywords = ["Head", "Director", "VP", "GM", "President", "CEO", "MD", "CTO", "COO"];
+      isDecisionMaker = decisionMakerKeywords.some((keyword) =>
+        body.designation.toLowerCase().includes(keyword.toLowerCase())
+      );
+    }
+
+    // If setting isPrimary=true, unset old primary for the same account
+    if (body.isPrimary === true) {
+      await prisma.contact.updateMany({
+        where: {
+          customerId: body.customerId,
+          isPrimary: true,
+          deletedAt: null,
+        },
+        data: { isPrimary: false },
+      });
+    }
+
     const count = await prisma.contact.count();
     const contactCode = `CON-${String(count + 1).padStart(4, "0")}`;
 
@@ -78,7 +110,7 @@ export async function POST(request: Request) {
         contactType: body.contactType ?? "Technical",
         isPrimary: body.isPrimary ?? false,
         notes: body.notes ?? null,
-        customerId: body.customerId ?? null,
+        customerId: body.customerId,
         ownerId: user.id,
         companyId: user.companyId ?? null,
       },

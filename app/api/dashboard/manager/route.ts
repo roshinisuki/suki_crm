@@ -2,103 +2,112 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
 
-// Simple in-memory cache
-let cache: { data: any; timestamp: number } | null = null;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
+// GET /api/dashboard/manager — Sales Manager / Admin dashboard with team performance
 export async function GET() {
   const user = await verifyAuth();
   if (!user) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  if (user.role === "SalesExecutive") return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
+  if (user.role === "SalesExecutive" || user.role === "Customer") {
+    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
+  }
 
-  // Check cache
-  if (cache && Date.now() - cache.timestamp < CACHE_TTL) {
-    return NextResponse.json({ success: true, data: cache.data, cached: true });
+  // SuperAdmin must use support mode to access client dashboard data
+  if (user.role === "SuperAdmin" && (!user.supportMode || !user.companyId)) {
+    return NextResponse.json({ success: false, message: "SuperAdmin must access business data via support/impersonation mode." }, { status: 403 });
   }
 
   const companyId = user.companyId;
   const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  const weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate() - 7);
+  const weekEnd = new Date(now);
 
-  // Row 1 — KPI Cards
-  const [totalLeads, leadsToCustomer, totalRFQs, quotationsSent, quotationsAccepted, revenueWon] = await Promise.all([
-    prisma.lead.count({
-      where: { createdAt: { gte: monthStart, lte: monthEnd }, companyId, deletedAt: null },
-    }),
-    prisma.customer.count({
-      where: {
-        convertedFromLead: { not: null },
-        onboardedAt: { gte: monthStart, lte: monthEnd },
-        companyId,
-      },
-    }),
-    prisma.rFQ.count({
-      where: { receivedDate: { gte: monthStart, lte: monthEnd }, companyId, deletedAt: null },
-    }),
-    prisma.quotation.count({
-      where: {
-        sentAt: { gte: monthStart, lte: monthEnd },
-        status: { not: "Draft" },
-        companyId,
-        deletedAt: null,
-      },
-    }),
-    prisma.quotation.count({
-      where: {
-        acceptedAt: { gte: monthStart, lte: monthEnd },
-        status: "Accepted",
-        companyId,
-        deletedAt: null,
-      },
-    }),
-    prisma.quotation.aggregate({
-      where: {
-        acceptedAt: { gte: monthStart, lte: monthEnd },
-        status: "Accepted",
-        companyId,
-        deletedAt: null,
-      },
-      _sum: { finalAmount: true },
-    }),
+  const baseFilter = { companyId, deletedAt: null };
+
+  const [
+    newLeadsToday, totalOpenLeads, overdueLeads, sqlLeads,
+    followupsDueToday, followupsOverdue, followupsPending,
+    tasksPending, tasksOverdue, tasksDueToday,
+    activeDeals,
+    quotationsSentMonth, quotationsAcceptedMonth, quotationsExpiring7,
+    quotationsSentValue, quotationsAcceptedValue,
+    rfqsPendingCosting, rfqsOverdue,
+    visitsPlannedToday, visitsCompletedWeek, visitsMissedMonth,
+    salesTarget, wonDealsValue,
+    wonDealsThisMonth, lostDeals,
+    wonDealsWithDates,
+  ] = await Promise.all([
+    prisma.lead.count({ where: { ...baseFilter, createdAt: { gte: todayStart, lte: todayEnd } } }),
+    prisma.lead.count({ where: { ...baseFilter, status: { notIn: ["Converted", "Lost", "Disqualified"] } } }),
+    prisma.lead.count({ where: { ...baseFilter, slaStatus: "Overdue" } }),
+    prisma.lead.count({ where: { ...baseFilter, status: { in: ["Qualified", "SQL"] } } }),
+    prisma.followUp.count({ where: { ...baseFilter, status: "Pending", nextMeetingDate: { gte: todayStart, lte: todayEnd } } }),
+    prisma.followUp.count({ where: { ...baseFilter, status: { in: ["Pending", "Overdue"] }, nextMeetingDate: { lt: now } } }),
+    prisma.followUp.count({ where: { ...baseFilter, status: "Pending" } }),
+    prisma.task.count({ where: { companyId, deletedAt: null, status: "Open" } }),
+    prisma.task.count({ where: { companyId, deletedAt: null, status: "Open", dueDate: { lt: now } } }),
+    prisma.task.count({ where: { companyId, deletedAt: null, status: "Open", dueDate: { gte: todayStart, lte: todayEnd } } }),
+    prisma.deal.findMany({ where: { ...baseFilter, status: { notIn: ["Won", "Lost"] } }, select: { dealValue: true, probabilityPercent: true, status: true } }),
+    prisma.quotation.count({ where: { ...baseFilter, sentAt: { gte: monthStart, lte: monthEnd } } }),
+    prisma.quotation.count({ where: { ...baseFilter, acceptedAt: { gte: monthStart, lte: monthEnd } } }),
+    prisma.quotation.count({ where: { ...baseFilter, status: "Sent", validUntil: { gte: now, lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) } } }),
+    prisma.quotation.aggregate({ where: { ...baseFilter, sentAt: { gte: monthStart, lte: monthEnd } }, _sum: { finalAmount: true } }),
+    prisma.quotation.aggregate({ where: { ...baseFilter, acceptedAt: { gte: monthStart, lte: monthEnd } }, _sum: { finalAmount: true } }),
+    prisma.rFQ.count({ where: { ...baseFilter, status: "CostingPending" } }),
+    prisma.rFQ.count({ where: { ...baseFilter, customerDueDate: { lt: now }, status: { notIn: ["Closed", "Quoted", "Cancelled"] } } }),
+    prisma.customerVisit.count({ where: { ...baseFilter, status: "PLANNED", plannedDate: { gte: todayStart, lte: todayEnd } } }),
+    prisma.customerVisit.count({ where: { ...baseFilter, status: "COMPLETED", checkOutTime: { gte: weekStart, lte: weekEnd } } }),
+    prisma.customerVisit.count({ where: { ...baseFilter, status: "MISSED", updatedAt: { gte: monthStart, lte: monthEnd } } }),
+    prisma.salesTarget.findFirst({ where: { companyId, targetType: "Monthly", period: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}` }, select: { targetAmount: true, achievedAmount: true } }),
+    prisma.deal.aggregate({ where: { ...baseFilter, status: "Won", updatedAt: { gte: monthStart, lte: monthEnd } }, _sum: { dealValue: true } }),
+    prisma.deal.count({ where: { ...baseFilter, status: "Won", updatedAt: { gte: monthStart, lte: monthEnd } } }),
+    prisma.deal.count({ where: { ...baseFilter, status: "Lost", updatedAt: { gte: monthStart, lte: monthEnd } } }),
+    prisma.deal.findMany({ where: { ...baseFilter, status: "Won", updatedAt: { gte: monthStart, lte: monthEnd } }, select: { createdAt: true, updatedAt: true } }),
   ]);
 
-  const conversionPercent = totalLeads > 0 ? Math.round((leadsToCustomer / totalLeads) * 1000) / 10 : 0;
-
-  const kpis = {
-    totalLeads,
-    leadsToCustomer,
-    conversionPercent,
-    totalRFQs,
-    quotationsSent,
-    quotationsAccepted,
-    revenueWon: revenueWon._sum.finalAmount || 0,
-  };
-
-  // Row 2 — Pipeline by Stage
+  // Pipeline by stage
   const pipelineStages = await prisma.pipelineStage.findMany({
     where: { companyId, isActive: true },
     orderBy: { order: "asc" },
+    select: { id: true, name: true, color: true, order: true },
   });
 
-  const deals = await prisma.deal.findMany({
-    where: { companyId, deletedAt: null },
-    select: { status: true, dealValue: true },
-  });
-
-  const pipelineByStage = pipelineStages.map((stage) => {
-    const stageDeals = deals.filter((d) => d.status === stage.name);
+  const byStage = pipelineStages.map((stage) => {
+    const stageDeals = activeDeals.filter((d) => d.status === stage.name);
     return {
-      id: stage.id,
-      name: stage.name,
+      stage: stage.name,
       color: stage.color,
-      order: stage.order,
-      dealCount: stageDeals.length,
-      totalValue: stageDeals.reduce((sum, d) => sum + d.dealValue, 0),
+      count: stageDeals.length,
+      total_value: stageDeals.reduce((sum, d) => sum + d.dealValue, 0),
+      weighted_value: stageDeals.reduce((sum, d) => sum + d.dealValue * (d.probabilityPercent || 0) / 100, 0),
     };
   });
 
-  // Row 3 — Team Performance
+  const totalPipelineValue = activeDeals.reduce((sum, d) => sum + d.dealValue, 0);
+  const weightedPipelineValue = activeDeals.reduce((sum, d) => sum + d.dealValue * (d.probabilityPercent || 0) / 100, 0);
+
+  // Target
+  const monthlyTarget = salesTarget?.targetAmount || 0;
+  const achieved = wonDealsValue._sum.dealValue || 0;
+  const achievementPct = monthlyTarget > 0 ? Math.round((achieved / monthlyTarget) * 1000) / 10 : 0;
+  const daysRemainingInMonth = Math.max(0, new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate());
+
+  // Win rate
+  const totalClosed = wonDealsThisMonth + lostDeals;
+  const winRate = totalClosed > 0 ? Math.round((wonDealsThisMonth / totalClosed) * 1000) / 10 : 0;
+
+  // Avg sales cycle
+  const avgSalesCycleDays = wonDealsWithDates.length > 0
+    ? Math.round(wonDealsWithDates.reduce((sum, d) => {
+        const days = Math.floor((new Date(d.updatedAt).getTime() - new Date(d.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+        return sum + days;
+      }, 0) / wonDealsWithDates.length)
+    : 0;
+
+  // Team performance
   const executives = await prisma.user.findMany({
     where: { companyId, role: "SalesExecutive", isActive: true },
     select: { id: true, name: true },
@@ -106,79 +115,43 @@ export async function GET() {
 
   const teamPerformance = await Promise.all(
     executives.map(async (exec) => {
-      const [leadsAssigned, visitsDone, followUpsDone, dealsWon] = await Promise.all([
-        prisma.lead.count({
-          where: { assignedUserId: exec.id, createdAt: { gte: monthStart, lte: monthEnd }, companyId, deletedAt: null },
-        }),
-        prisma.customerVisit.count({
-          where: { hostedBy: exec.id, status: "COMPLETED", checkOutTime: { gte: monthStart, lte: monthEnd }, companyId, deletedAt: null },
-        }),
-        prisma.followUp.count({
-          where: { completedById: exec.id, status: "Completed", completedAt: { gte: monthStart, lte: monthEnd }, companyId, deletedAt: null },
-        }),
-        prisma.deal.count({
-          where: { assignedUserId: exec.id, status: "Won", updatedAt: { gte: monthStart, lte: monthEnd }, companyId, deletedAt: null },
-        }),
+      const [leadsCount, pipelineValue, quotationsSent, visitsCompleted, dealsWonValue, execTarget] = await Promise.all([
+        prisma.lead.count({ where: { assignedUserId: exec.id, companyId, deletedAt: null, status: { notIn: ["Converted", "Lost", "Disqualified"] } } }),
+        prisma.deal.aggregate({ where: { assignedUserId: exec.id, companyId, deletedAt: null, status: { notIn: ["Won", "Lost"] } }, _sum: { dealValue: true } }),
+        prisma.quotation.count({ where: { createdById: exec.id, companyId, deletedAt: null, sentAt: { gte: monthStart, lte: monthEnd } } }),
+        prisma.customerVisit.count({ where: { hostedBy: exec.id, companyId, deletedAt: null, status: "COMPLETED", checkOutTime: { gte: monthStart, lte: monthEnd } } }),
+        prisma.deal.aggregate({ where: { assignedUserId: exec.id, companyId, deletedAt: null, status: "Won", updatedAt: { gte: monthStart, lte: monthEnd } }, _sum: { dealValue: true } }),
+        prisma.salesTarget.findFirst({ where: { assignedUserId: exec.id, companyId, targetType: "Monthly", period: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}` }, select: { targetAmount: true } }),
       ]);
-      return { id: exec.id, name: exec.name, leadsAssigned, visitsDone, followUpsDone, dealsWon };
+      const execAchieved = dealsWonValue._sum.dealValue || 0;
+      const execTargetAmount = execTarget?.targetAmount || 0;
+      return {
+        user_id: exec.id,
+        full_name: exec.name,
+        leads_count: leadsCount,
+        pipeline_value: pipelineValue._sum.dealValue || 0,
+        quotations_sent: quotationsSent,
+        visits_completed: visitsCompleted,
+        achievement_pct: execTargetAmount > 0 ? Math.round((execAchieved / execTargetAmount) * 1000) / 10 : 0,
+      };
     })
   );
 
-  // Row 4 — Recent Activity (last 10)
-  const recentLogs = await prisma.communicationLog.findMany({
-    where: { companyId, deletedAt: null },
-    include: {
-      customer: { select: { id: true, name: true } },
-      lead: { select: { id: true, name: true } },
-      sentByUser: { select: { id: true, name: true } },
-    },
-    orderBy: { sentAt: "desc" },
-    take: 10,
-  });
+  const lastWeekLeads = await prisma.lead.count({ where: { ...baseFilter, createdAt: { gte: weekStart, lte: weekEnd } } });
 
-  const recentVisits = await prisma.customerVisit.findMany({
-    where: { companyId, deletedAt: null, status: "COMPLETED" },
-    include: { customer: { select: { id: true, name: true } }, host: { select: { id: true, name: true } } },
-    orderBy: { checkOutTime: "desc" },
-    take: 10,
-  });
-
-  const recentActivity: any[] = [];
-  for (const log of recentLogs) {
-    recentActivity.push({
-      type: log.channel,
-      actor: log.sentByUser?.name || "System",
-      description: `${log.channel} — ${log.customer?.name || log.lead?.name || "Unknown"}`,
-      timestamp: log.sentAt,
-    });
-  }
-  for (const v of recentVisits) {
-    recentActivity.push({
-      type: "Visit",
-      actor: v.host?.name || "System",
-      description: `Visited ${v.customer?.name || "Unknown"}`,
-      timestamp: v.checkOutTime || v.createdAt,
-    });
-  }
-  recentActivity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  const recentActivityTop10 = recentActivity.slice(0, 10);
-
-  // Row 5 — RFQ to PO Funnel (all-time)
-  const [rfqsReceived, quotationsCreated, quotationsAcceptedAllTime] = await Promise.all([
-    prisma.rFQ.count({ where: { companyId, deletedAt: null } }),
-    prisma.quotation.count({ where: { companyId, deletedAt: null, status: { not: "Draft" } } }),
-    prisma.quotation.count({ where: { companyId, deletedAt: null, status: "Accepted" } }),
-  ]);
-
-  const funnel = {
-    rfqsReceived,
-    quotationsCreated,
-    quotationsAccepted: quotationsAcceptedAllTime,
-    pos: null, // Placeholder for Variant 3
+  const data = {
+    leads: { new_today: newLeadsToday, total_open: totalOpenLeads, overdue: overdueLeads, sql: sqlLeads, trend_last_week: lastWeekLeads },
+    followups: { due_today: followupsDueToday, overdue: followupsOverdue, pending: followupsPending },
+    tasks: { pending: tasksPending, overdue: tasksOverdue, due_today: tasksDueToday },
+    pipeline: { total_value: totalPipelineValue, weighted_value: weightedPipelineValue, by_stage: byStage },
+    quotations: { sent_this_month: quotationsSentMonth, accepted_this_month: quotationsAcceptedMonth, expiring_7_days: quotationsExpiring7, total_value_sent: quotationsSentValue._sum.finalAmount || 0, total_value_accepted: quotationsAcceptedValue._sum.finalAmount || 0 },
+    rfqs: { pending_costing: rfqsPendingCosting, overdue_due_date: rfqsOverdue },
+    visits: { planned_today: visitsPlannedToday, completed_this_week: visitsCompletedWeek, missed_this_month: visitsMissedMonth },
+    target: { monthly_target: monthlyTarget, achieved, achievement_pct: achievementPct, days_remaining_in_month: daysRemainingInMonth },
+    team_performance: teamPerformance,
+    win_rate: winRate,
+    avg_sales_cycle_days: avgSalesCycleDays,
   };
 
-  const data = { kpis, pipelineByStage, teamPerformance, recentActivity: recentActivityTop10, funnel };
-  cache = { data, timestamp: Date.now() };
-
-  return NextResponse.json({ success: true, data, cached: false });
+  return NextResponse.json({ success: true, data });
 }

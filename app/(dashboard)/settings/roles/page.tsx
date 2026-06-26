@@ -36,7 +36,8 @@ export default function RolesSettingsPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      if (user.role !== "Admin") {
+      if (user.role !== "Admin" && user.role !== "SalesManager") {
+        toast.error("You do not have permission to view this page");
         router.replace("/dashboard");
       } else {
         loadData();

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useToast } from "@/components/ToastProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import PageContainer from "@/components/PageContainer";
+import { CRMSpinner } from "@/components/CRMSpinner";
 
 const statusColors: Record<string, string> = {
   Active: "bg-green-50 text-green-700",
@@ -60,7 +61,9 @@ export default function KeyAccountRelationshipsPage() {
       </div>
 
       {loading ? (
-        <div className="py-12 text-center text-sm text-gray-500">Loading...</div>
+        <div className="flex justify-center py-12">
+          <CRMSpinner size={36} label="Loading..." />
+        </div>
       ) : keyAccounts.length === 0 ? (
         <div className="py-12 text-center text-sm text-gray-500">No key accounts found.</div>
       ) : (

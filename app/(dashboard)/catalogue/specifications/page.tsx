@@ -1,24 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useAuth } from "@/components/AuthProvider";
+import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/components/ToastProvider";
-import PageContainer from "@/components/PageContainer";
-
-const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
-  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d={d} />
-  </svg>
-);
-
-const icons = {
-  search: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
-  edit: "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7 M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
-  x: "M6 18L18 6M6 6l12 12",
-  plus: "M12 4v16m8-8H4",
-  chevronUp: "M18 15l-6-6m0 0l-6 6",
-  chevronDown: "M6 9l6 6m0 0l6-6",
-};
+import { PageShell } from "@/components/ui/PageShell";
+import { Input } from "@/components/ui/FormField";
+import { cn } from "@/lib/ui-utils";
+import {
+  Search, Plus, Trash2, ChevronUp, ChevronDown, SlidersHorizontal,
+  Package,
+} from "lucide-react";
 
 export default function SpecificationsPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -26,74 +16,50 @@ export default function SpecificationsPage() {
   const [specs, setSpecs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [formLoading, setFormLoading] = useState(false);
-  const { user } = useAuth();
+  const [productSearch, setProductSearch] = useState("");
   const toast = useToast();
 
-  const [specForm, setSpecForm] = useState({
-    specKey: "",
-    specValue: "",
-    unit: "",
-  });
+  const [specForm, setSpecForm] = useState({ specKey: "", specValue: "", unit: "" });
 
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/catalogue/products");
       const data = await res.json();
       if (data.success && data.data) {
         setProducts(data.data);
-        if (data.data.length > 0) {
-          setSelectedProductId(data.data[0].id);
-        }
+        if (data.data.length > 0) setSelectedProductId(data.data[0].id);
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
+      console.error("Failed to load products");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadSpecs = async (productId: string) => {
+  const loadSpecs = useCallback(async (productId: string) => {
     try {
       const res = await fetch(`/api/catalogue/products/${productId}/specs`);
       const data = await res.json();
-      if (data.success && data.data) {
-        setSpecs(data.data);
-      }
-    } catch (err) {
-      console.error(err);
+      if (data.success && data.data) setSpecs(data.data);
+    } catch {
+      console.error("Failed to load specs");
     }
-  };
-
-  useEffect(() => {
-    loadProducts();
   }, []);
 
-  useEffect(() => {
-    if (selectedProductId) {
-      loadSpecs(selectedProductId);
-    }
-  }, [selectedProductId]);
+  useEffect(() => { loadProducts(); }, [loadProducts]);
+  useEffect(() => { if (selectedProductId) loadSpecs(selectedProductId); }, [selectedProductId, loadSpecs]);
 
   const handleAddSpec = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProductId) {
-      toast.error("Please select a product first");
-      return;
-    }
-    if (!specForm.specKey || !specForm.specValue) {
-      toast.error("Please fill in spec key and value");
-      return;
-    }
+    if (!selectedProductId) { toast.error("Please select a product first"); return; }
+    if (!specForm.specKey || !specForm.specValue) { toast.error("Please fill in spec key and value"); return; }
     setFormLoading(true);
     try {
       const res = await fetch(`/api/catalogue/products/${selectedProductId}/specs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...specForm,
-          displayOrder: specs.length,
-        }),
+        body: JSON.stringify({ ...specForm, displayOrder: specs.length }),
       });
       const data = await res.json();
       if (data.success) {
@@ -103,8 +69,7 @@ export default function SpecificationsPage() {
       } else {
         toast.error(data.message || "Failed to add specification");
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error("Failed to add specification");
     } finally {
       setFormLoading(false);
@@ -113,78 +78,93 @@ export default function SpecificationsPage() {
 
   const handleDeleteSpec = async (specId: string) => {
     try {
-      const res = await fetch(`/api/catalogue/products/${selectedProductId}/specs/${specId}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`/api/catalogue/products/${selectedProductId}/specs/${specId}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
-        toast.success("Specification deleted successfully");
+        toast.success("Specification deleted");
         loadSpecs(selectedProductId);
       } else {
         toast.error(data.message || "Failed to delete specification");
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error("Failed to delete specification");
     }
   };
 
   const handleReorder = async (specId: string, newOrder: number) => {
+    const spec = specs.find((s) => s.id === specId);
+    if (!spec) return;
     try {
       const res = await fetch(`/api/catalogue/products/${selectedProductId}/specs/${specId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          specKey: specs.find((s: any) => s.id === specId)?.specKey,
-          specValue: specs.find((s: any) => s.id === specId)?.specValue,
-          unit: specs.find((s: any) => s.id === specId)?.unit,
-          displayOrder: newOrder,
-        }),
+        body: JSON.stringify({ specKey: spec.specKey, specValue: spec.specValue, unit: spec.unit, displayOrder: newOrder }),
       });
       const data = await res.json();
-      if (data.success) {
-        loadSpecs(selectedProductId);
-      } else {
-        toast.error("Failed to reorder specification");
-      }
-    } catch (err) {
-      console.error(err);
+      if (data.success) loadSpecs(selectedProductId);
+      else toast.error("Failed to reorder specification");
+    } catch {
       toast.error("Failed to reorder specification");
     }
   };
 
-  const selectedProduct = products.find((p: any) => p.id === selectedProductId);
+  const selectedProduct = products.find((p) => p.id === selectedProductId);
+  const filteredProducts = products.filter((p) =>
+    !productSearch ||
+    p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+    p.productCode.toLowerCase().includes(productSearch.toLowerCase())
+  );
 
   return (
-    <PageContainer>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Product Specifications</h1>
-        <p className="text and-slate-500 mt-1">Manage specifications for your products</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Product Selection */}
+    <PageShell
+      title="Specifications"
+      subtitle="Define and manage technical specifications for products"
+      breadcrumb={[{ label: "Product Catalogue", href: "/catalogue" }, { label: "Specifications" }]}
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-6">
+        {/* Product Selection Panel */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-lg border border-slate-200 p-4">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Select Product</h2>
+          <div className="crm-card p-4 sticky top-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Package size={18} className="text-slate-400" />
+              <h2 className="text-sm font-bold text-slate-800">Select Product</h2>
+            </div>
+            <div className="relative mb-3">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                className="input-field pl-9 text-sm"
+              />
+            </div>
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-transparent" />
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-300 border-t-transparent" />
               </div>
+            ) : filteredProducts.length === 0 ? (
+              <p className="text-center text-sm text-slate-400 py-8">No products found</p>
             ) : (
-              <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                {products.map((product) => (
+              <div className="space-y-1 max-h-[500px] overflow-y-auto pr-1">
+                {filteredProducts.map((product) => (
                   <button
                     key={product.id}
                     onClick={() => setSelectedProductId(product.id)}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors ${
+                    className={cn(
+                      "w-full text-left px-3 py-2.5 rounded-lg transition-all",
                       selectedProductId === product.id
-                        ? "bg-[var(--primary)] text-white"
-                        : "bg-white text-slate-700 hover:bg-slate-100"
-                    }`}
+                        ? "bg-[var(--accent-soft)] border border-[var(--accent)]/30"
+                        : "hover:bg-slate-50 border border-transparent"
+                    )}
                   >
-                    <div className="font-medium">{product.name}</div>
-                    <div className="text-xs text-slate-500">{product.productCode}</div>
+                    <div className={cn(
+                      "text-sm font-semibold truncate",
+                      selectedProductId === product.id ? "text-[var(--accent)]" : "text-slate-800"
+                    )}>
+                      {product.name}
+                    </div>
+                    <div className="text-xs text-slate-400 font-mono mt-0.5">{product.productCode}</div>
                   </button>
                 ))}
               </div>
@@ -192,95 +172,98 @@ export default function SpecificationsPage() {
           </div>
         </div>
 
-        {/* Specifications Management */}
+        {/* Specifications Panel */}
         <div className="lg:col-span-2">
           {selectedProduct ? (
-            <div className="bg-white rounded-lg border border-slate-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">{selectedProduct.name}</h2>
-                  <p className="text-sm text-slate-500">{selectedProduct.productCode}</p>
+            <div className="crm-card p-6">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
+                    <SlidersHorizontal size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900">{selectedProduct.name}</h2>
+                    <p className="text-xs text-slate-400 font-mono">{selectedProduct.productCode}</p>
+                  </div>
                 </div>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${selectedProduct.isActive ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-800"}`}>
+                <span className={cn(
+                  "inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold",
+                  selectedProduct.isActive ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"
+                )}>
                   {selectedProduct.isActive ? "Active" : "Inactive"}
                 </span>
               </div>
 
-              <form onSubmit={handleAddSpec} className="flex gap-3 mb-6">
-                <input
-                  type="text"
+              {/* Add Spec Form */}
+              <form onSubmit={handleAddSpec} className="flex flex-col sm:flex-row gap-2.5 mb-5">
+                <Input
                   value={specForm.specKey}
                   onChange={(e) => setSpecForm({ ...specForm, specKey: e.target.value })}
-                  placeholder="Specification Key (e.g., Weight)"
-                  className="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                  placeholder="Spec Key (e.g. Weight)"
+                  className="flex-1"
                 />
-                <input
-                  type="text"
+                <Input
                   value={specForm.specValue}
                   onChange={(e) => setSpecForm({ ...specForm, specValue: e.target.value })}
-                  placeholder="Value (e.g., 10kg)"
-                  className="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                  placeholder="Value (e.g. 10)"
+                  className="flex-1"
                 />
-                <input
-                  type="text"
+                <Input
                   value={specForm.unit}
                   onChange={(e) => setSpecForm({ ...specForm, unit: e.target.value })}
-                  placeholder="Unit (e.g., kg)"
-                  className="w-32 px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                  placeholder="Unit (e.g. kg)"
+                  className="w-full sm:w-32"
                 />
-                <button
-                  type="submit"
-                  disabled={formLoading}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-                >
-                  <Ico d={icons.plus} size={18} />
-                  Add
+                <button type="submit" disabled={formLoading} className="btn-primary shrink-0">
+                  <Plus size={16} />
+                  {formLoading ? "Adding..." : "Add"}
                 </button>
               </form>
 
+              {/* Specs List */}
               {specs.length === 0 ? (
-                <p className="text-slate-500 text-center py-8">No specifications added yet</p>
+                <div className="text-center py-10">
+                  <SlidersHorizontal size={32} className="mx-auto text-slate-300 mb-2" />
+                  <p className="text-sm text-slate-500 font-medium">No specifications yet</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Add specifications using the form above</p>
+                </div>
               ) : (
                 <div className="space-y-2">
                   {specs.map((spec, index) => (
                     <div
                       key={spec.id}
-                      className="flex items-center gap-3 px-4 py-3 rounded-lg bg-white border border-slate-200"
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50/50 border border-slate-100 hover:border-slate-200 transition-colors"
                     >
-                      <span className="text-slate-500 text-sm w-6">{index + 1}</span>
-                      <div className="flex-1">
-                        <div className="font-medium text-slate-900">{spec.specKey}</div>
-                        <div className="text-sm text-slate-500">
-                          {spec.specValue} {spec.unit && `(${spec.unit})`}
+                      <span className="text-slate-400 text-sm font-mono w-6 text-center">{index + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-800 text-sm truncate">{spec.specKey}</div>
+                        <div className="text-sm text-slate-500 truncate">
+                          {spec.specValue}{spec.unit && <span className="text-slate-400 ml-1">{spec.unit}</span>}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 shrink-0">
                         <button
-                          onClick={() => {
-                            if (index > 0) handleReorder(spec.id, index);
-                          }}
+                          onClick={() => index > 0 && handleReorder(spec.id, index)}
                           disabled={index === 0}
-                          className="p-1.5 rounded hover:bg-slate-100 text-slate-500 hover:text-white transition-colors disabled:opacity-30"
+                          className="action-icon-btn disabled:opacity-30 disabled:cursor-not-allowed"
                           title="Move Up"
                         >
-                          <Ico d={icons.chevronUp} size={16} />
+                          <ChevronUp size={15} />
                         </button>
                         <button
-                          onClick={() => {
-                            if (index < specs.length - 1) handleReorder(spec.id, index + 2);
-                          }}
+                          onClick={() => index < specs.length - 1 && handleReorder(spec.id, index + 2)}
                           disabled={index === specs.length - 1}
-                          className="p-1.5 rounded hover:bg-slate-100 text-slate-500 hover:text-white transition-colors disabled:opacity-30"
+                          className="action-icon-btn disabled:opacity-30 disabled:cursor-not-allowed"
                           title="Move Down"
                         >
-                          <Ico d={icons.chevronDown} size={16} />
+                          <ChevronDown size={15} />
                         </button>
                         <button
                           onClick={() => handleDeleteSpec(spec.id)}
-                          className="p-1.5 rounded hover:bg-red-50 text-red-600 hover:text-red-600 transition-colors"
+                          className="action-icon-btn text-rose-500 hover:bg-rose-50"
                           title="Delete"
                         >
-                          <Ico d={icons.x} size={16} />
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </div>
@@ -289,12 +272,13 @@ export default function SpecificationsPage() {
               )}
             </div>
           ) : (
-            <div className="bg-white rounded-lg border border-slate-200 p-6 text-center">
-              <p className="text-slate-500">Select a product to manage its specifications</p>
+            <div className="crm-card p-12 text-center">
+              <SlidersHorizontal size={40} className="mx-auto text-slate-300 mb-3" />
+              <p className="text-slate-500 font-medium">Select a product to manage specifications</p>
             </div>
           )}
         </div>
       </div>
-    </PageContainer>
+    </PageShell>
   );
 }

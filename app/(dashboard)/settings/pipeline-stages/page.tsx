@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ToastProvider";
 import PageContainer from "@/components/PageContainer";
+import { CRMSpinner } from "@/components/CRMSpinner";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
   <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -107,7 +108,13 @@ export default function PipelineStagesSettingsPage() {
             <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Actions</th>
           </tr></thead>
           <tbody>
-            {loading ? <tr><td colSpan={5} className="text-center py-8 text-slate-400">Loading...</td></tr>
+            {loading ? <tr>
+              <td colSpan={5} className="py-12 text-center">
+                <div className="flex justify-center">
+                  <CRMSpinner size={36} label="Loading..." />
+                </div>
+              </td>
+            </tr>
             : stages.length === 0 ? <tr><td colSpan={5} className="text-center py-8 text-slate-400">No stages configured</td></tr>
             : stages.map((stage, idx) => (
               <tr key={stage.id} className={`border-b border-slate-100 hover:bg-slate-50/50 ${!stage.isActive ? "opacity-50" : ""}`}>

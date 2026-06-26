@@ -24,7 +24,7 @@ export default function ProposalDetailPage({ params }: { params: Promise<{ id: s
   const toast = useToast();
   const { user } = useAuth();
   const { formatCurrency, preferredCurrency } = useCurrency();
-  const currencySymbol = CURRENCY_SYMBOLS[preferredCurrency as keyof typeof CURRENCY_SYMBOLS] || "â‚¹";
+  const currencySymbol = CURRENCY_SYMBOLS[preferredCurrency as keyof typeof CURRENCY_SYMBOLS] || "₹";
 
   const [proposal, setProposal] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -114,7 +114,7 @@ export default function ProposalDetailPage({ params }: { params: Promise<{ id: s
     id: v.id,
     type: "Version Created",
     title: `Version ${v.versionNumber}`,
-    description: `Created by ${v.changedBy?.name || "System"} â€¢ Status: ${formatStatus(v.status)} â€¢ Value: ${formatCurrency(v.value)}`,
+    description: `Created by ${v.changedBy?.name || "System"} • Status: ${formatStatus(v.status)} • Value: ${formatCurrency(v.value)}`,
     timestamp: v.createdAt,
     color: v.status === "Accepted" ? "green" : v.status === "Rejected" ? "red" : "brand"
   }));
@@ -145,7 +145,7 @@ export default function ProposalDetailPage({ params }: { params: Promise<{ id: s
               </div>
               <div className="flex items-center gap-3 mt-1.5 text-sm font-medium text-slate-600">
                 <span>Customer: <span className="font-bold text-slate-800">{proposal.customer?.name}</span></span>
-                {proposal.deal && <span>â€¢ Deal: <span className="font-bold text-slate-800">{proposal.deal.dealName}</span></span>}
+                {proposal.deal && <span>• Deal: <span className="font-bold text-slate-800">{proposal.deal.dealName}</span></span>}
               </div>
             </div>
           </div>

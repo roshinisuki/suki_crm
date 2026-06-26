@@ -6,6 +6,7 @@ import Link from "next/link";
 import { PageShell } from "@/components/ui/PageShell";
 import PageContainer from "@/components/PageContainer";
 import { useAuth } from "@/components/AuthProvider";
+import { CRMSpinner } from "@/components/CRMSpinner";
 import {
   BarChart3, TrendingUp, PieChart, Activity, FileText, Clock, CheckCircle,
   AlertCircle, Download, ArrowRight, Users, ShoppingBag, Stethoscope, Gavel,
@@ -136,7 +137,7 @@ function ReportsDirectoryContent() {
 
 export default function ReportsPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-sm text-slate-400">Loading reports...</div>}>
+    <Suspense fallback={<div className="flex justify-center py-12"><CRMSpinner size={36} label="Loading report..." /></div>}>
       <ReportsDirectoryContent />
     </Suspense>
   );

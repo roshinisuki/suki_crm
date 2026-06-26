@@ -46,10 +46,10 @@ export async function getContactsAction(params?: {
     const { search = "", status = "", contactType = "", customerId = "" } = params || {};
 
     // Role-based visibility: Finance/Management contacts are restricted.
-    // Only Admin, SalesManager, Finance, and Management roles may view them.
+    // Only Admin and SalesManager roles may view them.
     // SalesExecutive and other roles are excluded from these sensitive contacts.
     const restrictedTypes = ["Finance", "Management"];
-    const canViewRestricted = ["Admin", "SalesManager", "Finance", "Management", "SuperAdmin"].includes(user.role);
+    const canViewRestricted = ["Admin", "SalesManager", "SuperAdmin"].includes(user.role);
 
     const contacts = await prisma.contact.findMany({
       where: {
@@ -94,10 +94,20 @@ export async function getContactByIdAction(id: string) {
     const contact = await prisma.contact.findUnique({
       where: { id, deletedAt: null },
       include: {
-        customer: { select: { id: true, name: true, customerCode: true } },
+        customer: { select: { id: true, name: true, customerCode: true, city: true, status: true, accountType: true, industryType: true, phone: true, email: true } },
         Task: {
           include: { User: { select: { id: true, name: true } } },
           orderBy: { createdAt: "desc" },
+        },
+        rfqs: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, rfqCode: true, status: true, requirementDetails: true, createdAt: true },
+        },
+        quotations: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, quotationCode: true, status: true, totalAmount: true, createdAt: true },
         },
       },
     });
@@ -108,7 +118,7 @@ export async function getContactByIdAction(id: string) {
 
     // Role-based visibility: block Finance/Management contacts for unauthorized roles
     const restrictedTypes = ["Finance", "Management"];
-    const canViewRestricted = ["Admin", "SalesManager", "Finance", "Management", "SuperAdmin"].includes(user.role);
+    const canViewRestricted = ["Admin", "SalesManager", "SuperAdmin"].includes(user.role);
     if (!canViewRestricted && restrictedTypes.includes(contact.contactType)) {
       return { success: false, message: "Unauthorized: You do not have permission to view this contact." };
     }
@@ -203,7 +213,7 @@ export async function updateContactAction(id: string, input: Partial<ContactInpu
 export async function deleteContactAction(id: string) {
   try {
     const user = await verifyAuth();
-    if (!user || user.role === "Customer") {
+    if (!user || user.role === "Customer" || user.role === "SalesExecutive") {
       return { success: false, message: "Unauthorized" };
     }
 

@@ -109,6 +109,19 @@ export async function getCustomerByIdAction(id: string) {
       where: { id },
       include: {
         subscriptions: true,
+        contacts: {
+          where: { deletedAt: null },
+          orderBy: { isPrimary: "desc" },
+        },
+        quotations: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "desc" },
+        },
+        rfqs: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "desc" },
+        },
+        assignedUser: { select: { id: true, name: true, email: true } },
         followUps: {
           orderBy: { createdAt: "desc" },
           include: {
@@ -190,7 +203,7 @@ export async function getCustomerByIdAction(id: string) {
         ...v,
         createdAt: v.createdAt.toISOString(),
         updatedAt: v.updatedAt.toISOString(),
-        checkInTime: v.checkInTime.toISOString(),
+        checkInTime: v.checkInTime?.toISOString() || null,
         checkOutTime: v.checkOutTime?.toISOString() || null,
       })),
       deals: customer.deals.map(d => ({
@@ -228,33 +241,41 @@ export async function createCustomerAction(data: any) {
       return { success: false, message: "Unauthorized: SuperAdmin must access business data via support/impersonation mode." };
     }
 
-    let { customerCode, name, email, phone, city, status, assignedUserId, leadSource } = data;
+    let { customerCode, name, email, phone, city, status, assignedUserId, leadSource, gstNumber, accountType, industryType, billingAddress, shippingAddress, creditLimit, creditTermsDays } = data;
 
     // Normalize empty strings to null for unique constraints
     email = email?.trim() || null;
     phone = phone?.trim() || null;
     city = city?.trim() || null;
+    gstNumber = gstNumber?.trim() || null;
 
     if (!name) {
       return { success: false, message: "Customer Name is required" };
     }
 
-    if (!customerCode || customerCode.trim() === "") {
-      let isUnique = false;
-      let attempts = 0;
-      while (!isUnique && attempts < 5) {
-        const randomDigits = Math.floor(10000 + Math.random() * 90000);
-        customerCode = `CUST-M${randomDigits}`;
-        const existing = await prisma.customer.findFirst({
-          where: { customerCode, companyId: userPayload.companyId },
-        });
-        if (!existing) {
-          isUnique = true;
-        }
-        attempts++;
+    // GSTIN validation (15-char format) - optional but unique if provided
+    if (gstNumber) {
+      const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+      if (!gstinRegex.test(gstNumber)) {
+        return { success: false, message: "Invalid GSTIN format. Expected 15 characters: 2 digits + 5 letters + 4 digits + 1 letter + 1 alphanumeric + Z + 1 alphanumeric" };
       }
-      if (!isUnique) {
-        customerCode = `CUST-M${Date.now().toString().slice(-5)}`;
+      const existingGst = await prisma.customer.findFirst({
+        where: { gstNumber, companyId: userPayload.companyId },
+      });
+      if (existingGst) {
+        return { success: false, message: "GSTIN must be unique within company" };
+      }
+    }
+
+    // Generate ACC-NNNNN format if not provided
+    if (!customerCode || customerCode.trim() === "") {
+      const count = await prisma.customer.count({ where: { companyId: userPayload.companyId } });
+      customerCode = `ACC-${String(count + 1).padStart(5, "0")}`;
+    } else {
+      // Validate provided format
+      const accCodeRegex = /^ACC-\d{5}$/;
+      if (!accCodeRegex.test(customerCode)) {
+        return { success: false, message: "Customer Code must be in format ACC-NNNNN" };
       }
     }
 
@@ -286,10 +307,29 @@ export async function createCustomerAction(data: any) {
         email,
         phone,
         city,
-        status: status || "Active",
+        status: status || "Prospect",
         assignedUserId: finalAssignedUserId,
         leadSource: leadSource || null,
         companyId: userPayload.companyId,
+        // V2 fields
+        gstNumber,
+        accountType: accountType || "Prospect",
+        industryType,
+        billingAddress,
+        shippingAddress,
+        creditLimit: creditLimit ?? 0,
+        creditTermsDays: creditTermsDays ?? 30,
+      },
+    });
+
+    // Insert account_status_history for initial status
+    await prisma.accountStatusHistory.create({
+      data: {
+        customerId: newCustomer.id,
+        fromStatus: null,
+        toStatus: newCustomer.status,
+        changedById: userPayload.id,
+        changedAt: new Date(),
       },
     });
 
@@ -339,12 +379,13 @@ export async function updateCustomerAction(data: any) {
       return { success: false, message: "Unauthorized: SuperAdmin must access business data via support/impersonation mode." };
     }
 
-    let { id, customerCode, name, email, phone, city, status, assignedUserId, leadSource } = data;
+    let { id, customerCode, name, email, phone, city, status, assignedUserId, leadSource, gstNumber, accountType, industryType, billingAddress, shippingAddress, creditLimit, creditTermsDays } = data;
 
     // Normalize empty strings to null for unique constraints
     email = email?.trim() || null;
     phone = phone?.trim() || null;
     city = city?.trim() || null;
+    gstNumber = gstNumber?.trim() || null;
 
     if (!id || !customerCode || !name) {
       return { success: false, message: "ID, Customer Code and Name are required" };
@@ -358,6 +399,59 @@ export async function updateCustomerAction(data: any) {
     // Access scope check
     if (!checkRecordScope(userPayload, currentCustomer, "Customer")) {
       return { success: false, message: "Unauthorized: Access denied." };
+    }
+
+    // GSTIN validation if changed
+    if (gstNumber && gstNumber !== currentCustomer.gstNumber) {
+      const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+      if (!gstinRegex.test(gstNumber)) {
+        return { success: false, message: "Invalid GSTIN format" };
+      }
+      const existingGst = await prisma.customer.findFirst({
+        where: { gstNumber, id: { not: id }, companyId: userPayload.companyId },
+      });
+      if (existingGst) {
+        return { success: false, message: "GSTIN must be unique within company" };
+      }
+    }
+
+    // Credit limit change validation (Admin only)
+    const creditLimitChanged = creditLimit !== undefined && creditLimit !== currentCustomer.creditLimit;
+    const creditTermsChanged = creditTermsDays !== undefined && creditTermsDays !== currentCustomer.creditTermsDays;
+    if ((creditLimitChanged || creditTermsChanged) && userPayload.role !== "Admin") {
+      return { success: false, message: "Only Admin role can modify credit limits" };
+    }
+
+    // Status change validation - block Inactive if open deals exist
+    const statusChanged = status !== undefined && status !== currentCustomer.status;
+    if (statusChanged && status === "Inactive") {
+      // Check for open opportunities (not Won/Lost)
+      const openDeals = await prisma.deal.count({
+        where: {
+          customerId: id,
+          status: { notIn: ["Won", "Lost"] },
+        },
+      });
+      // Check for pending RFQs
+      const pendingRfqs = await prisma.rFQ.count({
+        where: {
+          customerId: id,
+          status: { not: "Closed" },
+          deletedAt: null,
+        },
+      });
+      // Check for pending quotations
+      const pendingQuotations = await prisma.quotation.count({
+        where: {
+          customerId: id,
+          status: { notIn: ["Accepted", "Rejected", "Expired", "Cancelled"] },
+          deletedAt: null,
+        },
+      });
+
+      if (openDeals > 0 || pendingRfqs > 0 || pendingQuotations > 0) {
+        return { success: false, message: "Cannot deactivate account with open opportunities, pending RFQs, or pending quotations" };
+      }
     }
 
     const oldEmail = currentCustomer.email;
@@ -382,11 +476,47 @@ export async function updateCustomerAction(data: any) {
         email,
         phone,
         city,
-        status,
+        status: status !== undefined ? status : currentCustomer.status,
         assignedUserId: finalAssignedUserId,
-        leadSource: leadSource || null,
+        leadSource: leadSource !== undefined ? leadSource : currentCustomer.leadSource,
+        // V2 fields
+        ...(gstNumber !== undefined && { gstNumber }),
+        ...(accountType !== undefined && { accountType }),
+        ...(industryType !== undefined && { industryType }),
+        ...(billingAddress !== undefined && { billingAddress }),
+        ...(shippingAddress !== undefined && { shippingAddress }),
+        ...(creditLimit !== undefined && { creditLimit }),
+        ...(creditTermsDays !== undefined && { creditTermsDays }),
       },
     });
+
+    // Insert account_credit_history on credit change
+    if (creditLimitChanged || creditTermsChanged) {
+      await prisma.accountCreditHistory.create({
+        data: {
+          customerId: id,
+          oldCreditLimit: currentCustomer.creditLimit,
+          newCreditLimit: updatedCustomer.creditLimit,
+          oldTermsDays: currentCustomer.creditTermsDays,
+          newTermsDays: updatedCustomer.creditTermsDays,
+          approvedById: userPayload.id,
+          changedAt: new Date(),
+        },
+      });
+    }
+
+    // Insert account_status_history on status change
+    if (statusChanged) {
+      await prisma.accountStatusHistory.create({
+        data: {
+          customerId: id,
+          fromStatus: currentCustomer.status,
+          toStatus: updatedCustomer.status,
+          changedById: userPayload.id,
+          changedAt: new Date(),
+        },
+      });
+    }
 
     if (oldEmail && oldEmail !== email && email) {
       const portalUser = await prisma.user.findFirst({
@@ -400,10 +530,38 @@ export async function updateCustomerAction(data: any) {
       }
     }
 
-    // Compute state-diff for audit trail
+    // Compute state-diff for audit trail (including V2 fields)
     const { before, after } = computeDiff(
-      { name: currentCustomer.name, email: currentCustomer.email, phone: currentCustomer.phone, city: currentCustomer.city, status: currentCustomer.status, assignedUserId: currentCustomer.assignedUserId },
-      { name: updatedCustomer.name, email: updatedCustomer.email, phone: updatedCustomer.phone, city: updatedCustomer.city, status: updatedCustomer.status, assignedUserId: updatedCustomer.assignedUserId }
+      {
+        name: currentCustomer.name,
+        email: currentCustomer.email,
+        phone: currentCustomer.phone,
+        city: currentCustomer.city,
+        status: currentCustomer.status,
+        assignedUserId: currentCustomer.assignedUserId,
+        gstNumber: currentCustomer.gstNumber,
+        accountType: currentCustomer.accountType,
+        industryType: currentCustomer.industryType,
+        billingAddress: currentCustomer.billingAddress,
+        shippingAddress: currentCustomer.shippingAddress,
+        creditLimit: currentCustomer.creditLimit,
+        creditTermsDays: currentCustomer.creditTermsDays,
+      },
+      {
+        name: updatedCustomer.name,
+        email: updatedCustomer.email,
+        phone: updatedCustomer.phone,
+        city: updatedCustomer.city,
+        status: updatedCustomer.status,
+        assignedUserId: updatedCustomer.assignedUserId,
+        gstNumber: updatedCustomer.gstNumber,
+        accountType: updatedCustomer.accountType,
+        industryType: updatedCustomer.industryType,
+        billingAddress: updatedCustomer.billingAddress,
+        shippingAddress: updatedCustomer.shippingAddress,
+        creditLimit: updatedCustomer.creditLimit,
+        creditTermsDays: updatedCustomer.creditTermsDays,
+      }
     );
 
     await logAudit(
@@ -429,7 +587,7 @@ export async function updateCustomerAction(data: any) {
 export async function deleteCustomersAction(customerIds: string[]) {
   try {
     const userPayload = await verifyAuth();
-    if (!userPayload || !["Admin", "SalesManager", "SuperAdmin"].includes(userPayload.role)) {
+    if (!userPayload || !["Admin", "SuperAdmin"].includes(userPayload.role)) {
       return { success: false, message: "Unauthorized." };
     }
 

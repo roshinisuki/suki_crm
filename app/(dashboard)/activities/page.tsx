@@ -9,7 +9,8 @@ import { PageShell } from "@/components/ui/PageShell";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { ConfirmModal } from "@/components/ConfirmModal";
-import { Search, Filter, Plus, Phone, Video, StickyNote, Eye, Pencil, Trash2, Clock, Calendar, User, MessageSquare } from "lucide-react";
+import { CRMSpinner } from "@/components/CRMSpinner";
+import { Search, Filter, Plus, Phone, Video, StickyNote, Trash2, Clock, Calendar, User, MessageSquare } from "lucide-react";
 import { formatDate, cn } from "@/lib/ui-utils";
 
 type TabType = "calls" | "meetings" | "notes" | "emails" | "whatsapp";
@@ -172,7 +173,13 @@ export default function ActivitiesPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={7} className="py-10 text-center text-sm text-slate-400">Loading...</td></tr>
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center">
+                      <div className="flex justify-center">
+                        <CRMSpinner size={36} label="Loading activities..." />
+                      </div>
+                    </td>
+                  </tr>
                 ) : paginatedItems.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-16 text-center">
@@ -182,12 +189,16 @@ export default function ActivitiesPage() {
                   </tr>
                 ) : (
                   paginatedItems.map((item) => (
-                    <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors text-slate-600 text-sm">
+                    <tr
+                      key={item.id}
+                      className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors text-slate-600 text-sm table-row-clickable"
+                      onClick={() => router.push(`/activities/${item.id}`)}
+                    >
                       {activeTab === "calls" && (
                         <>
                           <td className="px-4 py-4 text-xs">{formatDate(item.sentAt)}</td>
                           <td className="px-4 py-4 text-xs">
-                            {item.customer?.name || item.lead?.name || "—"}
+                            <span className="row-primary-link">{item.customer?.name || item.lead?.name || "—"}</span>
                             {item.followUpId && <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium">FU</span>}
                           </td>
                           <td className="px-4 py-4"><span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100">{item.direction}</span></td>
@@ -200,7 +211,7 @@ export default function ActivitiesPage() {
                         <>
                           <td className="px-4 py-4 text-xs">{item.meetingDate ? formatDate(item.meetingDate) : formatDate(item.sentAt)}</td>
                           <td className="px-4 py-4 text-xs">
-                            {item.customer?.name || item.lead?.name || "—"}
+                            <span className="row-primary-link">{item.customer?.name || item.lead?.name || "—"}</span>
                             {item.followUpId && <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium">FU</span>}
                           </td>
                           <td className="px-4 py-4"><span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100">{item.mode || "—"}</span></td>
@@ -221,7 +232,7 @@ export default function ActivitiesPage() {
                       {activeTab === "emails" && (
                         <>
                           <td className="px-4 py-4 text-xs">{formatDate(item.sentAt)}</td>
-                          <td className="px-4 py-4 text-xs">{item.customer?.name || item.lead?.name || "—"}</td>
+                          <td className="px-4 py-4 text-xs"><span className="row-primary-link">{item.customer?.name || item.lead?.name || "—"}</span></td>
                           <td className="px-4 py-4"><span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100">{item.direction}</span></td>
                           <td className="px-4 py-4"><StatusBadge status={item.status} size="sm" /></td>
                           <td className="px-4 py-4 text-xs max-w-xs truncate">{item.content}</td>
@@ -230,16 +241,15 @@ export default function ActivitiesPage() {
                       {activeTab === "whatsapp" && (
                         <>
                           <td className="px-4 py-4 text-xs">{formatDate(item.sentAt)}</td>
-                          <td className="px-4 py-4 text-xs">{item.customer?.name || item.lead?.name || "—"}</td>
+                          <td className="px-4 py-4 text-xs"><span className="row-primary-link">{item.customer?.name || item.lead?.name || "—"}</span></td>
                           <td className="px-4 py-4"><span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100">{item.direction}</span></td>
                           <td className="px-4 py-4"><StatusBadge status={item.status} size="sm" /></td>
                           <td className="px-4 py-4 text-xs max-w-xs truncate">{item.content}</td>
                         </>
                       )}
-                      <td className="px-4 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => router.push(`/activities/${item.id}`)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-[var(--primary)] transition-colors" title="View"><Eye size={15} /></button>
-                          <button onClick={() => confirmDelete(item)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500 transition-colors" title="Delete"><Trash2 size={15} /></button>
+                      <td className="px-4 py-4 text-right" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button onClick={() => confirmDelete(item)} className="row-action-btn row-action-btn-danger" title="Delete"><Trash2 size={15} /></button>
                         </div>
                       </td>
                     </tr>

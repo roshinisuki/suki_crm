@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/ToastProvider";
 import PageContainer from "@/components/PageContainer";
+import { CRMSpinner } from "@/components/CRMSpinner";
 
 export default function KeyAccountVisitsPage() {
   const toast = useToast();
@@ -38,7 +39,9 @@ export default function KeyAccountVisitsPage() {
       </div>
 
       {loading ? (
-        <div className="py-12 text-center text-sm text-gray-500">Loading...</div>
+        <div className="flex justify-center py-12">
+          <CRMSpinner size={36} label="Loading..." />
+        </div>
       ) : data.length === 0 ? (
         <div className="py-12 text-center text-sm text-gray-500">No upcoming visits or reviews found.</div>
       ) : (

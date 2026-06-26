@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { dispatchNotification } from "@/lib/notifications";
 import { revalidatePath } from "next/cache";
 import * as crypto from "crypto";
 import jwt from "jsonwebtoken";
@@ -148,6 +149,25 @@ export async function loginWithPassword(email: string, password: string, remembe
 
       await prisma.user.update({ where: { id: user.id }, data: lockData });
       await logAudit(user.id, "AUTH", "LOGIN_FAILED", `Failed login attempt ${newAttempts} for ${user.email}`);
+
+      // On 5th failure: notify account locked
+      if (newAttempts >= 5) {
+        // Notify all admins about the lockout
+        const admins = await prisma.user.findMany({
+          where: { role: "Admin", isActive: true },
+          select: { id: true },
+        });
+        for (const admin of admins) {
+          await dispatchNotification({
+            userId: admin.id,
+            title: "Account Locked",
+            message: `Account ${user.email} has been locked due to 5 failed login attempts.`,
+            type: "security",
+            link: "/settings/users",
+          }).catch(() => {});
+        }
+      }
+
       return { success: false, message: "Invalid email or password." };
     }
 
@@ -604,8 +624,8 @@ export async function saveUserThemeModeAction(mode: string) {
 export async function updateCompanyVariantAction(variant: number) {
   try {
     const userPayload = await verifyAuth();
-    if (!userPayload || !["Admin", "SalesManager", "SuperAdmin"].includes(userPayload.role)) {
-      return { success: false, message: "Unauthorized: Admin or Sales Manager only" };
+    if (!userPayload || (userPayload.role !== "SuperAdmin" && userPayload.role !== "Admin")) {
+      return { success: false, message: "Unauthorized: Admin only" };
     }
 
     if (!userPayload.companyId) {

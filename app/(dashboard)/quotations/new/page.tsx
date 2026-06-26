@@ -6,6 +6,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useToast } from "@/components/ToastProvider";
 import PageContainer from "@/components/PageContainer";
+import { getCustomersAction } from "@/app/actions/customers";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
   <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -31,41 +32,107 @@ export default function NewQuotationPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [rfqs, setRfqs] = useState<any[]>([]);
   const [deals, setDeals] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
+  const [loadingContext, setLoadingContext] = useState(false);
+  const [contextError, setContextError] = useState<string | null>(null);
+  const [opportunityContext, setOpportunityContext] = useState<any>(null);
 
   const [form, setForm] = useState({
     customerId: "",
+    customerName: "",
     contactId: "",
     rfqId: "",
     dealId: "",
+    dealTitle: "",
+    opportunityCode: "",
     validUntil: "",
     discountPercent: "0",
     termsAndConditions: "",
+    assignedUserId: "",
   });
 
   const [items, setItems] = useState<any[]>([{ productId: "", description: "", quantity: "1", unitPrice: "0" }]);
 
   useEffect(() => {
-    fetch("/api/customer-master").then(res => res.json()).then(data => { if (data.success) setCustomers(data.data || []); });
-    fetch("/api/catalogue/products").then(res => res.json()).then(data => { if (data.success) setProducts(data.data || []); });
-    fetch("/api/rfq").then(res => res.json()).then(data => { if (data.success) setRfqs(data.data || []); });
-    fetch("/api/deals").then(res => res.json()).then(data => { if (data.success) setDeals(data.data || []); });
+    getCustomersAction().then(res => {
+      if (res.success && res.data) setCustomers(res.data as any[]);
+      else console.error("Failed to load customers:", res.message);
+    }).catch(err => console.error("Error loading customers:", err));
+    fetch("/api/catalogue/products").then(res => res.json()).then(data => { if (data.success) setProducts(data.data || []); else console.error("Failed to load products:", data.message); }).catch(err => console.error("Error loading products:", err));
+    fetch("/api/rfq").then(res => res.json()).then(data => { if (data.success) setRfqs(data.data || []); else console.error("Failed to load RFQs:", data.message); }).catch(err => console.error("Error loading RFQs:", err));
+    fetch("/api/deals").then(res => res.json()).then(data => { if (data.success) setDeals(data.data || []); else console.error("Failed to load deals:", data.message); }).catch(err => console.error("Error loading deals:", err));
+    fetch("/api/users").then(res => res.json()).then(data => { if (data.success) setUsers(data.data || []); else console.error("Failed to load users:", data.message); }).catch(err => console.error("Error loading users:", err));
 
     // Pre-fill from query params
     const rfqId = searchParams.get("rfqId");
     const customerId = searchParams.get("customerId");
     const contactId = searchParams.get("contactId");
     const productId = searchParams.get("productId");
+    const opportunityId = searchParams.get("opportunityId");
 
-    if (customerId) setForm(f => ({ ...f, customerId }));
-    if (contactId) setForm(f => ({ ...f, contactId }));
-    if (rfqId) setForm(f => ({ ...f, rfqId }));
+    if (opportunityId) {
+      fetchOpportunityContext(opportunityId);
+    } else {
+      if (customerId) setForm(f => ({ ...f, customerId }));
+      if (contactId) setForm(f => ({ ...f, contactId }));
+      if (rfqId) setForm(f => ({ ...f, rfqId }));
+    }
 
     if (productId) {
       setItems([{ productId, description: "", quantity: "1", unitPrice: "0" }]);
     }
   }, []);
+
+  async function fetchOpportunityContext(oppId: string) {
+    setLoadingContext(true);
+    setContextError(null);
+    try {
+      const res = await fetch(`/api/opportunities/${oppId}/context`);
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.message || "Failed to load opportunity context");
+      }
+      const json = await res.json();
+      const data = json.data;
+      setOpportunityContext(data);
+      setCustomerSearch(data.accountName || "");
+      setForm(prev => ({
+        ...prev,
+        customerId: data.accountId,
+        customerName: data.accountName,
+        contactId: data.contactId || "",
+        dealId: data.opportunityId,
+        dealTitle: data.dealTitle,
+        opportunityCode: data.opportunityCode,
+        rfqId: data.linkedRfqId || "",
+        assignedUserId: data.assignedUserId || "",
+        validUntil: getDefaultValidUntil(),
+      }));
+      // Pre-load contacts for the account so the contact dropdown is populated
+      if (data.accountId) {
+        fetch(`/api/contacts?customerId=${data.accountId}`).then(res => res.json()).then(contactData => {
+          if (contactData.success) setContacts(contactData.data || []);
+        });
+      }
+      // Pre-fill first line item product only if opportunity has a clearly associated product
+      if (data.primaryProductId) {
+        setItems([{ productId: data.primaryProductId, description: data.primaryProductName || "", quantity: "1", unitPrice: "0" }]);
+      }
+    } catch (err: any) {
+      console.error("Quotation context fetch failed:", err);
+      setContextError(err.message || "Could not load linked customer details — please select manually.");
+    } finally {
+      setLoadingContext(false);
+    }
+  }
+
+  function getDefaultValidUntil() {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().split("T")[0];
+  }
 
   useEffect(() => {
     if (form.customerId) {
@@ -98,13 +165,22 @@ export default function NewQuotationPage() {
 
     setSaving(true);
     try {
+      const { customerName, dealTitle, opportunityCode, ...submitForm } = form;
       const res = await fetch("/api/quotations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, items }),
+        body: JSON.stringify({ ...submitForm, items }),
       });
       const data = await res.json();
-      if (data.success) { toast.success("Quotation created"); router.push(`/quotations/${data.data.id}`); }
+      const opportunityId = searchParams.get("opportunityId");
+      if (data.success) {
+        toast.success("Quotation created");
+        if (opportunityId) {
+          router.push(`/sales-pipeline/${opportunityId}/opportunity-detail`);
+        } else {
+          router.push(`/quotations/${data.data.id}`);
+        }
+      }
       else toast.error(data.message || "Failed to create quotation");
     } catch { toast.error("Failed to create quotation"); }
     finally { setSaving(false); }
@@ -123,6 +199,27 @@ export default function NewQuotationPage() {
         <div><h1 className="text-2xl font-bold text-slate-800">New Quotation</h1><p className="text-sm text-slate-500 mt-0.5">Create a new quotation</p></div>
       </div>
 
+      {loadingContext && (
+        <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-6 space-y-5">
+          <div className="flex items-center gap-3 text-sm text-slate-500">
+            <div className="w-4 h-4 rounded-full border-2 border-[var(--primary)] border-t-transparent animate-spin" />
+            Loading opportunity details...
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="h-10 rounded-xl bg-slate-100 animate-pulse" />
+            <div className="h-10 rounded-xl bg-slate-100 animate-pulse" />
+            <div className="h-10 rounded-xl bg-slate-100 animate-pulse" />
+            <div className="h-10 rounded-xl bg-slate-100 animate-pulse" />
+          </div>
+        </div>
+      )}
+
+      {contextError && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+          {contextError}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-6 space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
@@ -132,12 +229,22 @@ export default function NewQuotationPage() {
               <option value="">-- Select Customer --</option>
               {filteredCustomers.map((c: any) => <option key={c.id} value={c.id}>{c.customerCode} - {c.name}</option>)}
             </select>
+            {searchParams.get("opportunityId") && form.dealTitle && (
+              <p className="text-[11px] text-slate-500 mt-1.5 flex items-center gap-1">
+                <span>🔗</span>
+                <span>Linked to: <strong>{form.dealTitle}</strong> ({form.opportunityCode})</span>
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Contact</label>
             <select value={form.contactId} onChange={(e) => setForm({ ...form, contactId: e.target.value })} disabled={!form.customerId} className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] cursor-pointer disabled:opacity-50">
               <option value="">-- Select Contact --</option>
-              {contacts.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {contacts.map((c: any) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}{c.designation ? ` — ${c.designation}` : ""}{c.isPrimary ? " (Primary)" : ""}
+                </option>
+              ))}
             </select>
           </div>
           <div>
@@ -149,14 +256,30 @@ export default function NewQuotationPage() {
           </div>
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Link to Deal</label>
-            <select value={form.dealId} onChange={(e) => setForm({ ...form, dealId: e.target.value })} className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] cursor-pointer">
-              <option value="">-- None --</option>
-              {deals.map((d: any) => <option key={d.id} value={d.id}>{d.dealName}</option>)}
-            </select>
+            {searchParams.get("opportunityId") ? (
+              <>
+                <select value={form.dealId} disabled className="w-full px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 text-sm text-slate-700 cursor-default disabled:opacity-100">
+                  <option value={form.dealId}>{form.dealTitle}</option>
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1.5">Deal auto-linked from opportunity</p>
+              </>
+            ) : (
+              <select value={form.dealId} onChange={(e) => setForm({ ...form, dealId: e.target.value })} className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] cursor-pointer">
+                <option value="">-- None --</option>
+                {deals.map((d: any) => <option key={d.id} value={d.id}>{d.dealName}</option>)}
+              </select>
+            )}
           </div>
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Valid Until *</label>
             <input type="date" value={form.validUntil} onChange={(e) => setForm({ ...form, validUntil: e.target.value })} required className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)]" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Assigned To</label>
+            <select value={form.assignedUserId} onChange={(e) => setForm({ ...form, assignedUserId: e.target.value })} className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] cursor-pointer">
+              <option value="">-- Select User --</option>
+              {users.map((u: any) => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
+            </select>
           </div>
         </div>
 

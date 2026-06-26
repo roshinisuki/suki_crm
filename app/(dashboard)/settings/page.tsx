@@ -364,7 +364,8 @@ export default function SettingsPage() {
     }
   };
 
-  const canAccessSettings = user?.role === "Admin" || user?.role === "SalesManager";
+  const canAccessSettings = user?.role === "Admin" || user?.role === "SuperAdmin";
+  const canEditVariant = user?.role === "SuperAdmin" || user?.role === "Admin";
 
   useEffect(() => {
     if (!authLoading && !canAccessSettings) {
@@ -450,25 +451,38 @@ export default function SettingsPage() {
             </div>
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">CRM Variant</label>
-              <div className="flex gap-2">
-                {[1, 2, 3, 4].map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => handleUpdateVariant(v)}
-                    disabled={updatingVariant || companyVariant === v}
-                    className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
-                      companyVariant === v
-                        ? "bg-[var(--primary)] text-white"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    } disabled:opacity-70`}
-                  >
-                    Variant {v}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-slate-500 mt-1.5">
-                Switching reloads the page and changes the sidebar modules.
-              </p>
+              {canEditVariant ? (
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4].map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => handleUpdateVariant(v)}
+                      disabled={updatingVariant || companyVariant === v}
+                      className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
+                        companyVariant === v
+                          ? "bg-[var(--primary)] text-white"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      } disabled:opacity-70`}
+                    >
+                      Variant {v}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-2 px-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
+                  Your plan: <span className="font-bold text-slate-800">Variant {companyVariant}</span>
+                  {companyVariant === 1 && " — Starter"}
+                  {companyVariant === 2 && " — Professional"}
+                  {companyVariant === 3 && " — Manufacturing"}
+                  {companyVariant === 4 && " — Enterprise"}
+                  <span className="block text-xs text-slate-400 mt-0.5">Contact Suki Software to upgrade.</span>
+                </div>
+              )}
+              {canEditVariant && (
+                <p className="text-xs text-slate-500 mt-1.5">
+                  Switching reloads the page and changes the sidebar modules.
+                </p>
+              )}
             </div>
             <button
               onClick={handleSave}

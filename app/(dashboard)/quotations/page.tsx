@@ -7,6 +7,7 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
 import PageContainer from "@/components/PageContainer";
+import { CRMSpinner } from "@/components/CRMSpinner";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
   <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -17,7 +18,6 @@ const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?
 const icons = {
   plus: "M12 4v16m8-8H4",
   search: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
-  eye: "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z",
   x: "M6 18L18 6M6 6l12 12",
   copy: "M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z",
 };
@@ -45,15 +45,23 @@ export default function QuotationListPage() {
 
   const statusFilter = searchParams.get("status") || "";
 
+  const [error, setError] = useState("");
+
   const loadQuotations = async () => {
     setLoading(true);
+    setError("");
     try {
       const params: any = {};
       if (statusFilter) params.status = statusFilter;
       const res = await fetch(`/api/quotations?${new URLSearchParams(params)}`);
       const data = await res.json();
-      if (data.success) setQuotations(data.data);
+      if (data.success) {
+        setQuotations(data.data ?? []);
+      } else {
+        setError(data.message || "Failed to load quotations");
+      }
     } catch {
+      setError("Failed to load quotations. Check your connection and try again.");
       toast.error("Failed to load quotations");
     } finally {
       setLoading(false);
@@ -136,24 +144,53 @@ export default function QuotationListPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="text-center py-8 text-slate-400">Loading...</td></tr>
+              <tr>
+                <td colSpan={8} className="py-12 text-center">
+                  <div className="flex justify-center">
+                    <CRMSpinner size={36} label="Loading quotations..." />
+                  </div>
+                </td>
+              </tr>
+            ) : error ? (
+              <tr><td colSpan={8} className="text-center py-8 text-red-500">{error}</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={8} className="text-center py-8 text-slate-400">No quotations found</td></tr>
+              <tr><td colSpan={8}>
+                <div className="text-center py-12 text-slate-500">
+                  <div className="text-3xl mb-3">📄</div>
+                  <p className="font-medium mb-1">No quotations found</p>
+                  <p className="text-xs mb-4">
+                    {statusFilter
+                      ? `No quotations with status "${statusFilter}".`
+                      : "No quotations have been created yet."}
+                  </p>
+                  <button
+                    onClick={() => router.push("/quotations/new")}
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] transition-colors"
+                  >
+                    + Create First Quotation
+                  </button>
+                </div>
+              </td></tr>
             ) : (
               filtered.map((q: any) => (
-                <tr key={q.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                <tr
+                  key={q.id}
+                  className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors table-row-clickable"
+                  onClick={() => router.push(`/quotations/${q.id}`)}
+                >
                   <td className="px-4 py-3 text-sm font-medium text-slate-800">{q.quotationCode}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{q.customer?.name || "—"}</td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className="row-primary-link">{q.customer?.name || "—"}</span>
+                  </td>
                   <td className="px-4 py-3 text-sm text-slate-700 text-right">{formatCurrency(q.totalAmount)}</td>
                   <td className="px-4 py-3 text-sm text-slate-700 text-right">{q.discountPercent}%</td>
                   <td className="px-4 py-3 text-sm font-medium text-slate-800 text-right">{formatCurrency(q.finalAmount)}</td>
                   <td className="px-4 py-3"><span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[q.status] || "bg-gray-100 text-gray-600"}`}>{q.status}</span></td>
                   <td className="px-4 py-3 text-sm text-slate-700">{new Date(q.validUntil).toLocaleDateString()}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => router.push(`/quotations/${q.id}`)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 cursor-pointer" title="View"><Ico d={icons.eye} size={15} /></button>
-                      <button onClick={() => handleDuplicate(q.id)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 cursor-pointer" title="Duplicate"><Ico d={icons.copy} size={15} /></button>
-                      <button onClick={() => handleDelete(q.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 cursor-pointer" title="Delete"><Ico d={icons.x} size={15} /></button>
+                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button onClick={() => handleDuplicate(q.id)} className="row-action-btn" title="Duplicate"><Ico d={icons.copy} size={15} /></button>
+                      <button onClick={() => handleDelete(q.id)} className="row-action-btn row-action-btn-danger" title="Delete"><Ico d={icons.x} size={15} /></button>
                     </div>
                   </td>
                 </tr>

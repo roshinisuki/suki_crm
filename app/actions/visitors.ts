@@ -292,7 +292,7 @@ export async function getUnifiedOfficeVisitsAction() {
       purpose: cv.purpose,
       hostName: cv.host?.name || "Unknown Host",
       hostId: cv.hostedBy,
-      checkInTime: cv.checkInTime.toISOString(),
+      checkInTime: cv.checkInTime ? cv.checkInTime.toISOString() : null,
       checkOutTime: cv.checkOutTime ? cv.checkOutTime.toISOString() : null,
       status: cv.status, // "CHECKED_IN" | "CHECKED_OUT"
       outcome: cv.outcome || "Pending Checkout",
@@ -305,7 +305,7 @@ export async function getUnifiedOfficeVisitsAction() {
 
     // 5. Combine and sort
     const combined = [...normalizedGuests, ...normalizedCustomers].sort(
-      (a, b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime()
+      (a, b) => new Date(b.checkInTime || 0).getTime() - new Date(a.checkInTime || 0).getTime()
     );
 
     return { success: true, data: combined };

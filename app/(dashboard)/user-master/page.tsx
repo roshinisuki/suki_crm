@@ -483,7 +483,7 @@ export default function UserMasterPage() {
                   {/* Info note */}
                   <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-800">
                     <strong>Internal Employee</strong> — role options are Marketing Lead or Marketing Executive only.
-                    Email must end in <code className="font-mono">@sukisoftware.com</code>.
+                    Email must use an approved company domain (e.g. <code className="font-mono">@sukisoftware.com</code>, <code className="font-mono">@apexindustries.com</code>).
                     An <strong>activation link</strong> (not OTP) will be sent to set their password.
                   </div>
 

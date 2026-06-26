@@ -86,30 +86,27 @@ const SOURCE_COLORS = ["#3B82F6", "#8B5CF6", "#06B6D4", "#10B981", "#F59E0B", "#
 const REVENUE_COLORS = ["#3B82F6", "#8B5CF6", "#10B981", "#F59E0B"];
 
 // ── KPI Widget ───────────────────────────────────────────────────────────────
-function KPIWidget({ label, value, prefix, suffix, decimals, icon, trend, comparison, sparklineData, color, accentBg }: KPIWidgetProps) {
-  const sparkData = sparklineData.map((v, i) => ({ idx: i, val: v }));
+function KPIWidget({ label, value, prefix, suffix, decimals, icon, trend, comparison, color, accentBg }: KPIWidgetProps) {
+  const trendColor = trend ? (trend.up ? "#1D9E75" : "#E24B4A") : undefined;
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white rounded-2xl border border-slate-200/70 shadow-sm hover:shadow-md transition-shadow p-6 flex flex-col gap-4 h-full"
+      className="rounded-[10px] border p-5 flex flex-col gap-3 h-full shadow-sm hover:shadow-md transition-shadow"
+      style={{ background: "var(--surface-2)", borderColor: "var(--border-subtle)" }}
     >
-      <div className="flex items-start justify-between">
-        <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${accentBg}`}>
-          {icon}
-        </div>
-        <div className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${trend.up ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"}`}>
-          {trend.up ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-          {trend.value}
-        </div>
-      </div>
-      <div>
-        <p className="text-sm font-medium text-slate-500 mb-1">{label}</p>
-        <p className={`text-3xl font-bold tracking-tight ${color}`}>
-          <CountUp end={value} prefix={prefix} suffix={suffix} decimals={decimals || 0} />
-        </p>
-        <p className="text-xs text-slate-400 mt-1.5">{comparison}</p>
+      <p className="text-[11px] uppercase tracking-[0.04em]" style={{ color: "var(--text-muted)" }}>{label}</p>
+      <p className="text-[22px] font-medium tracking-tight" style={{ color: "var(--text-primary)" }}>
+        <CountUp end={value} prefix={prefix} suffix={suffix} decimals={decimals || 0} />
+      </p>
+      <div className="flex items-center gap-2">
+        {trend && (
+          <span className="text-[11px]" style={{ color: trendColor }}>
+            {trend.value}
+          </span>
+        )}
+        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>{comparison}</span>
       </div>
     </motion.div>
   );

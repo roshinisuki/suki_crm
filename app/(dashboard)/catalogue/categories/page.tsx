@@ -1,39 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/components/AuthProvider";
+import { useState, useEffect, useCallback } from "react";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
-import PageContainer from "@/components/PageContainer";
-
-const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
-  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d={d} />
-  </svg>
-);
-
-const icons = {
-  plus: "M12 4v16m8-8H4",
-  search: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
-  edit: "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7 M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
-  x: "M6 18L18 6M6 6l12 12",
-  check: "M5 13l4 4L19 7",
-  users: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 012 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z",
-};
+import { PageShell } from "@/components/ui/PageShell";
+import { Modal } from "@/components/ui/Modal";
+import { FormField, Input, Textarea } from "@/components/ui/FormField";
+import { cn } from "@/lib/ui-utils";
+import {
+  Plus, Search, Pencil, Trash2, Check, X, FolderTree, Package,
+} from "lucide-react";
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { user } = useAuth();
-  const router = useRouter();
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const toast = useToast();
-  const [confirmState, setConfirmState] = useState<{isOpen: boolean; title: string; message: string; action: () => void}>({ isOpen: false, title: "", message: "", action: () => {} });
+  const [confirmState, setConfirmState] = useState<{ isOpen: boolean; title: string; message: string; action: () => void }>({ isOpen: false, title: "", message: "", action: () => {} });
 
   const [formData, setFormData] = useState({
     id: "",
@@ -42,27 +27,24 @@ export default function CategoriesPage() {
     isActive: true,
   });
 
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     setLoading(true);
     try {
-      const params: any = {};
+      const params: Record<string, string> = {};
       if (search) params.search = search;
-
       const res = await fetch(`/api/catalogue/categories?${new URLSearchParams(params)}`);
       const data = await res.json();
-      if (data.success && data.data) {
-        setCategories(data.data);
-      }
+      if (data.success && data.data) setCategories(data.data);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadCategories();
   }, [search]);
+
+  useEffect(() => { loadCategories(); }, [loadCategories]);
+
+  const resetForm = () => setFormData({ id: "", name: "", description: "", isActive: true });
 
   const handleCreate = async () => {
     setFormLoading(true);
@@ -76,13 +58,12 @@ export default function CategoriesPage() {
       if (data.success) {
         toast.success("Category created successfully");
         setIsModalOpen(false);
-        setFormData({ id: "", name: "", description: "", isActive: true });
+        resetForm();
         loadCategories();
       } else {
         toast.error(data.message || "Failed to create category");
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error("Failed to create category");
     } finally {
       setFormLoading(false);
@@ -105,30 +86,26 @@ export default function CategoriesPage() {
       if (data.success) {
         toast.success("Category updated successfully");
         setIsModalOpen(false);
-        setFormData({ id: "", name: "", description: "", isActive: true });
+        resetForm();
         loadCategories();
       } else {
         toast.error(data.message || "Failed to update category");
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error("Failed to update category");
     } finally {
       setFormLoading(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     setConfirmState({
       isOpen: true,
       title: "Delete Category",
       message: "Are you sure you want to delete this category? This action cannot be undone.",
       action: async () => {
-        setIsDeleting(true);
         try {
-          const res = await fetch(`/api/catalogue/categories/${id}`, {
-            method: "DELETE",
-          });
+          const res = await fetch(`/api/catalogue/categories/${id}`, { method: "DELETE" });
           const data = await res.json();
           if (data.success) {
             toast.success("Category deleted successfully");
@@ -136,26 +113,21 @@ export default function CategoriesPage() {
           } else {
             toast.error(data.message || "Failed to delete category");
           }
-        } catch (err) {
-          console.error(err);
+        } catch {
           toast.error("Failed to delete category");
-        } finally {
-          setIsDeleting(false);
         }
       },
     });
   };
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
+    const cat = categories.find((c) => c.id === id);
+    if (!cat) return;
     try {
       const res = await fetch(`/api/catalogue/categories/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: categories.find((c: any) => c.id === id)?.name,
-          description: categories.find((c: any) => c.id === id)?.description,
-          isActive: !currentStatus,
-        }),
+        body: JSON.stringify({ name: cat.name, description: cat.description, isActive: !currentStatus }),
       });
       const data = await res.json();
       if (data.success) {
@@ -164,173 +136,177 @@ export default function CategoriesPage() {
       } else {
         toast.error(data.message || "Failed to update category");
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error("Failed to update category status");
     }
   };
 
   const openEditModal = (category: any) => {
-    setFormData({
-      id: category.id,
-      name: category.name,
-      description: category.description || "",
-      isActive: category.isActive,
-    });
+    setFormData({ id: category.id, name: category.name, description: category.description || "", isActive: category.isActive });
     setIsModalOpen(true);
   };
 
+  const filtered = categories;
+
   return (
-    <PageContainer>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Product Categories</h1>
-        <p className="text-slate-500 mt-1">Manage product categories for your catalogue</p>
-      </div>
-      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Ico d={icons.search} size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+    <PageShell
+      title="Categories"
+      subtitle="Organize products into hierarchical categories"
+      breadcrumb={[{ label: "Product Catalogue", href: "/catalogue" }, { label: "Categories" }]}
+      action={
+        <button
+          onClick={() => { resetForm(); setIsModalOpen(true); }}
+          className="btn-primary"
+        >
+          <Plus size={16} />
+          Add Category
+        </button>
+      }
+    >
+      {/* Search bar */}
+      <div className="mt-6 mb-4">
+        <div className="relative max-w-md">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Search categories..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+            className="input-field pl-9"
           />
         </div>
-        <button
-          onClick={() => {
-            setFormData({ id: "", name: "", description: "", isActive: true });
-            setIsModalOpen(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity"
-        >
-          <Ico d={icons.plus} size={18} />
-          Add Category
-        </button>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-300 border-t-transparent" />
-        </div>
-      ) : categories.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-slate-500">No categories yet. Add your first product category.</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full">
+      {/* Table */}
+      <div className="crm-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="crm-table">
             <thead>
-              <tr className="border-b border-slate-200">
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Name</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Description</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Products</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Active</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
+              <tr>
+                <th className="text-left">Name</th>
+                <th className="text-left">Description</th>
+                <th className="text-center">Products</th>
+                <th className="text-center">Status</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {categories.map((category) => (
-                <tr key={category.id} className="border-b border-slate-200 hover:bg-white transition-colors">
-                  <td className="px-4 py-3">{category.name}</td>
-                  <td className="px-4 py-3 text-slate-500">{category.description || "-"}</td>
-                  <td className="px-4 py-3 text-center">{category.productCount || 0}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${category.isActive ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-800"}`}>
-                      {category.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => openEditModal(category)}
-                        className="p-1.5 rounded hover:bg-slate-100 transition-colors"
-                        title="Edit"
-                      >
-                        <Ico d={icons.edit} size={16} className="text-slate-500" />
-                      </button>
-                      <button
-                        onClick={() => handleToggleActive(category.id, category.isActive)}
-                        className={`p-1.5 rounded hover:bg-slate-100 transition-colors ${category.isActive ? "text-amber-600" : "text-emerald-600"}`}
-                        title={category.isActive ? "Deactivate" : "Activate"}
-                      >
-                        <Ico d={category.isActive ? icons.x : icons.check} size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(category.id)}
-                        className="p-1.5 rounded hover:bg-red-50 text-red-600 hover:text-red-600 transition-colors"
-                        title="Delete"
-                      >
-                        <Ico d={icons.x} size={16} />
-                      </button>
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-12">
+                    <div className="inline-flex items-center gap-3 text-slate-400">
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-300 border-t-transparent" />
+                      <span className="text-sm font-medium">Loading categories...</span>
                     </div>
                   </td>
                 </tr>
-              ))}
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-12">
+                    <FolderTree size={32} className="mx-auto text-slate-300 mb-2" />
+                    <p className="text-sm text-slate-500 font-medium">No categories found</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Add your first product category to get started</p>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((category) => (
+                  <tr key={category.id}>
+                    <td>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                          <FolderTree size={16} />
+                        </div>
+                        <span className="font-semibold text-slate-800 truncate max-w-[200px]">{category.name}</span>
+                      </div>
+                    </td>
+                    <td className="text-slate-500 truncate max-w-[280px]">{category.description || "—"}</td>
+                    <td className="text-center">
+                      <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
+                        <Package size={13} className="text-slate-400" />
+                        {category.productCount || 0}
+                      </span>
+                    </td>
+                    <td className="text-center">
+                      <span className={cn(
+                        "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold",
+                        category.isActive ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"
+                      )}>
+                        {category.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => openEditModal(category)} className="action-icon-btn" title="Edit">
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          onClick={() => handleToggleActive(category.id, category.isActive)}
+                          className={cn("action-icon-btn", category.isActive ? "text-amber-600 hover:bg-amber-50" : "text-emerald-600 hover:bg-emerald-50")}
+                          title={category.isActive ? "Deactivate" : "Activate"}
+                        >
+                          {category.isActive ? <X size={15} /> : <Check size={15} />}
+                        </button>
+                        <button onClick={() => handleDelete(category.id)} className="action-icon-btn text-rose-500 hover:bg-rose-50" title="Delete">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-      )}
+      </div>
 
-      {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-xl border border-slate-200 w-full max-w-md p-6">
-            <h2 className="text-xl font-bold text-slate-900 mb-4">
-              {formData.id ? "Edit Category" : "Add Category"}
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Name *</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-                  placeholder="Category name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
-                  placeholder="Category description"
-                  rows={3}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="isActive"
-                  checked={formData.isActive}
-                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                  className="w-4 h-4 rounded border border-slate-300 bg-white text-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]"
-                />
-                <label htmlFor="isActive" className="text-sm text-slate-700">Active</label>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-white transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={formData.id ? handleUpdate : handleCreate}
-                disabled={formLoading || !formData.name}
-                className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {formLoading ? "Saving..." : formData.id ? "Update" : "Create"}
-              </button>
-            </div>
-          </div>
+      {/* Add/Edit Modal */}
+      <Modal
+        open={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={formData.id ? "Edit Category" : "Add Category"}
+        subtitle={formData.id ? "Update category details" : "Create a new product category"}
+        size="sm"
+        footer={
+          <>
+            <button onClick={() => setIsModalOpen(false)} className="btn-ghost">Cancel</button>
+            <button
+              onClick={formData.id ? handleUpdate : handleCreate}
+              disabled={formLoading || !formData.name.trim()}
+              className="btn-primary"
+            >
+              {formLoading ? "Saving..." : formData.id ? "Update" : "Create"}
+            </button>
+          </>
+        }
+      >
+        <div className="p-6 space-y-4">
+          <FormField label="Category Name" required>
+            <Input
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g. Industrial Valves"
+            />
+          </FormField>
+          <FormField label="Description">
+            <Textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Brief description of this category"
+              rows={3}
+            />
+          </FormField>
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.isActive}
+              onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+              className="w-4 h-4 rounded border-slate-300 text-[var(--accent)] focus:ring-[var(--accent)]"
+            />
+            <span className="text-sm font-medium text-slate-700">Active</span>
+          </label>
         </div>
-      )}
+      </Modal>
 
-      {/* Confirm Modal */}
       <ConfirmModal
         isOpen={confirmState.isOpen}
         title={confirmState.title}
@@ -339,6 +315,6 @@ export default function CategoriesPage() {
         onCancel={() => setConfirmState({ isOpen: false, title: "", message: "", action: () => {} })}
         isDestructive={true}
       />
-    </PageContainer>
+    </PageShell>
   );
 }

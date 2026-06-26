@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState } from "react";
 
-type Role = "Admin" | "SalesManager" | "SalesExecutive" | "Customer";
+type Role = "SuperAdmin" | "Admin" | "SalesManager" | "SalesExecutive" | "CostingEngineer" | "Customer";
 
 export interface UserProfile {
   id: string;

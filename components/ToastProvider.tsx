@@ -8,16 +8,17 @@ export type ToastType = "success" | "error" | "warning" | "info";
 export interface Toast {
   id: string;
   type: ToastType;
-  message: string;
+  message: string | React.ReactNode;
   title?: string;
+  duration?: number;
 }
 
 interface ToastContextValue {
   toast: {
-    success: (message: string, title?: string) => void;
-    error: (message: string, title?: string) => void;
-    warning: (message: string, title?: string) => void;
-    info: (message: string, title?: string) => void;
+    success: (message: string | React.ReactNode, title?: string, duration?: number) => void;
+    error: (message: string | React.ReactNode, title?: string, duration?: number) => void;
+    warning: (message: string | React.ReactNode, title?: string, duration?: number) => void;
+    info: (message: string | React.ReactNode, title?: string, duration?: number) => void;
   };
 }
 
@@ -30,30 +31,30 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const addToast = useCallback((type: ToastType, message: string, title?: string) => {
+  const addToast = useCallback((type: ToastType, message: string | React.ReactNode, title?: string, duration?: number) => {
     setToasts((prev) => {
       // Prevent duplicate stacking by checking if there's already an identical toast visible
       if (prev.some((t) => t.message === message && t.type === type && t.title === title)) {
         return prev;
       }
-      
+
       const id = Math.random().toString(36).substr(2, 9);
-      const newToast: Toast = { id, type, message, title };
-      
-      // Auto-dismiss after 5 seconds
+      const newToast: Toast = { id, type, message, title, duration };
+
+      // Auto-dismiss after duration (default 5 seconds)
       setTimeout(() => {
         removeToast(id);
-      }, 5000);
-      
+      }, duration || 5000);
+
       return [...prev, newToast];
     });
   }, [removeToast]);
 
   const toastMethods = {
-    success: (message: string, title?: string) => addToast("success", message, title),
-    error: (message: string, title?: string) => addToast("error", message, title),
-    warning: (message: string, title?: string) => addToast("warning", message, title),
-    info: (message: string, title?: string) => addToast("info", message, title),
+    success: (message: string | React.ReactNode, title?: string, duration?: number) => addToast("success", message, title, duration),
+    error: (message: string | React.ReactNode, title?: string, duration?: number) => addToast("error", message, title, duration),
+    warning: (message: string | React.ReactNode, title?: string, duration?: number) => addToast("warning", message, title, duration),
+    info: (message: string | React.ReactNode, title?: string, duration?: number) => addToast("info", message, title, duration),
   };
 
   return (
@@ -84,9 +85,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   {toast.title}
                 </h4>
               )}
-              <p className="text-sm font-medium text-slate-300 leading-snug">
+              <div className="text-sm font-medium text-slate-300 leading-snug">
                 {toast.message}
-              </p>
+              </div>
             </div>
             
             <button

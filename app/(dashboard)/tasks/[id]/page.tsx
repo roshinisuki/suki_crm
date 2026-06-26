@@ -125,11 +125,11 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
             <dl className="space-y-3">
               {[
                 { label: "Title", value: task.title },
-                { label: "Description", value: task.description || "â€”" },
+                { label: "Description", value: task.description || "—" },
                 { label: "Priority", value: <span className={cn("inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full", task.priority === "Low" ? "bg-slate-100 text-slate-500" : task.priority === "Medium" ? "bg-blue-50 text-blue-600" : task.priority === "High" ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-600")}><Tag size={10} /> {task.priority}</span> },
-                { label: "Due Date", value: task.dueDate ? <div className={cn("flex items-center gap-1.5 text-xs", isOverdue ? "text-red-500" : "text-slate-500")}><CalendarClock size={12} /> {formatDate(task.dueDate)} {isOverdue && <span className="text-[10px] bg-red-50 text-red-500 px-1.5 py-0.5 rounded-full font-bold">Overdue</span>}</div> : "â€”" },
-                { label: "Assigned To", value: <div className="flex items-center gap-1.5 text-xs text-slate-500"><User2 size={12} /> {task.User?.name || "â€”"}</div> },
-                { label: "Linked Contact", value: task.Contact ? <div className="flex items-center gap-1.5 text-xs text-slate-500"><User2 size={12} /> {task.Contact.name}</div> : "â€”" },
+                { label: "Due Date", value: task.dueDate ? <div className={cn("flex items-center gap-1.5 text-xs", isOverdue ? "text-red-500" : "text-slate-500")}><CalendarClock size={12} /> {formatDate(task.dueDate)} {isOverdue && <span className="text-[10px] bg-red-50 text-red-500 px-1.5 py-0.5 rounded-full font-bold">Overdue</span>}</div> : "—" },
+                { label: "Assigned To", value: <div className="flex items-center gap-1.5 text-xs text-slate-500"><User2 size={12} /> {task.User?.name || "—"}</div> },
+                { label: "Linked Contact", value: task.Contact ? <div className="flex items-center gap-1.5 text-xs text-slate-500"><User2 size={12} /> {task.Contact.name}</div> : "—" },
                 { label: "Status", value: <StatusBadge status={task.status} size="sm" /> },
                 { label: "Created", value: formatDate(task.createdAt) },
               ].map(({ label, value }) => (
@@ -157,7 +157,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                 <FormField label="Due Date"><Input type="date" value={form.dueDate} onChange={(e) => setForm((f: any) => ({ ...f, dueDate: e.target.value }))} /></FormField>
                 <FormField label="Linked Contact">
                   <Select value={form.contactId} onChange={(e) => setForm((f: any) => ({ ...f, contactId: e.target.value }))}>
-                    <option value="">â€” None â€”</option>
+                    <option value="">— None —</option>
                     {contacts.map((c: any) => (<option key={c.id} value={c.id}>{c.name}{c.company ? ` (${c.company})` : ""}</option>))}
                   </Select>
                 </FormField>

@@ -50,7 +50,6 @@ const icons = {
   calendar: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
   clock: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   x: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>,
-  eye: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>,
   pencil: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>,
   checkCircle: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   refresh: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H17" /></svg>
@@ -179,7 +178,7 @@ export default function FollowUpsPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [statusFilter]);
 
   // Sync Customer fields in Drawer
   useEffect(() => {
@@ -588,7 +587,11 @@ export default function FollowUpsPage() {
                   const avatarColorClass = AVATAR_COLORS[index % AVATAR_COLORS.length];
 
                   return (
-                    <tr key={f.id} className="crm-tr hover:bg-slate-50/40 transition-colors">
+                    <tr
+                      key={f.id}
+                      className="crm-tr table-row-clickable"
+                      onClick={() => router.push(`/follow-up/${f.id}`)}
+                    >
                       <td className="crm-td text-center text-slate-400 text-xs">{index + 1}</td>
                       <td className="crm-td">
                         <div className="flex items-center gap-3">
@@ -596,7 +599,7 @@ export default function FollowUpsPage() {
                             {initials}
                           </div>
                           <div className="flex flex-col">
-                            <span className="font-bold text-slate-800 text-sm block leading-tight">{f.customerName || f.leadName || "Unknown"}</span>
+                            <span className="row-primary-link text-sm block leading-tight">{f.customerName || f.leadName || "Unknown"}</span>
                             {f.leadId && (
                               <Link href={`/leads/${f.leadId}`} className="text-[10px] text-blue-500 hover:underline" onClick={e => e.stopPropagation()}>
                                 Lead: {f.leadCode || "View"}
@@ -637,23 +640,14 @@ export default function FollowUpsPage() {
                       <td className="crm-td text-slate-500 text-xs whitespace-nowrap">
                         {f.createdAt ? formatDate(f.createdAt) : "—"}
                       </td>
-                      <td className="crm-td">
-                        <div className="flex items-center justify-center gap-2.5 text-slate-400">
-                          {/* View details */}
-                          <Link
-                            href={`/follow-up/${f.id}`}
-                            className="hover:text-[#B3592D] transition-colors p-1"
-                            title="View Details"
-                          >
-                            {icons.eye}
-                          </Link>
-                          
+                      <td className="crm-td" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1.5">
                           {!isCompleted && f.status !== "Cancelled" && (
                             <>
                               {/* Edit details */}
                               <button
                                 onClick={() => handleOpenEditDrawer(f)}
-                                className="hover:text-blue-600 transition-colors p-1 cursor-pointer"
+                                className="row-action-btn"
                                 title="Edit Follow Up"
                               >
                                 {icons.pencil}
@@ -661,7 +655,7 @@ export default function FollowUpsPage() {
                               {/* Complete */}
                               <button
                                 onClick={() => openCompleteModal(f)}
-                                className="hover:text-emerald-600 transition-colors p-1 cursor-pointer"
+                                className="row-action-btn"
                                 title="Mark Completed"
                               >
                                 {icons.checkCircle}
@@ -669,7 +663,7 @@ export default function FollowUpsPage() {
                               {/* Cancel */}
                               <button
                                 onClick={() => handleCancelClick(f)}
-                                className="hover:text-red-600 transition-colors p-1 cursor-pointer"
+                                className="row-action-btn row-action-btn-danger"
                                 title="Cancel Follow Up"
                               >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

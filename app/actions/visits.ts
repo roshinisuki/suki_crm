@@ -318,6 +318,7 @@ export async function getDashboardDataAction() {
     });
 
     customerVisits.forEach(v => {
+      if (!v.checkInTime) return;
       const d = new Date(v.checkInTime);
       const label = `${monthNames[d.getMonth()]} ${d.getFullYear().toString().substring(2)}`;
       if (visitCounts[label] !== undefined) {

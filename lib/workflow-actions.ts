@@ -114,14 +114,14 @@ export function getLeadWorkflowActions(state: WorkflowState): WorkflowActions {
   if ((leadStatus === "Contacted" || leadStatus === "FollowUpDue") && !qualificationComplete) {
     return {
       stage: "Qualification",
-      stageDescription: "Fill in qualification details (Budget, Timeline, Decision Maker) to mark as SQL.",
+      stageDescription: "Fill in qualification details (Budget, Timeline) to mark as SQL.",
       primary: {
         id: "mark-sql",
         label: "Mark as SQL",
         variant: "primary",
         icon: "CheckCircle2",
         disabled: !qualificationComplete,
-        disabledReason: "Fill Budget, Timeline, and confirm Decision Maker first",
+        disabledReason: "Fill Budget and Timeline first",
       },
       secondary: [
         { id: "add-activity", label: "Add More Activities", variant: "secondary", icon: "FileText" },
@@ -188,8 +188,7 @@ export function computeWorkflowState(lead: any, followups: any[]): WorkflowState
 
   const qualificationComplete =
     !!lead.budgetAsked?.trim() &&
-    !!lead.timelineAsked?.trim() &&
-    !!lead.isDecisionMaker;
+    !!lead.timelineAsked?.trim();
 
   return {
     leadStatus: lead.status,

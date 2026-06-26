@@ -1,7 +1,7 @@
 "use client";
 
-/** orange=ember  blue=ocean  green=forest  dark=dark-mode  neutral=obsidian-light */
-export type LogoTheme = "orange" | "blue" | "green" | "dark" | "neutral";
+/** orange=ember  blue=ocean  green=forest  purple=obsidian  dark=dark-mode  neutral=obsidian-light */
+export type LogoTheme = "orange" | "blue" | "green" | "purple" | "dark" | "neutral";
 export type LogoVariant = "full" | "mark-only";
 
 interface LogoProps {
@@ -13,11 +13,22 @@ interface LogoProps {
 }
 
 const ACCENT: Record<LogoTheme, string> = {
-  orange:  "#E8620A",  // ember   --accent
-  blue:    "#1E6FD9",  // ocean   --accent
-  green:   "#1A7A3C",  // forest  --accent
+  orange:  "var(--brand-primary, #F77F00)",  // ember   --brand-primary
+  blue:    "var(--brand-primary, #8ECAE6)",  // ocean   --brand-primary
+  green:   "var(--brand-primary, #65B017)",  // forest  --brand-primary
+  purple:  "var(--brand-primary, #4a0875)",  // obsidian --brand-primary
   dark:    "#FFFFFF",  // login page explicit all-white
-  neutral: "#1A1A1A",  // obsidian --accent (black)
+  neutral: "#FFFFFF",  // obsidian-light fallback to white on dark sidebar
+};
+
+// Glow colors per theme (used by GlowFilter)
+const GLOW_HEX: Record<LogoTheme, string> = {
+  orange:  "#F77F00",
+  blue:    "#8ECAE6",
+  green:   "#65B017",
+  purple:  "#4a0875",
+  dark:    "#FFFFFF",
+  neutral: "#FFFFFF",
 };
 
 // ─── Shared path data (from public/crm orange.svg) ────────────────────────────
@@ -41,14 +52,31 @@ const WORDMARK = "M686.05 151.5C678.45 151.6 671.85 150.4 666.25 147.9C660.65 14
  * variant="mark-only" → just the abstract swirl icon, viewBox cropped to 620×440.
  *
  * Accent colors per theme:
- *   orange  (#FF680B)  ember theme, light mode
- *   blue    (#009FFD)  ocean theme, light mode
- *   green   (#95C926)  forest theme, light mode
- *   neutral (#B0B0B0)  obsidian theme, light mode
- *   dark    (#FFFFFF)  any dark mode
+ *   orange  (#F77F00)  ember theme, light mode
+ *   blue    (#8ECAE6)  ocean theme, light mode
+ *   green   (#65B017)  forest theme, light mode
+ *   purple  (#4a0875)  obsidian theme, light mode
+ *   dark    (#FFFFFF)  any dark mode / login page
+ *   neutral (#FFFFFF)  obsidian theme fallback
  *
  * Paths are extracted verbatim from public/crm orange.svg (official brand file).
  */
+
+/** SVG glow filter component — adds a soft glow behind accent paths */
+function GlowFilter({ id, color }: { id: string; color: string }) {
+  return (
+    <filter id={id} x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feFlood floodColor={color} floodOpacity="0.5" result="color" />
+      <feComposite in="color" in2="blur" operator="in" result="glow" />
+      <feMerge>
+        <feMergeNode in="glow" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  );
+}
+
 export default function Logo({
   theme,
   variant = "full",
@@ -56,8 +84,10 @@ export default function Logo({
   className,
 }: LogoProps) {
   const accent = ACCENT[theme];
+  const glowColor = GLOW_HEX[theme];
+  const glowId = `glow-${theme}`;
 
-  // Black/dark themes use the uploaded white-on-black SVG file
+  // Black/dark/neutral themes use the uploaded white-on-black SVG file
   if (theme === "dark" || theme === "neutral") {
     if (variant === "mark-only") {
       return (
@@ -97,8 +127,13 @@ export default function Logo({
         className={className}
         aria-label="SUKI CRM"
       >
+        <defs>
+          <GlowFilter id={glowId} color={glowColor} />
+        </defs>
         <path d={MARK_TOP} fill="white" />
-        <path d={MARK_BOT} fill={accent} />
+        <g filter={`url(#${glowId})`}>
+          <path d={MARK_BOT} fill={accent} />
+        </g>
       </svg>
     );
   }
@@ -114,14 +149,19 @@ export default function Logo({
       className={className}
       aria-label="SUKI CRM"
     >
+      <defs>
+        <GlowFilter id={glowId} color={glowColor} />
+      </defs>
       {/* Large white letterforms (S, right arm) */}
       <path d="M953.129 246.046L874.749 324.218V399.25L1035.36 239.066L989.169 193H874.749V246.046H953.129Z" fill="white" />
       <path d="M1068.25 390.176L982.521 304.675L945.256 341.842L993.718 390.176H1068.25Z" fill="white" />
-      {/* Accent bracket shapes (K / C-bracket letterforms) */}
-      <path d="M844.751 331.75H779.501C756.149 376.752 734.544 382.339 702.251 389.875C773.033 413.619 811.958 395.144 844.751 331.75Z" fill={accent} />
-      <path d="M717.251 343.75H653.876C640.958 306.982 638.694 286.451 653.876 250H717.251C686.137 285.835 688.238 310.491 717.251 343.75Z" fill={accent} />
-      <path d="M844.43 261.832H779.18C755.828 216.83 734.222 211.243 701.93 203.707C772.712 179.963 811.637 198.438 844.43 261.832Z" fill={accent} />
-      <path d="M716.93 249.832H653.555C640.636 286.6 638.372 307.131 653.555 343.582H716.93C685.816 307.747 687.917 283.091 716.93 249.832Z" fill={accent} />
+      {/* Accent bracket shapes (K / C-bracket letterforms) — with glow */}
+      <g filter={`url(#${glowId})`}>
+        <path d="M844.751 331.75H779.501C756.149 376.752 734.544 382.339 702.251 389.875C773.033 413.619 811.958 395.144 844.751 331.75Z" fill={accent} />
+        <path d="M717.251 343.75H653.876C640.958 306.982 638.694 286.451 653.876 250H717.251C686.137 285.835 688.238 310.491 717.251 343.75Z" fill={accent} />
+        <path d="M844.43 261.832H779.18C755.828 216.83 734.222 211.243 701.93 203.707C772.712 179.963 811.637 198.438 844.43 261.832Z" fill={accent} />
+        <path d="M716.93 249.832H653.555C640.636 286.6 638.372 307.131 653.555 343.582H716.93C685.816 307.747 687.917 283.091 716.93 249.832Z" fill={accent} />
+      </g>
       {/* Large white letterform (diagonal / M shape) */}
       <path d="M1052.5 250.132V323.824L1112.71 400L1172.5 323.824V400H1222.75V193L1112.71 323.824L1052.5 250.132Z" fill="white" />
       {/* SUKI text wordmark (S · U · K · I), top area y:43-151 — scaled 40% larger, bold */}

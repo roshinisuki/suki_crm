@@ -5,10 +5,126 @@ import { verifyAuth } from "@/lib/auth";
 import { logAudit, computeDiff, inferSeverity } from "@/lib/audit";
 import { dispatchNotification, dispatchNotificationsToMany } from "@/lib/notifications";
 import { revalidatePath } from "next/cache";
-type LeadStatus = "New" | "Contacted" | "FollowUpDue" | "SQL" | "Qualified" | "Converted" | "Lost";
-type LeadSource = "Website" | "Referral" | "SocialMedia" | "Email" | "Event" | "ColdCall" | "Partner" | "Other";
+type LeadStatus = "New" | "Contacted" | "FollowUpDue" | "SQL" | "Qualified" | "Converted" | "Lost" | "Overdue" | "Duplicate";
+type LeadSource = "Website" | "Referral" | "SocialMedia" | "Email" | "Event" | "ColdCall" | "Partner" | "Other" | "Trade Show" | "Tender Portal";
 import { buildScope, checkRecordScope } from "@/lib/scopes";
 import { nanoid } from "nanoid";
+
+// ── V2: Lead Score Algorithm (0–100, server-computed) ──────────────────────────
+function calculateLeadScore(params: {
+  industryType?: string | null;
+  leadSource?: string | null;
+  designation?: string | null;
+  estimatedValue?: number | null;
+  email?: string | null;
+  phone?: string | null;
+}): number {
+  let score = 0;
+
+  // industry_fit: Automotive/Pharma/Textile = 25, Others = 10
+  const industry = (params.industryType || "").toLowerCase();
+  if (["automotive", "pharma", "textile"].includes(industry)) score += 25;
+  else score += 10;
+
+  // source_quality: Referral=20, Trade Show=18, Website=15, Cold Call=10, Other=5
+  const source = (params.leadSource || "").toLowerCase().replace(/\s/g, "");
+  if (source === "referral") score += 20;
+  else if (source === "tradeshow") score += 18;
+  else if (source === "website") score += 15;
+  else if (source === "coldcall") score += 10;
+  else score += 5;
+
+  // designation: Head/Director/VP/GM/CEO/MD/President = 20, Manager = 15, Engineer/Exec = 10
+  const desig = (params.designation || "").toLowerCase();
+  if (/(head|director|vp|gm|ceo|md|president)/.test(desig)) score += 20;
+  else if (/manager/.test(desig)) score += 15;
+  else score += 10;
+
+  // value_bucket: >10L=20, 1L–10L=15, <1L=10, null=0
+  const val = params.estimatedValue;
+  if (val != null && val > 0) {
+    if (val > 1000000) score += 20;
+    else if (val >= 100000) score += 15;
+    else score += 10;
+  }
+
+  // contact_data: email AND phone = 15, either = 7, neither = 0
+  if (params.email && params.phone) score += 15;
+  else if (params.email || params.phone) score += 7;
+
+  return Math.min(score, 100);
+}
+
+// ── V2: Generate LD-YYYY-NNNNN code ────────────────────────────────────────────
+async function generateLeadCode(companyId?: string | null): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `LD-${year}-`;
+
+  // Count existing leads with this prefix this year
+  const count = await prisma.lead.count({
+    where: {
+      leadCode: { startsWith: prefix },
+      ...(companyId ? { companyId } : {}),
+    },
+  });
+
+  const seq = String(count + 1).padStart(5, "0");
+  return `${prefix}${seq}`;
+}
+
+// ── V2: Insert LeadStatusHistory ───────────────────────────────────────────────
+async function insertStatusHistory(
+  leadId: string,
+  fromStatus: string | null,
+  toStatus: string,
+  changedById: string,
+  notes?: string
+) {
+  await prisma.leadStatusHistory.create({
+    data: { leadId, fromStatus, toStatus, changedById, notes },
+  });
+}
+
+// ── V2: Non-blocking duplicate detection ──────────────────────────────────────
+async function detectDuplicates(
+  leadId: string,
+  phone?: string | null,
+  companyName?: string | null,
+  companyId?: string | null
+) {
+  if (!phone && !companyName) return;
+
+  const where: any = {
+    id: { not: leadId },
+    deletedAt: null,
+    ...(companyId ? { companyId } : {}),
+  };
+
+  if (phone) {
+    where.OR = [{ phone: phone.trim() }];
+  }
+
+  const duplicate = await prisma.lead.findFirst({ where });
+
+  if (duplicate) {
+    await prisma.lead.update({
+      where: { id: leadId },
+      data: { isDuplicateOf: duplicate.id, status: "Duplicate" },
+    });
+    await insertStatusHistory(leadId, null, "Duplicate", "SYSTEM", "Auto-detected duplicate");
+    // Notify assigned user (non-blocking)
+    const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { assignedUserId: true } });
+    if (lead?.assignedUserId) {
+      await dispatchNotification({
+        userId: lead.assignedUserId,
+        title: "Potential Duplicate Detected",
+        message: `Lead may be a duplicate of an existing record.`,
+        type: "lead",
+        link: `/leads/${leadId}`,
+      }).catch(() => {});
+    }
+  }
+}
 
 /**
  * Fetch all leads based on filters.
@@ -159,6 +275,11 @@ export async function createLeadAction(data: {
   leadSource?: LeadSource;
   notes?: string;
   assignedUserId?: string;
+  // V2 fields
+  companyName?: string;
+  designation?: string;
+  industryType?: string;
+  estimatedValue?: number;
 }) {
   try {
     const userPayload = await verifyAuth();
@@ -177,7 +298,17 @@ export async function createLeadAction(data: {
       return { success: false, message: "Name is required." };
     }
 
-    // Duplicate check on email
+    // V2 validation: phone OR email required
+    if (!phone?.trim() && !email?.trim()) {
+      return { success: false, message: "Either phone or email is required." };
+    }
+
+    // V2 validation: estimated_value must be positive if provided
+    if (data.estimatedValue != null && data.estimatedValue < 0) {
+      return { success: false, message: "Estimated value must be positive." };
+    }
+
+    // Duplicate check on email (block creation — existing V1 behavior)
     if (email?.trim()) {
       const existingEmail = await prisma.lead.findFirst({
         where: { email: email.trim(), companyId: userPayload.companyId, deletedAt: null }
@@ -187,17 +318,18 @@ export async function createLeadAction(data: {
       }
     }
 
-    // Duplicate check on phone
-    if (phone?.trim()) {
-      const existingPhone = await prisma.lead.findFirst({
-        where: { phone: phone.trim(), companyId: userPayload.companyId, deletedAt: null }
-      });
-      if (existingPhone) {
-        return { success: false, message: `Lead with phone number '${phone}' already exists.` };
-      }
-    }
+    // V2: Generate LD-YYYY-NNNNN code
+    const leadCode = await generateLeadCode(userPayload.companyId);
 
-    const leadCode = `LEAD-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+    // V2: Calculate lead score
+    const leadScore = calculateLeadScore({
+      industryType: data.industryType,
+      leadSource: leadSource,
+      designation: data.designation,
+      estimatedValue: data.estimatedValue,
+      email: email,
+      phone: phone,
+    });
 
     // SLA deadline = 15 minutes from now
     const now = new Date();
@@ -219,8 +351,17 @@ export async function createLeadAction(data: {
         lastInteractionAt: now,
         escalationLevel: 0,
         companyId: userPayload.companyId,
+        // V2 fields
+        companyName: data.companyName?.trim() || null,
+        designation: data.designation?.trim() || null,
+        industryType: data.industryType || null,
+        estimatedValue: data.estimatedValue || null,
+        leadScore,
       }
     });
+
+    // V2: Insert initial LeadStatusHistory (from=NULL → 'New')
+    await insertStatusHistory(newLead.id, null, "New", userPayload.id, "Lead created");
 
     // Log initial ownership assignment
     await prisma.leadOwnerHistory.create({
@@ -233,7 +374,44 @@ export async function createLeadAction(data: {
       }
     });
 
-    await logAudit(userPayload.id, "LEADS", "CREATE_LEAD", `Created lead: ${name} (${leadCode}) — SLA: ${slaDeadline.toISOString()}`);
+    // V2: Auto-create first follow-up (Call, next business day 9am)
+    const nextDay = new Date(now);
+    nextDay.setDate(nextDay.getDate() + 1);
+    // Skip weekends
+    while (nextDay.getDay() === 0 || nextDay.getDay() === 6) {
+      nextDay.setDate(nextDay.getDate() + 1);
+    }
+    nextDay.setHours(9, 0, 0, 0);
+
+    await prisma.followUp.create({
+      data: {
+        leadId: newLead.id,
+        type: "Call",
+        nextMeetingDate: nextDay,
+        remarks: "Initial follow-up call for new lead",
+        status: "Pending",
+        priority: "Medium",
+        assignedUserId: assignedUserId || userPayload.id,
+        sourceType: "AUTO",
+        companyId: userPayload.companyId,
+      },
+    }).catch(() => {}); // Non-blocking
+
+    // V2: Notify assigned user
+    if (newLead.assignedUserId) {
+      await dispatchNotification({
+        userId: newLead.assignedUserId,
+        title: "New Lead Assigned",
+        message: `New lead assigned: ${data.companyName || name} (${leadCode})`,
+        type: "lead",
+        link: `/leads/${newLead.id}`,
+      }).catch(() => {});
+    }
+
+    // V2: Run duplicate detection (non-blocking)
+    await detectDuplicates(newLead.id, phone, data.companyName, userPayload.companyId).catch(() => {});
+
+    await logAudit(userPayload.id, "LEADS", "CREATE_LEAD", `Created lead: ${name} (${leadCode}) — Score: ${leadScore}/100 — SLA: ${slaDeadline.toISOString()}`);
     revalidatePath("/leads");
     revalidatePath("/dashboard");
 
@@ -263,6 +441,12 @@ export async function updateLeadAction(
     isDecisionMaker?: boolean;
     isGenuine?: boolean;
     lostReason?: string;
+    // V2 fields
+    companyName?: string;
+    designation?: string;
+    industryType?: string;
+    estimatedValue?: number;
+    lostReasonRefId?: string;
   }
 ) {
   try {
@@ -333,6 +517,36 @@ export async function updateLeadAction(
       }
     });
 
+    // V2: Insert LeadStatusHistory on status change
+    if (data.status && data.status !== lead.status) {
+      await insertStatusHistory(id, lead.status, data.status, userPayload.id,
+        `Status changed from ${lead.status} to ${data.status}`);
+    }
+
+    // V2: Recalculate leadScore if scoring fields changed
+    const scoreFieldsChanged =
+      data.industryType !== undefined || data.leadSource !== undefined ||
+      data.designation !== undefined || data.estimatedValue !== undefined ||
+      data.email !== undefined || data.phone !== undefined;
+    if (scoreFieldsChanged) {
+      const newScore = calculateLeadScore({
+        industryType: data.industryType !== undefined ? data.industryType : updated.industryType,
+        leadSource: data.leadSource !== undefined ? data.leadSource : updated.leadSource,
+        designation: data.designation !== undefined ? data.designation : updated.designation,
+        estimatedValue: data.estimatedValue !== undefined ? data.estimatedValue : updated.estimatedValue,
+        email: data.email !== undefined ? data.email : updated.email,
+        phone: data.phone !== undefined ? data.phone : updated.phone,
+      });
+      if (newScore !== updated.leadScore) {
+        await prisma.lead.update({ where: { id }, data: { leadScore: newScore } });
+      }
+    }
+
+    // V2: Run duplicate detection on update (non-blocking)
+    if (data.phone !== undefined || data.companyName !== undefined) {
+      await detectDuplicates(id, data.phone ?? updated.phone, data.companyName ?? updated.companyName, userPayload.companyId).catch(() => {});
+    }
+
     // Automate contact creation if status changes to Qualified
     if (data.status === "Qualified" && lead.status !== "Qualified") {
       const existingCustomer = await prisma.customer.findFirst({
@@ -391,7 +605,7 @@ export async function updateLeadAction(
     const statusTransition = data.status && data.status !== lead.status;
     if (statusTransition && ["SQL", "Qualified", "Lost"].includes(data.status!)) {
       const transitionMessages: Record<string, string> = {
-        SQL: `Lead qualified as SQL — Budget: ${updated.budgetAsked || "N/A"}, Timeline: ${updated.timelineAsked || "N/A"}, Decision Maker: ${updated.isDecisionMaker ? "Yes" : "No"}`,
+        SQL: `Lead qualified as SQL — Budget: ${updated.budgetAsked || "N/A"}, Timeline: ${updated.timelineAsked || "N/A"}`,
         Qualified: "Lead marked as Qualified — Customer record created automatically",
         Lost: `Lead marked as Lost${data.lostReason ? ` — Reason: ${data.lostReason}` : ""}`,
       };
@@ -583,6 +797,22 @@ export async function contactLeadAction(
       },
     });
 
+    // 2a. Mark the pending auto-created follow-up (1st Call) as Completed
+    //     so the Follow-up section stays in sync with the Activity timeline.
+    await prisma.followUp.updateMany({
+      where: {
+        leadId,
+        status: "Pending",
+        type: "Call",
+        sourceType: "AUTO",
+      },
+      data: {
+        status: "Completed",
+        completedAt: now,
+        completionNotes: callData.content.trim(),
+      },
+    }).catch(() => {}); // Non-blocking — should not fail the contact action
+
     // 3. Audit trail (same shape as updateLeadAction)
     const { before, after } = computeDiff(
       { status: lead.status },
@@ -645,13 +875,13 @@ export async function contactLeadAction(
 }
 
 /**
- * Delete a Lead (Soft-delete for Admins/Managers, Hard-delete for SuperAdmins).
+ * Delete a Lead (Soft-delete for Admins, Hard-delete for SuperAdmins).
  */
 export async function deleteLeadAction(id: string) {
   try {
     const userPayload = await verifyAuth();
-    if (!userPayload || !["SalesManager", "Admin", "SuperAdmin"].includes(userPayload.role)) {
-      return { success: false, message: "Unauthorized." };
+    if (!userPayload || !["Admin", "SuperAdmin"].includes(userPayload.role)) {
+      return { success: false, message: "Unauthorized. Only Admins can delete leads." };
     }
 
     // Tenant check: SuperAdmin supportMode check
@@ -999,5 +1229,358 @@ export async function convertLeadToDealAction(
   } catch (error) {
     console.error("Convert lead to deal error:", error);
     return { success: false, message: "Failed to convert lead to deal" };
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// V2 ACTIONS — BANT Qualification, Mark Lost, Atomic Convert, Status History
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * V2: Qualify a lead as SQL via BANT checklist.
+ * Requires has_budget AND has_authority AND has_need to be true.
+ */
+export async function qualifyLeadAction(
+  leadId: string,
+  data: { hasBudget: boolean; hasAuthority: boolean; hasNeed: boolean; timelineMonths: number }
+) {
+  try {
+    const userPayload = await verifyAuth();
+    if (!userPayload || ["Customer"].includes(userPayload.role)) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    if (!data.hasBudget || !data.hasAuthority || !data.hasNeed) {
+      return { success: false, message: "Budget, Authority, and Need must all be confirmed to qualify as SQL." };
+    }
+    if (!data.timelineMonths || data.timelineMonths <= 0) {
+      return { success: false, message: "Timeline (months) is required and must be positive." };
+    }
+
+    const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+    if (!lead) return { success: false, message: "Lead not found." };
+    if (!checkRecordScope(userPayload, lead, "Lead")) {
+      return { success: false, message: "Unauthorized: Access denied." };
+    }
+
+    // Update BANT fields + status to SQL
+    const updated = await prisma.lead.update({
+      where: { id: leadId },
+      data: {
+        status: "SQL",
+        budgetAsked: `Confirmed — Budget available`,
+        timelineAsked: `${data.timelineMonths} months`,
+        isDecisionMaker: data.hasAuthority,
+        isGenuine: data.hasNeed,
+      },
+    });
+
+    // Insert status history
+    await insertStatusHistory(leadId, lead.status, "SQL", userPayload.id,
+      `BANT: Budget=${data.hasBudget}, Authority=${data.hasAuthority}, Need=${data.hasNeed}, Timeline=${data.timelineMonths}m`);
+
+    // Notify Sales Managers
+    const managers = await prisma.user.findMany({
+      where: { role: { in: ["Admin", "SalesManager"] }, isActive: true, companyId: userPayload.companyId },
+      select: { id: true },
+    });
+    if (managers.length > 0) {
+      await dispatchNotificationsToMany({
+        userIds: managers.map(m => m.id),
+        title: "Lead Qualified as SQL",
+        message: `Lead ${lead.leadCode} — ${lead.companyName || lead.name} qualified as SQL (BANT complete).`,
+        type: "lead",
+        link: `/leads/${leadId}`,
+      }).catch(() => {});
+    }
+
+    await logAudit(userPayload.id, "LEADS", "QUALIFY_SQL", `Lead ${lead.leadCode} qualified as SQL via BANT checklist`);
+    revalidatePath("/leads");
+    revalidatePath(`/leads/${leadId}`);
+
+    return { success: true, message: "Lead qualified as SQL successfully.", data: updated };
+  } catch (error) {
+    console.error("Qualify Lead Error:", error);
+    return { success: false, message: "Failed to qualify lead." };
+  }
+}
+
+/**
+ * V2: Mark a lead as Lost with a loss reason ID.
+ * Bulk-cancels open follow-ups for this lead.
+ */
+export async function markLeadLostAction(leadId: string, lossReasonId: string, notes?: string) {
+  try {
+    const userPayload = await verifyAuth();
+    if (!userPayload || ["Customer"].includes(userPayload.role)) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    if (!lossReasonId) {
+      return { success: false, message: "Loss reason is required." };
+    }
+
+    const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+    if (!lead) return { success: false, message: "Lead not found." };
+    if (!checkRecordScope(userPayload, lead, "Lead")) {
+      return { success: false, message: "Unauthorized: Access denied." };
+    }
+
+    // Fetch loss reason text for audit
+    const lossReason = await prisma.lossReason.findUnique({ where: { id: lossReasonId } });
+
+    const updated = await prisma.lead.update({
+      where: { id: leadId },
+      data: {
+        status: "Lost",
+        lostReason: lossReason?.name || "Unknown",
+        lostReasonRefId: lossReasonId,
+      },
+    });
+
+    // Insert status history
+    await insertStatusHistory(leadId, lead.status, "Lost", userPayload.id,
+      `Lost reason: ${lossReason?.name || "Unknown"}${notes ? ` — ${notes}` : ""}`);
+
+    // Bulk-cancel open follow-ups
+    await prisma.followUp.updateMany({
+      where: { leadId, status: "Pending" },
+      data: { status: "Cancelled" },
+    });
+
+    // Notify assigned user
+    if (updated.assignedUserId) {
+      await dispatchNotification({
+        userId: updated.assignedUserId,
+        title: "Lead Marked Lost",
+        message: `Lead ${lead.leadCode} — ${lead.companyName || lead.name} marked as Lost (${lossReason?.name}).`,
+        type: "lead",
+        link: `/leads/${leadId}`,
+      }).catch(() => {});
+    }
+
+    await logAudit(userPayload.id, "LEADS", "MARK_LOST", `Lead ${lead.leadCode} marked lost: ${lossReason?.name}`);
+    revalidatePath("/leads");
+    revalidatePath(`/leads/${leadId}`);
+
+    return { success: true, message: "Lead marked as Lost. Open follow-ups cancelled.", data: updated };
+  } catch (error) {
+    console.error("Mark Lead Lost Error:", error);
+    return { success: false, message: "Failed to mark lead as lost." };
+  }
+}
+
+/**
+ * V2: Convert a lead atomically — creates Account + Contact + Opportunity in one transaction.
+ * GSTIN validation, code generation, status history, and stage history included.
+ */
+export async function convertLeadV2Action(
+  leadId: string,
+  data: {
+    account: {
+      companyName: string;
+      gstNumber?: string;
+      accountType?: string;
+      industryType?: string;
+      billingAddress?: string;
+    };
+    contact: {
+      fullName: string;
+      designation?: string;
+      email?: string;
+      phone?: string;
+      contactCategory?: string;
+    };
+    opportunity: {
+      opportunityName: string;
+      estimatedValue?: number;
+      expectedCloseDate: string;
+    };
+  }
+) {
+  try {
+    const userPayload = await verifyAuth();
+    if (!userPayload || ["Customer"].includes(userPayload.role)) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+    if (!lead) return { success: false, message: "Lead not found." };
+    if (lead.status === "Converted") return { success: false, message: "Lead is already converted." };
+    if (!checkRecordScope(userPayload, lead, "Lead")) {
+      return { success: false, message: "Unauthorized: Access denied." };
+    }
+
+    // V2: GSTIN validation if provided
+    const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+    if (data.account.gstNumber && !GSTIN_REGEX.test(data.account.gstNumber)) {
+      return { success: false, message: "Invalid GSTIN format. Expected: 2 digits + 5 letters + 4 digits + 1 alphanumeric + Z + 1 alphanumeric." };
+    }
+
+    // Execute atomically
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Generate account code: ACC-NNNNN
+      const accountCount = await tx.customer.count({
+        where: { companyId: userPayload.companyId },
+      });
+      const accountCode = `ACC-${String(accountCount + 1).padStart(5, "0")}`;
+
+      // 2. Create Account (Customer)
+      const account = await tx.customer.create({
+        data: {
+          customerCode: accountCode,
+          name: data.account.companyName,
+          email: lead.email,
+          phone: lead.phone,
+          city: lead.city,
+          status: "Active",
+          assignedUserId: lead.assignedUserId || userPayload.id,
+          convertedFromLead: lead.id,
+          leadSource: lead.leadSource,
+          companyId: userPayload.companyId,
+          // V2 fields
+          gstNumber: data.account.gstNumber || null,
+          accountType: data.account.accountType || "Customer",
+          industryType: data.account.industryType || lead.industryType || null,
+          billingAddress: data.account.billingAddress || null,
+        },
+      });
+
+      // 3. Create Contact linked to new account
+      const contact = await tx.contact.create({
+        data: {
+          name: data.contact.fullName,
+          email: data.contact.email || lead.email,
+          phone: data.contact.phone || lead.phone,
+          company: account.name,
+          designation: data.contact.designation || lead.designation || null,
+          status: "Active",
+          contactType: data.contact.contactCategory || "Technical",
+          isPrimary: true,
+          customerId: account.id,
+          ownerId: lead.assignedUserId || userPayload.id,
+          companyId: userPayload.companyId,
+        },
+      });
+
+      // 4. Generate opportunity code: OPP-YYYY-NNNNN
+      const year = new Date().getFullYear();
+      const oppPrefix = `OPP-${year}-`;
+      const oppCount = await tx.deal.count({
+        where: { companyId: userPayload.companyId, dealName: { startsWith: oppPrefix } },
+      });
+      const opportunityCode = `${oppPrefix}${String(oppCount + 1).padStart(5, "0")}`;
+
+      // 5. Create Opportunity (Deal)
+      const deal = await tx.deal.create({
+        data: {
+          dealName: data.opportunity.opportunityName,
+          customerId: account.id,
+          dealValue: data.opportunity.estimatedValue || lead.estimatedValue || 0,
+          expectedCloseDate: new Date(data.opportunity.expectedCloseDate),
+          assignedUserId: lead.assignedUserId || userPayload.id,
+          status: "SalesOpportunity",
+          companyId: userPayload.companyId,
+          // V2 fields
+          opportunityCode,
+          probabilityPercent: 20,
+        },
+      });
+
+      // 6. Create Deal Stage History (initial)
+      await tx.dealStageHistory.create({
+        data: {
+          dealId: deal.id,
+          fromStatus: null,
+          toStatus: "SalesOpportunity",
+          changedById: userPayload.id,
+        },
+      });
+
+      // 7. Update Lead: set converted fields + status
+      await tx.lead.update({
+        where: { id: leadId },
+        data: {
+          status: "Converted",
+          convertedAccountId: account.id,
+          convertedOpportunityId: deal.id,
+        },
+      });
+
+      // 8. Insert lead status history
+      await tx.leadStatusHistory.create({
+        data: {
+          leadId,
+          fromStatus: lead.status,
+          toStatus: "Converted",
+          changedById: userPayload.id,
+          notes: `Converted to Account ${accountCode} + Opportunity ${opportunityCode}`,
+        },
+      });
+
+      // 9. Re-link existing records to new account
+      await tx.marketingVisit.updateMany({
+        where: { leadId },
+        data: { customerId: account.id },
+      });
+      await tx.followUp.updateMany({
+        where: { leadId, status: "Pending" },
+        data: { customerId: account.id },
+      });
+      await tx.callLog.updateMany({
+        where: { leadId },
+        data: { customerId: account.id },
+      });
+      await tx.communicationLog.updateMany({
+        where: { leadId },
+        data: { customerId: account.id },
+      });
+
+      return { account, contact, deal };
+    });
+
+    await logAudit(
+      userPayload.id,
+      "LEADS",
+      "CONVERT_LEAD_V2",
+      `Converted lead ${lead.leadCode} → Account ${result.account.customerCode} + Contact + Opportunity ${result.deal.opportunityCode}`
+    );
+
+    revalidatePath("/leads");
+    revalidatePath("/customer-master");
+    revalidatePath("/contacts");
+    revalidatePath("/sales-pipeline");
+    revalidatePath("/dashboard");
+
+    return {
+      success: true,
+      message: "Lead converted successfully. Account, Contact, and Opportunity created.",
+      accountId: result.account.id,
+      contactId: result.contact.id,
+      opportunityId: result.deal.id,
+    };
+  } catch (error) {
+    console.error("Convert Lead V2 Error:", error);
+    return { success: false, message: "Failed to convert lead. All changes rolled back." };
+  }
+}
+
+/**
+ * V2: Fetch lead status history for timeline display.
+ */
+export async function getLeadStatusHistoryAction(leadId: string) {
+  try {
+    const userPayload = await verifyAuth();
+    if (!userPayload) return { success: false, message: "Unauthorized" };
+
+    const history = await prisma.leadStatusHistory.findMany({
+      where: { leadId },
+      orderBy: { changedAt: "desc" },
+    });
+
+    return { success: true, data: history };
+  } catch (error) {
+    console.error("Get Lead Status History Error:", error);
+    return { success: false, message: "Failed to fetch status history." };
   }
 }

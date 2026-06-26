@@ -10,6 +10,7 @@ import { ConfirmModal } from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
 import PageContainer from "@/components/PageContainer";
 import { useGlobalLoading } from "@/components/GlobalLoadingProvider";
+import { SummaryCard } from "@/components/ui/SummaryCard";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
   <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -279,8 +280,8 @@ export default function CustomerMasterPage() {
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight">Customer Master</h2>
-          <p className="text-sm text-slate-500 mt-1">Manage and track your active customers and prospects.</p>
+          <h1 style={{ fontSize: "22px", fontWeight: 500, color: "var(--text-primary)" }}>Customer Master</h1>
+          <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "4px" }}>Manage and track your active customers and prospects.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
@@ -304,61 +305,26 @@ export default function CustomerMasterPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Customers - Blue palette */}
-        <div className="kpi-total">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Customers</p>
-            <div className="w-9 h-9 rounded-lg bg-white shadow-sm border border-slate-100 flex items-center justify-center text-[var(--primary)]">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" /></svg>
-            </div>
-          </div>
-          <div>
-            <p className="text-3xl font-black text-slate-800">{customers.length}</p>
-            <p className="text-[10px] font-semibold text-slate-500 mt-0.5">All customer accounts</p>
-          </div>
-        </div>
-
-        {/* Active Customers - Green palette */}
-        <div className="kpi-completed">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active</p>
-            <div className="w-9 h-9 rounded-lg bg-white shadow-sm border border-slate-100 flex items-center justify-center text-emerald-600">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7z" clipRule="evenodd" /></svg>
-            </div>
-          </div>
-          <div>
-            <p className="text-3xl font-black text-slate-800">{customers.filter(c => c.status === "ActiveCustomer" || c.status === "Renewed").length}</p>
-            <p className="text-[10px] font-semibold text-slate-500 mt-0.5">Active clients</p>
-          </div>
-        </div>
-
-        {/* Prospects - Amber/Pending palette */}
-        <div className="kpi-pending">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Prospects</p>
-            <div className="w-9 h-9 rounded-lg bg-white shadow-sm border border-slate-100 flex items-center justify-center text-amber-600">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" /></svg>
-            </div>
-          </div>
-          <div>
-            <p className="text-3xl font-black text-slate-800">{customers.filter(c => c.status === "Prospect").length}</p>
-            <p className="text-[10px] font-semibold text-slate-500 mt-0.5">Prospect accounts</p>
-          </div>
-        </div>
-
-        {/* Churned - Red palette */}
-        <div className="kpi-overdue">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Churned</p>
-            <div className="w-9 h-9 rounded-lg bg-white shadow-sm border border-slate-100 flex items-center justify-center text-red-600">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" /><path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" /></svg>
-            </div>
-          </div>
-          <div>
-            <p className="text-3xl font-black text-slate-800">{customers.filter(c => c.status === "Churned").length}</p>
-            <p className="text-[10px] font-semibold text-slate-500 mt-0.5">Churned accounts</p>
-          </div>
-        </div>
+        <SummaryCard
+          label="Total Customers"
+          value={customers.length}
+          subtitle="All customer accounts"
+        />
+        <SummaryCard
+          label="Active"
+          value={customers.filter(c => c.status === "ActiveCustomer" || c.status === "Renewed").length}
+          subtitle="Active clients"
+        />
+        <SummaryCard
+          label="Prospects"
+          value={customers.filter(c => c.status === "Prospect").length}
+          subtitle="Prospect accounts"
+        />
+        <SummaryCard
+          label="Churned"
+          value={customers.filter(c => c.status === "Churned").length}
+          subtitle="Churned accounts"
+        />
       </div>
 
 
@@ -455,10 +421,14 @@ export default function CustomerMasterPage() {
                 </tr>
               ) : (
                 customers.map(c => (
-                  <tr key={c.id} className={`crm-tr hover:bg-slate-50/80 transition-colors ${selectedIds.includes(c.id) ? 'bg-red-50/30' : ''}`}>
-                    <td className="crm-td">
-                      <input 
-                        type="checkbox" 
+                  <tr
+                    key={c.id}
+                    className={`crm-tr table-row-clickable ${selectedIds.includes(c.id) ? 'bg-red-50/30' : ''}`}
+                    onClick={() => router.push(`/customer-master/${c.id}`)}
+                  >
+                    <td className="crm-td" onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
                         className="rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]/50 cursor-pointer"
                         checked={selectedIds.includes(c.id)}
                         onChange={() => toggleOne(c.id)}
@@ -471,7 +441,7 @@ export default function CustomerMasterPage() {
                           {c.name.substring(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <span className="font-semibold text-slate-700 block leading-tight">{c.name}</span>
+                          <span className="row-primary-link block leading-tight">{c.name}</span>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span className="text-[10px] text-slate-400 block leading-tight">{c.email || "No email"}</span>
                             {c.leadSource && (
@@ -485,28 +455,20 @@ export default function CustomerMasterPage() {
                     </td>
                     <td className="crm-td text-slate-600">{c.city || "-"}</td>
                     <td className="crm-td"><StatusBadge status={c.status} /></td>
-                    <td className="crm-td text-right">
-                      <div className="flex items-center justify-end gap-2 text-slate-400">
-                        <button
-                          onClick={() => router.push(`/customer-master/${c.id}`)}
-                          className="hover:text-emerald-600 transition-colors p-1"
-                          title="View Customer Details"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                        </button>
+                    <td className="crm-td text-right" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => openEditModal(c)}
-                          className="hover:text-blue-600 transition-colors p-1"
+                          className="row-action-btn"
                           title="Edit Customer"
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         </button>
-
                         {(user?.role === "Admin" || user?.role === "SalesManager") && (
                           <button
                             onClick={() => handleDeleteOne(c)}
                             disabled={isDeleting}
-                            className="hover:text-red-600 transition-colors p-1 disabled:opacity-50"
+                            className="row-action-btn row-action-btn-danger"
                             title="Delete Customer"
                           >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>

@@ -1,0 +1,385 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   Suki CRM — Theme Token System
+   4 color themes × 2 modes = 8 combinations
+   Separate data-theme and data-mode attributes on <html>
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Semantic status colors (fixed across all themes) ─────────────────────── */
+:root {
+  --status-success:       #10B981;
+  --status-success-bg:    #D1FAE5;
+  --status-success-text:  #15803D;
+  --status-success-border:#BBF7D0;
+
+  --status-danger:        #EF4444;
+  --status-danger-bg:     #FEE2E2;
+  --status-danger-text:   #B91C1C;
+  --status-danger-border: #FECACA;
+
+  --status-warning:       #F59E0B;
+  --status-warning-bg:    #FEF3C7;
+  --status-warning-text:  #B45309;
+  --status-warning-border:#FDE68A;
+
+  --status-info:          #3B82F6;
+  --status-info-bg:       #DBEAFE;
+  --status-info-text:     #1D4ED8;
+  --status-info-border:   #BFDBFE;
+}
+
+/* ─── Sidebar: always black for ALL themes/modes ───────────────────────────── */
+:root[data-theme] {
+  --bg-sidebar:        #0E0E0E;
+  --sidebar-bg:        #0E0E0E;
+  --sidebar-text:      #A8A6A0;
+  --sidebar-text-act:  #FFFFFF;
+  --sidebar-heading:   #A8A6A0;
+  --sidebar-border:    rgba(255,255,255,0.06);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   ORANGE THEME (was ember)
+   ════════════════════════════════════════════════════════════════════════════ */
+:root[data-theme="orange"][data-mode="light"] {
+  --brand-primary:        #F77F00;
+  --brand-primary-hover:  #C55308;
+  --brand-primary-light:  #FFF4EB;
+  --brand-primary-border: #F0997B;
+  --brand-primary-text:   #7C2D12;
+
+  --accent:        #F77F00;
+  --accent-hover:  #C55308;
+  --accent-soft:   rgba(247,127,0,0.1);
+  --accent-text:   #F77F00;
+  --accent-contrast: #FFFFFF;
+
+  --bg: #F9FAFB; --surface: #FFFFFF; --surface-2: #F3F4F6; --surface-offset: #FFF1E8;
+  --border: #E5E7EB; --border-subtle: #F3F4F6; --border-default: #E5E7EB;
+  --text-primary: #111827; --text-secondary: #6B7280; --text-muted: #9CA3AF; --text-tertiary: #9CA3AF;
+  --text-on-brand: #FFFFFF;
+
+  --sidebar-hover: color-mix(in srgb, var(--brand-primary) 15%, transparent);
+  --sidebar-active: var(--brand-primary);
+  --sidebar-active-bg: var(--brand-primary);
+
+  --topbar-bg: #FFFBF9; --topbar-border: #F3E2D5;
+
+  --success: var(--status-success); --success-bg: var(--status-success-bg);
+  --warning: var(--status-warning); --warning-bg: var(--status-warning-bg);
+  --error: var(--status-danger);   --error-bg: var(--status-danger-bg);
+  --info: var(--status-info);      --info-bg: var(--status-info-bg);
+
+  --card-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); --card-shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+
+  --primary: var(--accent); --primary-hover: var(--accent-hover); --primary-light: var(--accent-soft);
+  --background: var(--bg); --foreground: var(--text-primary); --card-bg: var(--surface);
+
+  --kpi-total-bg: var(--status-info-bg); --kpi-total-border: var(--status-info-border);
+  --kpi-done-bg: var(--status-success-bg); --kpi-done-border: var(--status-success-border);
+  --kpi-pending-bg: var(--status-warning-bg); --kpi-pending-border: var(--status-warning-border);
+  --kpi-overdue-bg: var(--status-danger-bg); --kpi-overdue-border: var(--status-danger-border);
+}
+
+:root[data-theme="orange"][data-mode="dark"] {
+  --brand-primary:        #FF9E4A;
+  --brand-primary-hover:  #FFB37A;
+  --brand-primary-light:  #4A2500;
+  --brand-primary-border: #C25E0B;
+  --brand-primary-text:   #FFE8D1;
+
+  --accent:        #FF9E4A;
+  --accent-hover:  #FFB37A;
+  --accent-soft:   rgba(255,158,74,0.2);
+  --accent-text:   #FFB37A;
+  --accent-contrast: #1A1A1A;
+
+  --bg: #000000; --surface: #131313; --surface-2: #1E1E1E; --surface-offset: #2A1A10;
+  --border: #2A2A2A; --border-subtle: #222222; --border-default: #2A2A2A;
+  --text-primary: #F9FAFB; --text-secondary: #9CA3AF; --text-muted: #8B8B8B; --text-tertiary: #6B7280;
+  --text-on-brand: #1A1A1A;
+
+  --sidebar-hover: color-mix(in srgb, var(--brand-primary) 15%, transparent);
+  --sidebar-active: var(--brand-primary);
+  --sidebar-active-bg: var(--brand-primary);
+
+  --topbar-bg: #1A1A1A; --topbar-border: #2A2A2A;
+
+  --success: var(--status-success); --success-bg: rgba(16,185,129,0.2);
+  --warning: var(--status-warning); --warning-bg: rgba(245,158,11,0.2);
+  --error: var(--status-danger);   --error-bg: rgba(239,68,68,0.2);
+  --info: var(--status-info);      --info-bg: rgba(59,130,246,0.2);
+
+  --card-shadow: 0 1px 2px 0 rgba(0,0,0,0.5); --card-shadow-md: 0 4px 6px -1px rgba(0,0,0,0.5);
+
+  --primary: var(--accent); --primary-hover: var(--accent-hover); --primary-light: var(--accent-soft);
+  --background: var(--bg); --foreground: var(--text-primary); --card-bg: var(--surface);
+
+  --kpi-total-bg: rgba(59,130,246,0.2); --kpi-total-border: rgba(59,130,246,0.4);
+  --kpi-done-bg: rgba(16,185,129,0.2); --kpi-done-border: rgba(16,185,129,0.4);
+  --kpi-pending-bg: rgba(245,158,11,0.2); --kpi-pending-border: rgba(245,158,11,0.4);
+  --kpi-overdue-bg: rgba(239,68,68,0.2); --kpi-overdue-border: rgba(239,68,68,0.4);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   BLUE THEME (was ocean)
+   ════════════════════════════════════════════════════════════════════════════ */
+:root[data-theme="blue"][data-mode="light"] {
+  --brand-primary:        #8ECAE6;
+  --brand-primary-hover:  #6CB4D4;
+  --brand-primary-light:  #E8F7FC;
+  --brand-primary-border: #B8E0F0;
+  --brand-primary-text:   #1A5A7A;
+
+  --accent:        #8ECAE6;
+  --accent-hover:  #6CB4D4;
+  --accent-soft:   rgba(142,202,230,0.15);
+  --accent-text:   #1A5A7A;
+  --accent-contrast: #FFFFFF;
+
+  --bg: #F9FAFB; --surface: #FFFFFF; --surface-2: #F3F4F6; --surface-offset: #EAF2FA;
+  --border: #E5E7EB; --border-subtle: #F3F4F6; --border-default: #E5E7EB;
+  --text-primary: #111827; --text-secondary: #6B7280; --text-muted: #9CA3AF; --text-tertiary: #9CA3AF;
+  --text-on-brand: #FFFFFF;
+
+  --sidebar-hover: color-mix(in srgb, var(--brand-primary) 15%, transparent);
+  --sidebar-active: var(--brand-primary);
+  --sidebar-active-bg: var(--brand-primary);
+
+  --topbar-bg: #F3F8FC; --topbar-border: #E1ECF7;
+
+  --success: var(--status-success); --success-bg: var(--status-success-bg);
+  --warning: var(--status-warning); --warning-bg: var(--status-warning-bg);
+  --error: var(--status-danger);   --error-bg: var(--status-danger-bg);
+  --info: var(--status-info);      --info-bg: var(--status-info-bg);
+
+  --card-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); --card-shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+
+  --primary: var(--accent); --primary-hover: var(--accent-hover); --primary-light: var(--accent-soft);
+  --background: var(--bg); --foreground: var(--text-primary); --card-bg: var(--surface);
+
+  --kpi-total-bg: var(--status-info-bg); --kpi-total-border: var(--status-info-border);
+  --kpi-done-bg: var(--status-success-bg); --kpi-done-border: var(--status-success-border);
+  --kpi-pending-bg: var(--status-warning-bg); --kpi-pending-border: var(--status-warning-border);
+  --kpi-overdue-bg: var(--status-danger-bg); --kpi-overdue-border: var(--status-danger-border);
+}
+
+:root[data-theme="blue"][data-mode="dark"] {
+  --brand-primary:        #8ECAE6;
+  --brand-primary-hover:  #A8D8ED;
+  --brand-primary-light:  #1A5A7A;
+  --brand-primary-border: #4A8BA8;
+  --brand-primary-text:   #E8F7FC;
+
+  --accent:        #8ECAE6;
+  --accent-hover:  #A8D8ED;
+  --accent-soft:   rgba(142,202,230,0.2);
+  --accent-text:   #A8D8ED;
+  --accent-contrast: #1A1A1A;
+
+  --bg: #000000; --surface: #0b121c; --surface-2: #172333; --surface-offset: #11213A;
+  --border: #172333; --border-subtle: #101a26; --border-default: #172333;
+  --text-primary: #F9FAFB; --text-secondary: #9CA3AF; --text-muted: #6B7280; --text-tertiary: #6B7280;
+  --text-on-brand: #1A1A1A;
+
+  --sidebar-hover: color-mix(in srgb, var(--brand-primary) 15%, transparent);
+  --sidebar-active: var(--brand-primary);
+  --sidebar-active-bg: var(--brand-primary);
+
+  --topbar-bg: #0A1526; --topbar-border: #162E4F;
+
+  --success: var(--status-success); --success-bg: rgba(16,185,129,0.2);
+  --warning: var(--status-warning); --warning-bg: rgba(245,158,11,0.2);
+  --error: var(--status-danger);   --error-bg: rgba(239,68,68,0.2);
+  --info: var(--status-info);      --info-bg: rgba(59,130,246,0.2);
+
+  --card-shadow: 0 1px 2px 0 rgba(0,0,0,0.5); --card-shadow-md: 0 4px 6px -1px rgba(0,0,0,0.5);
+
+  --primary: var(--accent); --primary-hover: var(--accent-hover); --primary-light: var(--accent-soft);
+  --background: var(--bg); --foreground: var(--text-primary); --card-bg: var(--surface);
+
+  --kpi-total-bg: rgba(59,130,246,0.2); --kpi-total-border: rgba(59,130,246,0.4);
+  --kpi-done-bg: rgba(16,185,129,0.2); --kpi-done-border: rgba(16,185,129,0.4);
+  --kpi-pending-bg: rgba(245,158,11,0.2); --kpi-pending-border: rgba(245,158,11,0.4);
+  --kpi-overdue-bg: rgba(239,68,68,0.2); --kpi-overdue-border: rgba(239,68,68,0.4);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   GREEN THEME (was forest)
+   ════════════════════════════════════════════════════════════════════════════ */
+:root[data-theme="green"][data-mode="light"] {
+  --brand-primary:        #65B017;
+  --brand-primary-hover:  #4E8A12;
+  --brand-primary-light:  #EAF8D8;
+  --brand-primary-border: #A3D97A;
+  --brand-primary-text:   #2A4E0A;
+
+  --accent:        #65B017;
+  --accent-hover:  #4E8A12;
+  --accent-soft:   rgba(101,176,23,0.12);
+  --accent-text:   #2A4E0A;
+  --accent-contrast: #FFFFFF;
+
+  --bg: #F9FAFB; --surface: #FFFFFF; --surface-2: #F3F4F6; --surface-offset: #EAF5EE;
+  --border: #E5E7EB; --border-subtle: #F3F4F6; --border-default: #E5E7EB;
+  --text-primary: #111827; --text-secondary: #6B7280; --text-muted: #9CA3AF; --text-tertiary: #9CA3AF;
+  --text-on-brand: #FFFFFF;
+
+  --sidebar-hover: color-mix(in srgb, var(--brand-primary) 15%, transparent);
+  --sidebar-active: var(--brand-primary);
+  --sidebar-active-bg: var(--brand-primary);
+
+  --topbar-bg: #F4F9F5; --topbar-border: #DFEFE3;
+
+  --success: var(--status-success); --success-bg: var(--status-success-bg);
+  --warning: var(--status-warning); --warning-bg: var(--status-warning-bg);
+  --error: var(--status-danger);   --error-bg: var(--status-danger-bg);
+  --info: var(--status-info);      --info-bg: var(--status-info-bg);
+
+  --card-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); --card-shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+
+  --primary: var(--accent); --primary-hover: var(--accent-hover); --primary-light: var(--accent-soft);
+  --background: var(--bg); --foreground: var(--text-primary); --card-bg: var(--surface);
+
+  --kpi-total-bg: var(--status-info-bg); --kpi-total-border: var(--status-info-border);
+  --kpi-done-bg: var(--status-success-bg); --kpi-done-border: var(--status-success-border);
+  --kpi-pending-bg: var(--status-warning-bg); --kpi-pending-border: var(--status-warning-border);
+  --kpi-overdue-bg: var(--status-danger-bg); --kpi-overdue-border: var(--status-danger-border);
+}
+
+:root[data-theme="green"][data-mode="dark"] {
+  --brand-primary:        #65B017;
+  --brand-primary-hover:  #8CD149;
+  --brand-primary-light:  #2A4E0A;
+  --brand-primary-border: #4E8A12;
+  --brand-primary-text:   #EAF8D8;
+
+  --accent:        #8CD149;
+  --accent-hover:  #A3E065;
+  --accent-soft:   rgba(101,176,23,0.2);
+  --accent-text:   #8CD149;
+  --accent-contrast: #1A1A1A;
+
+  --bg: #000000; --surface: #0a130e; --surface-2: #15261d; --surface-offset: #0B2A15;
+  --border: #15261d; --border-subtle: #0f1c15; --border-default: #15261d;
+  --text-primary: #F9FAFB; --text-secondary: #9CA3AF; --text-muted: #6B7280; --text-tertiary: #6B7280;
+  --text-on-brand: #1A1A1A;
+
+  --sidebar-hover: color-mix(in srgb, var(--brand-primary) 15%, transparent);
+  --sidebar-active: var(--brand-primary);
+  --sidebar-active-bg: var(--brand-primary);
+
+  --topbar-bg: #082110; --topbar-border: #113C1E;
+
+  --success: var(--status-success); --success-bg: rgba(16,185,129,0.2);
+  --warning: var(--status-warning); --warning-bg: rgba(245,158,11,0.2);
+  --error: var(--status-danger);   --error-bg: rgba(239,68,68,0.2);
+  --info: var(--status-info);      --info-bg: rgba(59,130,246,0.2);
+
+  --card-shadow: 0 1px 2px 0 rgba(0,0,0,0.5); --card-shadow-md: 0 4px 6px -1px rgba(0,0,0,0.5);
+
+  --primary: var(--accent); --primary-hover: var(--accent-hover); --primary-light: var(--accent-soft);
+  --background: var(--bg); --foreground: var(--text-primary); --card-bg: var(--surface);
+
+  --kpi-total-bg: rgba(59,130,246,0.2); --kpi-total-border: rgba(59,130,246,0.4);
+  --kpi-done-bg: rgba(16,185,129,0.2); --kpi-done-border: rgba(16,185,129,0.4);
+  --kpi-pending-bg: rgba(245,158,11,0.2); --kpi-pending-border: rgba(245,158,11,0.4);
+  --kpi-overdue-bg: rgba(239,68,68,0.2); --kpi-overdue-border: rgba(239,68,68,0.4);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PURPLE THEME (replaced black/obsidian)
+   ════════════════════════════════════════════════════════════════════════════ */
+:root[data-theme="purple"][data-mode="light"] {
+  --brand-primary:        #4a0875;
+  --brand-primary-hover:  #3a0660;
+  --brand-primary-light:  #f3e8fd;
+  --brand-primary-border: #9c4dcc;
+  --brand-primary-text:   #2e0249;
+
+  --accent:        #4a0875;
+  --accent-hover:  #3a0660;
+  --accent-soft:   rgba(74,8,117,0.1);
+  --accent-text:   #4a0875;
+  --accent-contrast: #FFFFFF;
+
+  --bg: #F9FAFB; --surface: #FFFFFF; --surface-2: #F3F4F6; --surface-offset: #f3e8fd;
+  --border: #E5E7EB; --border-subtle: #F3F4F6; --border-default: #E5E7EB;
+  --text-primary: #111827; --text-secondary: #6B7280; --text-muted: #9CA3AF; --text-tertiary: #9CA3AF;
+  --text-on-brand: #FFFFFF;
+
+  --sidebar-hover: color-mix(in srgb, var(--brand-primary) 15%, transparent);
+  --sidebar-active: var(--brand-primary);
+  --sidebar-active-bg: var(--brand-primary);
+
+  --topbar-bg: #faf5ff; --topbar-border: #e9d5ff;
+
+  --success: var(--status-success); --success-bg: var(--status-success-bg);
+  --warning: var(--status-warning); --warning-bg: var(--status-warning-bg);
+  --error: var(--status-danger);   --error-bg: var(--status-danger-bg);
+  --info: var(--status-info);      --info-bg: var(--status-info-bg);
+
+  --card-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); --card-shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+
+  --primary: var(--accent); --primary-hover: var(--accent-hover); --primary-light: var(--accent-soft);
+  --background: var(--bg); --foreground: var(--text-primary); --card-bg: var(--surface);
+
+  --kpi-total-bg: var(--status-info-bg); --kpi-total-border: var(--status-info-border);
+  --kpi-done-bg: var(--status-success-bg); --kpi-done-border: var(--status-success-border);
+  --kpi-pending-bg: var(--status-warning-bg); --kpi-pending-border: var(--status-warning-border);
+  --kpi-overdue-bg: var(--status-danger-bg); --kpi-overdue-border: var(--status-danger-border);
+}
+
+:root[data-theme="purple"][data-mode="dark"] {
+  --brand-primary:        #b07ce8;
+  --brand-primary-hover:  #ce93d8;
+  --brand-primary-light:  #2e0249;
+  --brand-primary-border: #6a1b9a;
+  --brand-primary-text:   #f3e8fd;
+
+  --accent:        #b07ce8;
+  --accent-hover:  #ce93d8;
+  --accent-soft:   rgba(176,124,232,0.2);
+  --accent-text:   #ce93d8;
+  --accent-contrast: #1A1A1A;
+
+  --bg: #000000; --surface: #0f0a14; --surface-2: #1c1526; --surface-offset: #1a0f2e;
+  --border: #1c1526; --border-subtle: #140f1c; --border-default: #1c1526;
+  --text-primary: #F9FAFB; --text-secondary: #9CA3AF; --text-muted: #6B7280; --text-tertiary: #6B7280;
+  --text-on-brand: #1A1A1A;
+
+  --sidebar-hover: color-mix(in srgb, var(--brand-primary) 15%, transparent);
+  --sidebar-active: var(--brand-primary);
+  --sidebar-active-bg: var(--brand-primary);
+
+  --topbar-bg: #14091f; --topbar-border: #2a1142;
+
+  --success: var(--status-success); --success-bg: rgba(16,185,129,0.2);
+  --warning: var(--status-warning); --warning-bg: rgba(245,158,11,0.2);
+  --error: var(--status-danger);   --error-bg: rgba(239,68,68,0.2);
+  --info: var(--status-info);      --info-bg: rgba(59,130,246,0.2);
+
+  --card-shadow: 0 1px 2px 0 rgba(0,0,0,0.5); --card-shadow-md: 0 4px 6px -1px rgba(0,0,0,0.5);
+
+  --primary: var(--accent); --primary-hover: var(--accent-hover); --primary-light: var(--accent-soft);
+  --background: var(--bg); --foreground: var(--text-primary); --card-bg: var(--surface);
+
+  --kpi-total-bg: rgba(59,130,246,0.2); --kpi-total-border: rgba(59,130,246,0.4);
+  --kpi-done-bg: rgba(16,185,129,0.2); --kpi-done-border: rgba(16,185,129,0.4);
+  --kpi-pending-bg: rgba(245,158,11,0.2); --kpi-pending-border: rgba(245,158,11,0.4);
+  --kpi-overdue-bg: rgba(239,68,68,0.2); --kpi-overdue-border: rgba(239,68,68,0.4);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LEGACY COMPATIBILITY — map old data-theme="{color}-{mode}" selectors
+   so existing SSR HTML doesn't break before the FOUC script runs.
+   ════════════════════════════════════════════════════════════════════════════ */
+[data-theme="ember-light"]    { color-scheme: light; }
+[data-theme="ember-dark"]     { color-scheme: dark; }
+[data-theme="ocean-light"]    { color-scheme: light; }
+[data-theme="ocean-dark"]     { color-scheme: dark; }
+[data-theme="forest-light"]   { color-scheme: light; }
+[data-theme="forest-dark"]    { color-scheme: dark; }
+[data-theme="obsidian-light"] { color-scheme: light; }
+[data-theme="obsidian-dark"]  { color-scheme: dark; }
+[data-theme="black-light"]    { color-scheme: light; }
+[data-theme="black-dark"]     { color-scheme: dark; }

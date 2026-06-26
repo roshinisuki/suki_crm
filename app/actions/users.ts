@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { verifyAuth } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { buildScope, checkRecordScope } from "@/lib/scopes";
+import { dispatchNotification } from "@/lib/notifications";
 
 export async function getUsersAction() {
   try {
@@ -134,6 +135,21 @@ export async function deleteUserAction(id: string) {
         }
       });
       await logAudit(userPayload.id, "User Master", "Delete", `Soft-deleted user ${existingUser.email}`);
+
+      // Notify all admins about user deactivation
+      const admins = await prisma.user.findMany({
+        where: { role: "Admin", isActive: true, id: { not: userPayload.id } },
+        select: { id: true },
+      });
+      for (const admin of admins) {
+        await dispatchNotification({
+          userId: admin.id,
+          title: "User Deactivated",
+          message: `User ${existingUser.email} has been deactivated by ${userPayload.email || "admin"}.`,
+          type: "security",
+          link: "/settings/users",
+        }).catch(() => {});
+      }
     }
 
     return { success: true, message: "User deleted successfully" };

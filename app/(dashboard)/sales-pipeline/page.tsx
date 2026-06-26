@@ -18,7 +18,7 @@ import { PageShell } from "@/components/ui/PageShell";
 
 import { SummaryCard } from "@/components/ui/SummaryCard";
 
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import { StatusBadge, StageBadge } from "@/components/ui/StatusBadge";
 
 import { formatDate } from "@/lib/ui-utils";
 
@@ -32,9 +32,7 @@ const STAGES = {
 
   RequirementGathering: "Requirement Gathering",
 
-  MeetingScheduled: "Meeting Scheduled",
-
-  SolutionReview: "Solution Review",
+  MeetingScheduled: "Meeting & Demo",
 
   ProposalSent: "Proposal Sent",
 
@@ -108,7 +106,13 @@ export default function SalesOpportunitiesPage() {
 
 
 
-  useEffect(() => { fetchDeals(); }, []);
+  // Phase 5: Redirect to the new pipeline-list page
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const stage = params.get("stage");
+    const tab = stage === "Overdue" ? "overdue" : stage === "Rejected" ? "Lost" : stage || "all";
+    router.replace(`/sales-pipeline/pipeline-list${tab !== "all" ? `?tab=${tab}` : ""}`);
+  }, [router]);
 
 
 
@@ -149,12 +153,6 @@ export default function SalesOpportunitiesPage() {
           const stuckInEarlyStage = ["SalesOpportunity", "RequirementGathering"].includes(deal.status) && daysOld > 15;
 
           matchStage = (closeDatePassed || stuckInEarlyStage) && deal.status !== "Lost";
-
-        } else if (stageFilter === "Rejected") {
-
-          // Rejected = Lost deals
-
-          matchStage = deal.status === "Lost";
 
         } else if (stageFilter === "RequirementGathering") {
 
@@ -298,17 +296,13 @@ export default function SalesOpportunitiesPage() {
 
               <option value="RequirementGathering">Requirement Gathering</option>
 
-              <option value="MeetingScheduled">Meeting Scheduled</option>
-
-              <option value="SolutionReview">Solution Review</option>
+              <option value="MeetingScheduled">Meeting & Demo</option>
 
               <option value="ProposalSent">Proposal Sent</option>
 
               <option value="Negotiation">Negotiation</option>
 
               <option value="Overdue">Overdue</option>
-
-              <option value="Rejected">Rejected</option>
 
             </select>
 
@@ -330,7 +324,7 @@ export default function SalesOpportunitiesPage() {
 
           <SummaryCard label="High Priority" value={kpiHighPriority.toString()} icon={<CheckCircle size={20} />} variant="dark" />
 
-          <SummaryCard label="Overdue" value={kpiOverdue.toString()} icon={<AlertTriangle size={20} />} variant="orange" />
+          <SummaryCard label="Overdue" value={kpiOverdue.toString()} icon={<AlertTriangle size={20} />} variant="light" accentWhenPositive />
 
           <SummaryCard label="Follow-ups This Week" value={followUpsThisWeek.length.toString()} icon={<CalendarClock size={20} />} variant="indigo" />
 
@@ -430,7 +424,7 @@ export default function SalesOpportunitiesPage() {
 
                           <button
 
-                            onClick={() => router.push(`/sales-pipeline/${fu.dealId}`)}
+                            onClick={() => router.push(`/sales-pipeline/${fu.dealId}/opportunity-detail`)}
 
                             className="px-3 py-1.5 bg-amber-600 text-white font-bold text-xs rounded-lg hover:bg-amber-700 transition-colors shadow-sm"
 
@@ -508,11 +502,15 @@ export default function SalesOpportunitiesPage() {
 
                   filteredDeals.map(deal => (
 
-                    <tr key={deal.id} className="crm-tr hover:bg-slate-50/80 transition-colors">
+                    <tr
+                      key={deal.id}
+                      className="crm-tr table-row-clickable"
+                      onClick={() => router.push(`/sales-pipeline/${deal.id}/opportunity-detail`)}
+                    >
 
                       <td className="crm-td">
 
-                        <p className="font-bold text-slate-800">{deal.dealName}</p>
+                        <span className="row-primary-link" style={{ fontSize: "13px" }}>{deal.dealName}</span>
 
                         <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
 
@@ -524,13 +522,13 @@ export default function SalesOpportunitiesPage() {
 
                       <td className="crm-td">
 
-                        <p className="font-semibold text-slate-700">{deal.customer?.name}</p>
+                        <p className="font-medium text-slate-700" style={{ fontSize: "13px" }}>{deal.customer?.name}</p>
 
-                        <p className="text-[11px] text-slate-400">{deal.customer?.customerCode}</p>
+                        <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{deal.customer?.customerCode}</p>
 
                       </td>
 
-                      <td className="crm-td font-bold text-[var(--primary)]">
+                      <td className="crm-td font-medium text-[var(--primary)]" style={{ fontSize: "13px" }}>
 
                         {formatCurrency(deal.dealValue)}
 
@@ -538,85 +536,19 @@ export default function SalesOpportunitiesPage() {
 
                       <td className="crm-td">
 
-                        {deal.status === "SalesOpportunity" ? (
-
-                          <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-200">
-
-                            Qualified
-
-                          </span>
-
-                        ) : deal.status === "RequirementGathering" ? (
-
-                          <span className="px-2.5 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200">
-
-                            Draft (Req Gathering)
-
-                          </span>
-
-                        ) : (
-
-                          <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg border border-slate-200">
-
-                            {(STAGES as any)[deal.status] || deal.status}
-
-                          </span>
-
-                        )}
+                        <StageBadge stage={deal.status} />
 
                       </td>
 
-                      <td className="crm-td text-slate-600 font-medium">
+                      <td className="crm-td text-slate-600 font-medium" style={{ fontSize: "13px" }}>
 
                         {formatDate(deal.expectedCloseDate)}
 
                       </td>
 
-                      <td className="crm-td text-right">
+                      <td className="crm-td text-right" onClick={e => e.stopPropagation()}>
 
-                        {deal.status === "SalesOpportunity" ? (
-
-                          <button 
-
-                            onClick={() => router.push(`/sales-pipeline/${deal.id}`)}
-
-                            className="px-4 py-1.5 bg-[var(--primary)] text-white font-bold text-xs rounded-lg hover:bg-[var(--primary-hover)] transition-colors shadow-sm"
-
-                          >
-
-                            Start Requirement Gathering →
-
-                          </button>
-
-                        ) : deal.status === "RequirementGathering" ? (
-
-                          <button 
-
-                            onClick={() => router.push(`/sales-pipeline/${deal.id}`)}
-
-                            className="px-4 py-1.5 bg-indigo-50 text-indigo-700 font-bold text-xs rounded-lg hover:bg-indigo-100 border border-indigo-200 transition-colors"
-
-                          >
-
-                            Continue Requirement Gathering
-
-                          </button>
-
-                        ) : (
-
-                          <button 
-
-                            onClick={() => router.push(`/sales-pipeline/${deal.id}`)}
-
-                            className="px-4 py-1.5 bg-slate-50 text-slate-700 font-bold text-xs rounded-lg hover:bg-slate-100 border border-slate-200 transition-colors"
-
-                          >
-
-                            View Workspace
-
-                          </button>
-
-                        )}
+                        {/* Row is clickable; opportunity actions can be added here */}
 
                       </td>
 

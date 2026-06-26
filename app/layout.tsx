@@ -20,6 +20,15 @@ export const metadata: Metadata = {
   },
 };
 
+// Map legacy Prisma theme names to new theme keys
+const LEGACY_THEME_MAP: Record<string, string> = {
+  ember: "orange",
+  ocean: "blue",
+  forest: "green",
+  obsidian: "purple",
+  black: "purple",
+};
+
 export default async function RootLayout({
   children,
 }: {
@@ -29,17 +38,31 @@ export default async function RootLayout({
   const initialUser = userRes.success ? userRes.data : null;
 
   // Resolve theme from user profile (DB), fallback to defaults
-  const themeColor = initialUser?.theme || "ember";
+  const legacyTheme = initialUser?.theme || "ember";
   const themeMode = initialUser?.themeMode || "light";
-  const dataTheme = `${themeColor}-${themeMode}`;
+  const themeColor = LEGACY_THEME_MAP[legacyTheme] || "orange";
   const isDark = themeMode === "dark";
 
   return (
-    <html lang="en" data-theme={dataTheme} className={isDark ? "dark" : ""}>
+    <html lang="en" data-theme={themeColor} data-mode={themeMode} className={isDark ? "dark" : ""}>
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `window.__CRM_VARIANT__ = ${process.env.NEXT_PUBLIC_CRM_VARIANT || "1"};`,
+            __html: `
+              (function() {
+                var map = {ember:"orange",ocean:"blue",forest:"green",obsidian:"purple",black:"purple"};
+                var theme = localStorage.getItem("suki-theme") || localStorage.getItem("crm-theme-color") || "${themeColor}";
+                var mode = localStorage.getItem("suki-mode") || localStorage.getItem("crm-theme-mode") || "${themeMode}";
+                // Migrate old "black" to "purple"
+                if (theme === "black") theme = "purple";
+                theme = map[theme] || theme;
+                document.documentElement.setAttribute("data-theme", theme);
+                document.documentElement.setAttribute("data-mode", mode);
+                if (mode === "dark") document.documentElement.classList.add("dark");
+                else document.documentElement.classList.remove("dark");
+              })();
+              window.__CRM_VARIANT__ = ${process.env.NEXT_PUBLIC_CRM_VARIANT || "1"};
+            `,
           }}
         />
       </head>

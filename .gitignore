@@ -150,3 +150,6 @@ vite.config.ts.timestamp-*
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Runtime uploads (user/test uploaded files)
+/public/uploads/

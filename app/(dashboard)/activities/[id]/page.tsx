@@ -123,19 +123,19 @@ export default function ActivityDetailPage({ params }: { params: Promise<{ id: s
             <dl className="space-y-3">
               {[
                 { label: "Channel", value: activity.channel },
-                { label: "Linked To", value: activity.customer?.name || activity.lead?.name || "â€”" },
+                { label: "Linked To", value: activity.customer?.name || activity.lead?.name || "—" },
                 { label: "Direction", value: activity.direction },
-                ...(isCall ? [{ label: "Duration", value: activity.duration ? `${activity.duration} min` : "â€”" }] : []),
+                ...(isCall ? [{ label: "Duration", value: activity.duration ? `${activity.duration} min` : "—" }] : []),
                 ...(isMeeting ? [
-                  { label: "Meeting Date", value: activity.meetingDate ? formatDateTime(activity.meetingDate) : "â€”" },
-                  { label: "Mode", value: activity.mode || "â€”" },
-                  { label: "Location", value: activity.location || "â€”" },
-                  { label: "Agenda", value: activity.agenda || "â€”" },
-                  { label: "Outcome", value: activity.outcome || "â€”" },
+                  { label: "Meeting Date", value: activity.meetingDate ? formatDateTime(activity.meetingDate) : "—" },
+                  { label: "Mode", value: activity.mode || "—" },
+                  { label: "Location", value: activity.location || "—" },
+                  { label: "Agenda", value: activity.agenda || "—" },
+                  { label: "Outcome", value: activity.outcome || "—" },
                 ] : []),
                 { label: "Status", value: <StatusBadge status={activity.status} size="sm" /> },
-                { label: "Content", value: activity.content || "â€”" },
-                { label: "Created By", value: activity.sentByUser?.name || "â€”" },
+                { label: "Content", value: activity.content || "—" },
+                { label: "Created By", value: activity.sentByUser?.name || "—" },
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-start justify-between gap-2">
                   <dt className="text-xs font-semibold text-slate-400 shrink-0">{label}</dt>

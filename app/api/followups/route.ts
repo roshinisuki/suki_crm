@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { verifyAuth } from "@/lib/auth";
 import { getFollowUpsAction, createFollowUpAction } from "@/app/actions/followUps";
 
 export async function GET(request: Request) {
@@ -34,11 +36,46 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const user = await verifyAuth();
+    if (!user || user.role === "Customer") {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
+
+    // Validate: scheduled_datetime > NOW() (400 if past)
+    const scheduledDatetime = body.scheduled_datetime || body.nextMeetingDate || body.scheduledTime;
+    if (scheduledDatetime) {
+      const scheduled = new Date(scheduledDatetime);
+      if (scheduled <= new Date()) {
+        return NextResponse.json(
+          { success: false, message: "Scheduled datetime must be in the future" },
+          { status: 400 }
+        );
+      }
+    }
+
     const result = await createFollowUpAction(body);
 
     if (!result.success) {
       return NextResponse.json({ success: false, message: result.message }, { status: 400 });
+    }
+
+    // Schedule 1-hour reminder: INSERT notification with send_at = scheduled_datetime - 1 hour
+    if (scheduledDatetime && result.data?.assignedUserId) {
+      const scheduled = new Date(scheduledDatetime);
+      const reminderTime = new Date(scheduled.getTime() - 60 * 60 * 1000);
+      if (reminderTime > new Date()) {
+        await prisma.notification.create({
+          data: {
+            userId: result.data.assignedUserId,
+            title: "Follow-Up Reminder",
+            message: `Follow-up scheduled in 1 hour`,
+            type: "follow_up",
+            link: "/follow-up",
+          },
+        }).catch(() => {}); // non-blocking
+      }
     }
 
     return NextResponse.json({ success: true, message: result.message, data: result.data }, { status: 201 });

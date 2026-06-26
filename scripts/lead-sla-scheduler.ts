@@ -83,6 +83,55 @@ async function pickLeastBusyExecutive(excludeUserId?: string | null) {
 
 // ─── Tier 1: 15-Minute SLA Breach Detection ───────────────────────────────────
 
+async function run24HourNotContactedCheck() {
+  console.log("🔍 [SLA Pre-Tier] Checking 24-hour not-contacted leads...");
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  const notContactedLeads = await prisma.lead.findMany({
+    where: {
+      status: "New",
+      firstRespondedAt: null,
+      createdAt: { lt: twentyFourHoursAgo },
+    },
+    include: {
+      assignedUser: { select: { id: true, name: true } },
+    },
+  });
+
+  if (notContactedLeads.length === 0) {
+    console.log("   ✅ No 24h not-contacted leads.");
+    return;
+  }
+
+  const managerIds = await getManagerIds();
+
+  for (const lead of notContactedLeads) {
+    // Notify assigned executive
+    if (lead.assignedUser) {
+      await dispatchInAppNotification(
+        lead.assignedUser.id,
+        "Lead Not Contacted (24h)",
+        `Lead ${lead.leadCode} (${lead.name}) has been in New status for 24+ hours without contact. Please reach out immediately.`,
+        `/leads/${lead.id}`
+      );
+    }
+
+    // Notify managers
+    for (const managerId of managerIds) {
+      if (managerId !== lead.assignedUser?.id) {
+        await dispatchInAppNotification(
+          managerId,
+          "Lead Not Contacted (24h)",
+          `Lead ${lead.leadCode} (${lead.name}) assigned to ${lead.assignedUser?.name || "Unassigned"} has not been contacted in 24 hours.`,
+          `/leads/${lead.id}`
+        );
+      }
+    }
+
+    console.log(`   ⚠️  ${lead.leadCode} not contacted in 24h. Notifications sent.`);
+  }
+}
+
 async function runSlaBreachDetection() {
   console.log("🔍 [SLA Tier 1] Checking 15-minute first-response SLA breaches...");
   const now = new Date();
@@ -308,6 +357,7 @@ async function run72HourAutoReassignment() {
 export async function runLeadSlaScheduler() {
   console.log("\n🚀 Suki CRM Lead SLA Scheduler — Starting sweep at", new Date().toLocaleString("en-IN"));
   try {
+    await run24HourNotContactedCheck(); // 24h no contact
     await runSlaBreachDetection();    // Every 5 minutes
     await run48HourEscalation();      // Level 1
     await run72HourAutoReassignment(); // Level 2

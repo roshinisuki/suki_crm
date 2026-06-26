@@ -1,4 +1,4 @@
-// ─── LOCAL DEVELOPMENT SCHEMA (MySQL) ────────────────────────────────────────
+// â”€â”€â”€ LOCAL DEVELOPMENT SCHEMA (MySQL) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Used when DB_PROVIDER=mysql (or NODE_ENV=development)
 // Connection string format: mysql://user:password@localhost:3306/database
 
@@ -13,9 +13,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── Enums ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Enums â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// ─── Models ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model User {
   id                    String    @id @default(uuid())
@@ -23,7 +23,7 @@ model User {
   name                  String
   passwordHash          String
   role                  String    @default("SalesExecutive")
-  department            String? // Sales | Technical | Production | Quality | Management — Variant 3
+  department            String? // Sales | Technical | Production | Quality | Management â€” Variant 3
   userType              String    @default("internal") // "internal" | "customer"
   phone                 String?
   profilePhoto          String?   @db.NVarChar(Max)
@@ -46,7 +46,7 @@ model User {
   passwordSetAt         DateTime?
   theme                 String    @default("ember") // ember | ocean | forest | obsidian
   themeMode             String    @default("light") // light | dark
-  preferredCurrency     String    @default("INR") // INR | USD | EUR — display currency preference
+  preferredCurrency     String    @default("INR") // INR | USD | EUR â€” display currency preference
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -96,10 +96,23 @@ model User {
   Contact Contact[]
   Task    Task[]
 
+  // Phase 4: Task assigned-by, task comments, activity attendees
+  tasksAssignedBy   Task[]           @relation("TaskAssignedBy")
+  taskComments      TaskComment[]
+  activityAttendees ActivityAttendee[]
+
   // Variant 2 relations
   createdQuotations Quotation[]     @relation("CreatedQuotations")
+  assignedQuotations Quotation[]   @relation("AssignedQuotations")
   forecastEntries   ForecastEntry[]
   rfqs              RFQ[]           @relation("AssignedRFQs")
+  costingRFQs       RFQ[]           @relation("CostingOwnerRFQs")
+  submittedCostingSheets RFQCostingSheet[] @relation("SubmittedCostingSheets")
+  changedRFQStatuses    RFQStatusHistory[] @relation("ChangedRFQStatus")
+  changedQuotationStatuses QuotationStatusHistory[] @relation("ChangedQuotationStatus")
+  createdRevisionSnapshots QuotationRevisionSnapshot[] @relation("CreatedRevisionSnapshots")
+  requestedQuotationApprovals QuotationApproval[] @relation("RequestedQuotationApprovals")
+  quotationApprover     QuotationApproval[] @relation("QuotationApprover")
 
   // Variant 3 relations
   assignedSamples        SampleRequest[]       @relation("AssignedSamples")
@@ -123,6 +136,10 @@ model User {
   salesTargetsAssigned     SalesTarget[]          @relation("AssignedSalesTargets")
   keyAccountsManaged       KeyAccount[]           @relation("ManagedKeyAccounts")
   lostDealAnalysesRecorded LostDealAnalysis[]     @relation("RecordedLostDealAnalyses")
+
+  // Phase 9 relations
+  createdReportSchedules  ReportSchedule[]  @relation("CreatedReportSchedules")
+  exportedReports         ReportExportLog[] @relation("ExportedReports")
 
   @@index([role])
   @@index([isActive])
@@ -185,10 +202,28 @@ model Customer {
   // Keep leadSource for history if converted
   leadSource String?
 
+  // â”€â”€ Variant 2 gap-fill fields â”€â”€
+  gstNumber        String?   // unique enforced at application layer (SQL Server cannot unique-index nullable)
+  accountType      String    @default("Prospect") // Customer | Prospect | Distributor | OEM | Reseller
+  industryType     String?   // Automotive | Pharma | Textile | FMCG | Infrastructure | Others
+  billingAddress   String?   @db.NVarChar(Max)
+  shippingAddress  String?   @db.NVarChar(Max)
+  creditLimit      Float     @default(0)
+  creditTermsDays  Int       @default(30)
+  isKeyAccountV2   Boolean   @default(false)  // V2 flag for quick filtering
+  lastActivityDate DateTime?
+
+  // Variant 2 relations
+  plantLocations       PlantLocation[]
+  accountStatusHistories AccountStatusHistory[]
+  creditHistories      AccountCreditHistory[]
+
   @@index([customerCode])
   @@index([status])
   @@index([assignedUserId])
   @@index([companyId])
+  @@index([gstNumber])
+  @@index([isKeyAccountV2])
 }
 
 model Subscription {
@@ -228,7 +263,7 @@ model CustomerVisit {
   hostedBy         String
   host             User      @relation(fields: [hostedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
   purpose          String
-  checkInTime      DateTime  @default(now())
+  checkInTime      DateTime?
   checkOutTime     DateTime?
   meetingSummary   String?   @db.NVarChar(Max)
   outcome          String?
@@ -236,7 +271,7 @@ model CustomerVisit {
   rejectionReason  String?   @db.NVarChar(Max)
   nextMeetingDate  DateTime?
   nextMeetingNotes String?   @db.NVarChar(Max)
-  status           String    @default("CHECKED_IN")
+  status           String    @default("PLANNED")
   priority         String    @default("Normal")
   meetingType      String?
   source           String?
@@ -244,6 +279,20 @@ model CustomerVisit {
   department       String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+
+  // Phase 6: Customer Visits fields
+  plantLocationId       String?
+  plantLocation         PlantLocation? @relation(fields: [plantLocationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  plannedDate           DateTime?
+  plannedTime           String?
+  gpsLat                Float?
+  gpsLng                Float?
+  gpsAnomaly            Boolean?
+  visitSummary          String?   @db.NVarChar(Max)
+  nextAction            String?
+  linkedOpportunityId   String?
+  linkedOpportunity     Deal?     @relation("VisitLinkedOpportunity", fields: [linkedOpportunityId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  visitAttendees        CustomerVisitAttendee[]
 
   // Multi-Tenancy
   companyId String?
@@ -257,6 +306,20 @@ model CustomerVisit {
   @@index([hostedBy])
   @@index([status])
   @@index([companyId])
+  @@index([plantLocationId])
+  @@index([linkedOpportunityId])
+}
+
+model CustomerVisitAttendee {
+  id          String @id @default(uuid())
+  visitId     String
+  visit       CustomerVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  contactId   String
+  contact     Contact @relation(fields: [contactId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt   DateTime @default(now())
+
+  @@index([visitId])
+  @@index([contactId])
 }
 
 model MarketingVisit {
@@ -296,6 +359,9 @@ model MarketingVisit {
   // Soft Delete
   deletedAt   DateTime?
   deletedById String?
+
+  // Variant 2 relations
+  attendees VisitAttendee[]
 
   @@index([executiveId])
   @@index([customerId])
@@ -351,6 +417,7 @@ model AuditLog {
   @@index([severity])
   @@index([resourceId])
   @@index([companyId])
+  @@index([module, resourceId, timestamp])
 }
 
 model PasswordResetToken {
@@ -396,10 +463,15 @@ model FollowUp {
   priority        String    @default("Medium") // Low, Medium, High
   escalationLevel Int       @default(0)
   autoCreated     Boolean   @default(false)
-  type            String? // "Call" | "Meeting" | "Note" — links to activity type
+  type            String? // "Call" | "Meeting" | "Note" â€” links to activity type
 
   // Activities linked to this follow-up
   communicationLogs CommunicationLog[]
+
+  // Phase 4: Chained follow-up link
+  nextFollowupId String?
+  nextFollowUp   FollowUp?  @relation("ChainedFollowUp", fields: [nextFollowupId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  prevFollowUps  FollowUp[] @relation("ChainedFollowUp")
 
   // Multi-Tenancy
   companyId String?
@@ -417,6 +489,7 @@ model FollowUp {
   @@index([completedById])
   @@index([companyId])
   @@index([type])
+  @@index([assignedUserId, status, nextMeetingDate])
 }
 
 model Notification {
@@ -433,6 +506,7 @@ model Notification {
   @@index([userId])
   @@index([isRead])
   @@index([createdAt])
+  @@index([userId, isRead, createdAt])
 }
 
 model NotificationPreference {
@@ -475,9 +549,17 @@ model Deal {
   proposals         Proposal[]
   opportunityDetail OpportunityDetail?
 
+  // â”€â”€ Variant 2 gap-fill fields â”€â”€
+  opportunityCode    String?  // OPP-YYYY-NNNNN, set on Deal creation via V2 flow
+  probabilityPercent Int      @default(20)  // 0â€“100, updated per stage
+  isOverdue          Boolean  @default(false)
+  lostReasonRefId    String?  // FK to LossReason.id (named to avoid conflict with lostReason String field)
+  lostReasonRef      LossReason? @relation("DealLossReason", fields: [lostReasonRefId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
   // Variant 2 relations
-  quotations Quotation[]
-  tasks      Task[]
+  quotations         Quotation[]
+  tasks              Task[]
+  opportunityContacts OpportunityContact[]
 
   // Variant 3 relations
   negotiations   Negotiation[]
@@ -485,6 +567,12 @@ model Deal {
 
   // Variant 4 relations
   lostDealAnalysis LostDealAnalysis?
+
+  // Phase 6: linked visits
+  linkedVisits     CustomerVisit[] @relation("VisitLinkedOpportunity")
+
+  // Phase 7: linked RFQs
+  rfqs             RFQ[]           @relation("OpportunityRFQs")
 
   // Multi-Tenancy
   companyId String?
@@ -502,6 +590,9 @@ model Deal {
   @@index([assignedUserId])
   @@index([status])
   @@index([companyId])
+  @@index([opportunityCode])
+  @@index([isOverdue])
+  @@index([status, assignedUserId, isOverdue, expectedCloseDate])
 }
 
 model OpportunityDetail {
@@ -509,7 +600,7 @@ model OpportunityDetail {
   dealId String @unique
   deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
-  // ── Requirement Gathering (Discovery) Fields ──
+  // â”€â”€ Requirement Gathering (Discovery) Fields â”€â”€
   currentChallenges String? @db.NVarChar(Max)
   painPoints        String? @db.NVarChar(Max)
   painPointsList    String? @db.NVarChar(Max) // JSON string of checkboxes
@@ -536,7 +627,7 @@ model OpportunityDetail {
   currentVendor        String?
   competitorsEvaluated String? @db.NVarChar(Max)
 
-  // ── Pre-Sales Review Fields ──
+  // â”€â”€ Pre-Sales Review Fields â”€â”€
   proposedSolution     String? @db.NVarChar(Max)
   scopeClassification  String?
   estimatedDuration    String?
@@ -544,7 +635,7 @@ model OpportunityDetail {
   implementationEffort String?
   supportRequirements  String?
 
-  // ── Meeting Scheduled Fields ──
+  // â”€â”€ Meeting Scheduled Fields â”€â”€
   meetingType         String?
   meetingMode         String?
   meetingDate         DateTime?
@@ -555,7 +646,7 @@ model OpportunityDetail {
   meetingAgenda       String?   @db.NVarChar(Max)
   meetingOutcome      String?   @db.NVarChar(Max)
 
-  // ── Demo Conducted Fields ──
+  // â”€â”€ Demo Conducted Fields â”€â”€
   demoType            String?
   demoDate            DateTime?
   demoPresenter       String?
@@ -565,12 +656,12 @@ model OpportunityDetail {
   demoInterestLevel   String?
   demoQuestionsRaised String?   @db.NVarChar(Max)
 
-  // ── Rejected Demo Fields ──
+  // â”€â”€ Rejected Demo Fields â”€â”€
   demoRejectionReason  String?
   demoRejectionRemarks String? @db.NVarChar(Max)
   demoCompetitorName   String?
 
-  // ── Business Requirements Fields ──
+  // â”€â”€ Business Requirements Fields â”€â”€
   businessNeed        String? @db.NVarChar(Max)
   expectedOutcome     String? @db.NVarChar(Max)
   requiredDepartments String? @db.NVarChar(Max)
@@ -579,7 +670,7 @@ model OpportunityDetail {
   businessGoals       String? @db.NVarChar(Max)
   successCriteria     String? @db.NVarChar(Max)
 
-  // ── Technical Requirements Fields ──
+  // â”€â”€ Technical Requirements Fields â”€â”€
   existingSoftwareStack String? @db.NVarChar(Max)
   securityCompliance    String? @db.NVarChar(Max)
   userRolesPermissions  String? @db.NVarChar(Max)
@@ -590,7 +681,7 @@ model OpportunityDetail {
   technicalConstraints  String? @db.NVarChar(Max)
   itTeamNotes           String? @db.NVarChar(Max)
 
-  // ── Commercial Info Fields ──
+  // â”€â”€ Commercial Info Fields â”€â”€
   expectedBudget       Float?
   finalDiscussedBudget Float?
   pricingModel         String?
@@ -604,7 +695,7 @@ model OpportunityDetail {
   negotiationNotes     String? @db.NVarChar(Max)
   probability          Int?
 
-  // ── Internal Notes Fields ──
+  // â”€â”€ Internal Notes Fields â”€â”€
   internalSalesNotes String? @db.NVarChar(Max)
   presalesNotes      String? @db.NVarChar(Max)
   objections         String? @db.NVarChar(Max)
@@ -613,7 +704,7 @@ model OpportunityDetail {
   nextSteps          String? @db.NVarChar(Max)
   managementNotes    String? @db.NVarChar(Max)
 
-  // ── Customer Info (editable) ──
+  // â”€â”€ Customer Info (editable) â”€â”€
   companyName          String?
   industry             String?
   contactPerson        String?
@@ -623,7 +714,7 @@ model OpportunityDetail {
   approvalProcess      String? @db.NVarChar(Max)
   buyingAuthorityNotes String? @db.NVarChar(Max)
 
-  // ── Requirement Gathering completion ──
+  // â”€â”€ Requirement Gathering completion â”€â”€
   requirementCompletedAt DateTime?
 
   createdAt DateTime @default(now())
@@ -648,14 +739,16 @@ model CallLog {
 }
 
 model DealStageHistory {
-  id          Int      @id @default(autoincrement())
-  dealId      String
-  deal        Deal     @relation(fields: [dealId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  fromStatus  String?
-  toStatus    String
-  changedById String
-  changedBy   User     @relation(fields: [changedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  changedAt   DateTime @default(now())
+  id                   Int      @id @default(autoincrement())
+  dealId               String
+  deal                 Deal     @relation(fields: [dealId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fromStatus           String?
+  toStatus             String
+  changedById          String
+  changedBy            User     @relation(fields: [changedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  changedAt            DateTime @default(now())
+  daysInPreviousStage  Int?
+  notes                String?  @db.NVarChar(Max)
 
   @@index([dealId])
   @@index([changedById])
@@ -708,11 +801,29 @@ model Lead {
   callLogs          CallLog[]
   ownerHistory      LeadOwnerHistory[]
 
+  // â”€â”€ Variant 2 gap-fill fields â”€â”€
+  leadScore            Int       @default(0)   // 0â€“100 server-computed score
+  companyName          String?                 // Separate from contact name
+  designation          String?                 // Contact person's designation
+  industryType         String?                 // Automotive | Pharma | Textile | FMCG | Others
+  estimatedValue       Float?                  // Estimated deal value
+  isDuplicateOf        String?                 // FK to another lead_id (self-ref, no enforced FK)
+  convertedAccountId   String?                 // Set on conversion
+  convertedOpportunityId String?               // Set on conversion
+  lostReason           String?  @db.NVarChar(Max) // Free-text loss reason
+  lostReasonRefId      String?                 // FK to LossReason.id
+
+  // Variant 2 relations
+  statusHistories LeadStatusHistory[]
+
   @@index([status])
   @@index([assignedUserId])
   @@index([slaStatus])
   @@index([escalationLevel])
   @@index([companyId])
+  @@index([leadScore])
+  @@index([isDuplicateOf])
+  @@index([assignedUserId, status, createdAt])
 }
 
 model LeadOwnerHistory {
@@ -757,7 +868,7 @@ model CommunicationLog {
   outcome     String?   @db.NVarChar(Max)
   meetingDate DateTime?
 
-  // Follow-Up linking — each activity can be linked to a follow-up
+  // Follow-Up linking â€” each activity can be linked to a follow-up
   followUpId String?
   followUp   FollowUp? @relation(fields: [followUpId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -767,6 +878,9 @@ model CommunicationLog {
   // Soft Delete
   deletedAt   DateTime?
   deletedById String?
+
+  // Phase 4: Meeting attendees
+  attendees ActivityAttendee[]
 
   @@index([customerId])
   @@index([leadId])
@@ -874,7 +988,7 @@ model ApprovalHistory {
   status          String // Pending, Approved, Rejected
   remarks         String?   @db.NVarChar(Max)
   previousStatus  String? // Deal status captured before locking (for exact rollback on rejection)
-  // Variant 3 — generic approval fields
+  // Variant 3 â€” generic approval fields
   approvalType    String? // Discount | Negotiation | PO | Quotation
   entityType      String? // Deal | Negotiation | PurchaseOrder | Quotation
   entityId        String?
@@ -936,6 +1050,11 @@ model Company {
   salesTargets      SalesTarget[]
   keyAccounts       KeyAccount[]
   lostDealAnalyses  LostDealAnalysis[]
+  pipelineStageMasters PipelineStageMaster[]
+
+  // Phase 9 relations
+  reportSchedules   ReportSchedule[]
+  reportExportLogs  ReportExportLog[]
 }
 
 model LeadSource {
@@ -975,6 +1094,10 @@ model Contact {
   company     String?
   title       String?
   designation String?
+  dateOfBirth DateTime?
+  preferredChannel   String? // Phone | Email | WhatsApp | SMS
+  bestTimeToCall     String? // Morning | Afternoon | Evening
+  languagePreference String? // English | Hindi | Tamil | Telugu | etc.
   status      String    @default("Active")
   contactType String    @default("Technical") // Technical | Purchase | Finance | Management
   isPrimary   Boolean   @default(false)
@@ -995,14 +1118,21 @@ model Contact {
 
   Task Task[]
 
+  // Phase 4: Activity attendees
+  activityAttendees ActivityAttendee[]
+
   // Variant 2 relations
   rfqs       RFQ[]
-  quotations Quotation[]
+  quotations    Quotation[]
+  opportunityContacts OpportunityContact[]
 
   // Variant 3 relations
   negotiations   Negotiation[]
   purchaseOrders PurchaseOrder[]
   samples        SampleRequest[]
+
+  // Phase 6: visit attendees
+  visitAttendees   CustomerVisitAttendee[]
 
   @@index([ownerId])
   @@index([status])
@@ -1028,6 +1158,15 @@ model Task {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  // Phase 4: Completion & cancellation tracking
+  completedAt        DateTime?
+  cancellationReason String?   @db.NVarChar(Max)
+  assignedBy         String?
+  AssignedBy         User?     @relation("TaskAssignedBy", fields: [assignedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // Phase 4: Comments
+  comments TaskComment[]
+
   // Multi-Tenancy
   companyId String?
 
@@ -1042,7 +1181,7 @@ model Task {
   @@index([companyId])
 }
 
-// ─── Variant 2 Models ─────────────────────────────────────────────────────
+// â”€â”€â”€ Variant 2 Models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model ProductCategory {
   id          String    @id @default(uuid())
@@ -1078,6 +1217,7 @@ model Product {
   company            Company?               @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   specifications     ProductSpecification[]
   rfqs               RFQ[]
+  rfqLineItems       RFQLineItem[]
   quotationItems     QuotationItem[]
   // Variant 3 relations
   samples            SampleRequest[]
@@ -1133,6 +1273,21 @@ model RFQ {
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
   quotations           Quotation[]
+  // â”€â”€ Variant 2 gap-fill fields â”€â”€
+  customerDueDate  DateTime?
+  priority         String    @default("Normal")  // Urgent | Normal
+  costingOwnerId   String?
+  costingOwner     User?     @relation("CostingOwnerRFQs", fields: [costingOwnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // Variant 2 relations
+  lineItems        RFQLineItem[]
+  costingSheets    RFQCostingSheet[]
+  rfqStatusHistories RFQStatusHistory[]
+
+  // Phase 7: linked opportunity
+  opportunityId    String?
+  opportunity      Deal?     @relation("OpportunityRFQs", fields: [opportunityId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
   // Variant 3 relations
   samples              SampleRequest[]
 
@@ -1140,6 +1295,11 @@ model RFQ {
   @@index([status])
   @@index([assignedUserId])
   @@index([companyId])
+  @@index([priority])
+  @@index([customerDueDate])
+  @@index([costingOwnerId])
+  @@index([opportunityId])
+  @@index([status, customerDueDate, assignedUserId])
 }
 
 model Quotation {
@@ -1163,6 +1323,7 @@ model Quotation {
   acceptedAt         DateTime?
   rejectedAt         DateTime?
   rejectionReason    String?         @db.NVarChar(Max)
+  rejectionReasonId  String?
   createdById        String
   createdBy          User            @relation("CreatedQuotations", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   companyId          String?
@@ -1172,6 +1333,23 @@ model Quotation {
   deletedById        String?
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
+  // â”€â”€ Variant 2 gap-fill fields â”€â”€
+  revisionNumber   Int       @default(1)
+  pdfUrl           String?   @db.NVarChar(Max)
+  subtotal         Float     @default(0)
+  taxAmount        Float     @default(0)
+  paymentTerms     String?   @db.NVarChar(Max)
+  deliveryTerms    String?   @db.NVarChar(Max)
+  freightTerms     String?
+  leadTimeDays     Int?
+
+  // Variant 2 relations
+  assignedUser             User?                 @relation("AssignedQuotations", fields: [assignedUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assignedUserId           String?
+  quotationStatusHistories QuotationStatusHistory[]
+  revisionSnapshots        QuotationRevisionSnapshot[]
+  quotationApprovals       QuotationApproval[]
+
   // Variant 3 relations
   negotiations       Negotiation[]
   purchaseOrders     PurchaseOrder[]
@@ -1180,6 +1358,9 @@ model Quotation {
   @@index([status])
   @@index([companyId])
   @@index([rfqId])
+  @@index([validUntil])
+  @@index([revisionNumber])
+  @@index([status, validUntil])
 }
 
 model QuotationItem {
@@ -1188,11 +1369,18 @@ model QuotationItem {
   quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   productId   String?
   product     Product?  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  description String
-  quantity    Float
-  unitPrice   Float
-  totalPrice  Float
-  notes       String?
+  description     String
+  quantity        Float
+  unitPrice       Float
+  totalPrice      Float
+  notes           String?
+
+  // â”€â”€ Variant 2 gap-fill fields â”€â”€
+  discountPercent Float   @default(0)
+  taxPercent      Float   @default(18)
+  lineTotal       Float   @default(0)  // quantity * unitPrice * (1 - discountPercent/100)
+  hsn             String? // HSN code for tax classification
+  unit            String? // UOM: Nos | Kg | Meters | Sets
 
   @@index([quotationId])
 }
@@ -1231,7 +1419,7 @@ model PipelineStage {
   @@index([order])
 }
 
-// ─── Exchange Rate Cache ──────────────────────────────────────────────────────
+// â”€â”€â”€ Exchange Rate Cache â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Stores daily exchange rates fetched from external API.
 // Rates are relative to base currency (e.g., 1 INR = 0.012 USD).
 // Updated daily via cron or on-demand when stale.
@@ -1250,7 +1438,7 @@ model ExchangeRate {
 }
 
 // ============================================================
-// VARIANT 3 — Manufacturing CRM Models
+// VARIANT 3 â€” Manufacturing CRM Models
 // ============================================================
 
 model SampleRequest {
@@ -1591,6 +1779,7 @@ model LossReason {
   createdAt DateTime @default(now())
 
   lostDealAnalyses LostDealAnalysis[]
+  dealsLost        Deal[]             @relation("DealLossReason")
 
   @@index([companyId])
   @@index([isActive])
@@ -1671,5 +1860,314 @@ model KeyAccount {
   @@index([customerId])
   @@index([accountManagerId])
   @@index([strategicImportance])
+  @@index([companyId])
+}
+
+// ============================================================
+// VARIANT 2 â€” Gap-Fill Models
+// ============================================================
+
+model LeadStatusHistory {
+  id         String   @id @default(uuid())
+  leadId     String
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fromStatus String?
+  toStatus   String
+  changedById String?
+  notes      String?  @db.NVarChar(Max)
+  changedAt  DateTime @default(now())
+
+  @@index([leadId])
+  @@index([changedAt])
+}
+
+model AccountStatusHistory {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fromStatus String?
+  toStatus   String
+  changedById String?
+  notes      String?  @db.NVarChar(Max)
+  changedAt  DateTime @default(now())
+
+  @@index([customerId])
+  @@index([changedAt])
+}
+
+model AccountCreditHistory {
+  id              String   @id @default(uuid())
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  oldCreditLimit  Float    @default(0)
+  newCreditLimit  Float    @default(0)
+  oldTermsDays    Int      @default(30)
+  newTermsDays    Int      @default(30)
+  approvedById    String?
+  notes           String?  @db.NVarChar(Max)
+  changedAt       DateTime @default(now())
+
+  @@index([customerId])
+  @@index([changedAt])
+}
+
+model PlantLocation {
+  id          String   @id @default(uuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  locationName String
+  address     String   @db.NVarChar(Max)
+  city        String?
+  state       String?
+  pincode     String?
+  gpsLat      Float?
+  gpsLng      Float?
+  isPrimary   Boolean  @default(false)
+  contactName String?
+  contactPhone String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Phase 6: back-relation from CustomerVisit
+  visits      CustomerVisit[]
+
+  @@index([customerId])
+  @@index([isPrimary])
+}
+
+model RFQLineItem {
+  id              String   @id @default(uuid())
+  rfqId           String
+  rfq             RFQ      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  itemDescription String   @db.NVarChar(Max)
+  productId       String?
+  product         Product? @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity        Float    @default(1)
+  unit            String?
+  targetPrice     Float?
+  requestedDeliveryDate DateTime?
+  specifications  String?  @db.NVarChar(Max)
+  notes           String?  @db.NVarChar(Max)
+  displayOrder    Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([rfqId])
+  @@index([productId])
+}
+
+model RFQCostingSheet {
+  id             String   @id @default(uuid())
+  rfqId          String
+  rfq            RFQ      @relation(fields: [rfqId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  materialCost   Float    @default(0)
+  labourCost     Float    @default(0)
+  overheadPercent Float   @default(0)
+  marginPercent  Float    @default(0)
+  computedUnitPrice Float @default(0)  // server-computed: (material+labour)*(1+overhead%)*(1+margin%)
+  submittedById  String?
+  submittedBy    User?    @relation("SubmittedCostingSheets", fields: [submittedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  notes          String?  @db.NVarChar(Max)
+  createdAt      DateTime @default(now())
+
+  @@index([rfqId])
+  @@index([createdAt])
+  @@index([submittedById])
+}
+
+model RFQStatusHistory {
+  id         String   @id @default(uuid())
+  rfqId      String
+  rfq        RFQ      @relation(fields: [rfqId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fromStatus String?
+  toStatus   String
+  changedById String?
+  changedBy  User?    @relation("ChangedRFQStatus", fields: [changedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  notes      String?  @db.NVarChar(Max)
+  changedAt  DateTime @default(now())
+
+  @@index([rfqId])
+  @@index([changedAt])
+  @@index([changedById])
+}
+
+model QuotationStatusHistory {
+  id           String    @id @default(uuid())
+  quotationId  String
+  quotation    Quotation @relation(fields: [quotationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fromStatus   String?
+  toStatus     String
+  changedById  String?
+  changedBy    User?     @relation("ChangedQuotationStatus", fields: [changedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  notes        String?   @db.NVarChar(Max)
+  changedAt    DateTime  @default(now())
+
+  @@index([quotationId])
+  @@index([changedAt])
+  @@index([changedById])
+}
+
+model QuotationRevisionSnapshot {
+  id             String    @id @default(uuid())
+  quotationId    String
+  quotation      Quotation @relation(fields: [quotationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  revisionNumber Int
+  snapshotJson   String    @db.NVarChar(Max)  // full quotation+items JSON at time of clone
+  createdById    String?
+  createdBy      User?     @relation("CreatedRevisionSnapshots", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt      DateTime  @default(now())
+
+  @@index([quotationId])
+  @@index([revisionNumber])
+  @@index([createdById])
+}
+
+model QuotationApproval {
+  id           String    @id @default(uuid())
+  quotationId  String
+  quotation    Quotation @relation(fields: [quotationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requestedById String?
+  requestedBy  User?     @relation("RequestedQuotationApprovals", fields: [requestedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approverId   String?
+  approver     User?     @relation("QuotationApprover", fields: [approverId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status       String    @default("Pending")  // Pending | Approved | Rejected
+  discountPercent Float  @default(0)
+  notes        String?   @db.NVarChar(Max)
+  decidedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([quotationId])
+  @@index([status])
+  @@index([approverId])
+  @@index([requestedById])
+}
+
+model OpportunityContact {
+  id              String   @id @default(uuid())
+  dealId          String
+  deal            Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contactId       String
+  contact         Contact  @relation(fields: [contactId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  stakeholderRole String   @default("Influencer")  // Decision Maker | Technical Evaluator | Influencer | Gatekeeper | Finance Approver
+  isPrimary       Boolean  @default(false)
+  addedAt         DateTime @default(now())
+
+  @@unique([dealId, contactId])
+  @@index([dealId])
+  @@index([contactId])
+}
+
+model VisitAttendee {
+  id             String          @id @default(uuid())
+  marketingVisitId String
+  marketingVisit MarketingVisit  @relation(fields: [marketingVisitId], references: [id], onDelete: Cascade)
+  contactId      String?
+  contactName    String?         // fallback if no Contact record
+  addedAt        DateTime        @default(now())
+
+  @@index([marketingVisitId])
+  @@index([contactId])
+}
+
+model TaxMaster {
+  id            String   @id @default(uuid())
+  taxName       String
+  taxPercent    Float
+  hsnCode       String?
+  effectiveFrom DateTime @default(now())
+  isActive      Boolean  @default(true)
+  companyId     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([hsnCode])
+  @@index([companyId])
+}
+
+// ─── Phase 4: Activities, Tasks & Follow Ups ────────────────────────────────────
+
+model ActivityAttendee {
+  id                String  @id @default(uuid())
+  communicationLogId String
+  communicationLog  CommunicationLog @relation(fields: [communicationLogId], references: [id], onDelete: Cascade)
+  contactId         String?
+  contact           Contact? @relation(fields: [contactId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  userId            String?
+  user              User?    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  addedAt           DateTime @default(now())
+
+  @@index([communicationLogId])
+  @@index([contactId])
+  @@index([userId])
+}
+
+model TaskComment {
+  id          String   @id @default(uuid())
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  commentText String   @db.NVarChar(Max)
+  createdAt   DateTime @default(now())
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model PipelineStageMaster {
+  id                 String   @id @default(uuid())
+  stageName          String   @unique
+  displayName        String
+  displayOrder       Int      @default(0)
+  probabilityPercent Int      @default(0)
+  isActive           Boolean  @default(true)
+  isClosedStage      Boolean  @default(false)
+  companyId          String?
+  company            Company? @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([displayOrder])
+  @@index([isActive])
+}
+
+model ReportSchedule {
+  id              String   @id @default(uuid())
+  reportId        String   // "leads" | "opportunities" | "quotations" | "rfqs" | "follow-ups" | "visits"
+  frequency       String   // "Daily" | "Weekly" | "Monthly"
+  format          String   // "PDF" | "Excel" | "EmailBody"
+  recipientIds    String   @db.NVarChar(Max) // JSON array of user IDs
+  filtersJson     String?  @db.NVarChar(Max) // JSON of applied filters
+  isActive        Boolean  @default(true)
+  lastRunAt       DateTime?
+  createdById     String
+  createdBy       User     @relation("CreatedReportSchedules", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  companyId       String?
+  company         Company? @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([reportId])
+  @@index([createdById])
+  @@index([companyId])
+}
+
+model ReportExportLog {
+  id              String   @id @default(uuid())
+  reportId        String
+  exportedById    String
+  exportedBy      User     @relation("ExportedReports", fields: [exportedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  filtersJson     String?  @db.NVarChar(Max)
+  format          String   // "excel" | "pdf"
+  companyId       String?
+  company         Company? @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  exportedAt      DateTime @default(now())
+
+  @@index([reportId])
+  @@index([exportedById])
   @@index([companyId])
 }

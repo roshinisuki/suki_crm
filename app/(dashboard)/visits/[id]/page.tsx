@@ -1,200 +1,647 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
-import PageContainer from "@/components/PageContainer";
+import { PageShell } from "@/components/ui/PageShell";
+import { Modal } from "@/components/ui/Modal";
+import { FormField, Input, Textarea, Select } from "@/components/ui/FormField";
+import { formatDate, formatDateTime, cn } from "@/lib/ui-utils";
+import {
+  MapPin, CheckCircle, Clock, CalendarClock,
+  AlertTriangle, UserPlus, Briefcase, Users, FileText, Navigation,
+} from "lucide-react";
 
-const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
-  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d={d} />
-  </svg>
-);
-
-const icons = { back: "M10 19l-7-7m0 0l7-7m-7 7h18", check: "M5 13l4 4L19 7", x: "M6 18L18 6M6 6l12 12", trash: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" };
-
-const statusColors: Record<string, string> = {
-  PLANNED: "bg-blue-100 text-blue-700",
-  CHECKED_IN: "bg-amber-100 text-amber-700",
-  COMPLETED: "bg-green-100 text-green-700",
-  MISSED: "bg-red-100 text-red-700",
+const STATUS_PILLS: Record<string, string> = {
+  PLANNED: "bg-blue-50 text-blue-700 border-blue-200",
+  CHECKED_IN: "bg-amber-50 text-amber-700 border-amber-200",
+  CHECKED_OUT: "bg-teal-50 text-teal-700 border-teal-200",
+  COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  MISSED: "bg-rose-50 text-rose-700 border-rose-200",
 };
+
+const STATUS_LABELS: Record<string, string> = {
+  PLANNED: "Planned",
+  CHECKED_IN: "Checked In",
+  CHECKED_OUT: "Checked Out",
+  COMPLETED: "Completed",
+  MISSED: "Missed",
+};
+
+const TIMELINE_STEPS = [
+  { key: "PLANNED", label: "Planned", icon: CalendarClock },
+  { key: "CHECKED_IN", label: "Checked In", icon: MapPin },
+  { key: "CHECKED_OUT", label: "Checked Out", icon: Clock },
+  { key: "COMPLETED", label: "Completed", icon: CheckCircle },
+];
+
+const PURPOSE_OPTIONS = [
+  "Demo", "Technical Discussion", "Commercial Meeting",
+  "Relationship Visit", "Complaint Resolution",
+];
 
 export default function VisitDetailPage() {
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
   const toast = useToast();
-  const { user } = useAuth();
 
   const [visit, setVisit] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [showCheckout, setShowCheckout] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [checkoutForm, setCheckoutForm] = useState({
-    meetingSummary: "",
-    outcome: "",
-    customerDecision: "",
-    rejectionReason: "",
-    nextMeetingDate: "",
-    nextMeetingNotes: "",
+  const [showComplete, setShowComplete] = useState(false);
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [showAddAttendee, setShowAddAttendee] = useState(false);
+  const [accountContacts, setAccountContacts] = useState<any[]>([]);
+  const [gpsLoading, setGpsLoading] = useState(false);
+
+  const [completeForm, setCompleteForm] = useState({
+    visit_summary: "",
+    next_action: "",
+    create_followup: false,
+    followup_type: "",
+    followup_datetime: "",
   });
 
-  const loadVisit = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/visits/${id}`);
-      const data = await res.json();
-      if (data.success) setVisit(data.data);
-    } catch { toast.error("Failed to load visit"); }
-    finally { setLoading(false); }
-  };
+  const [rescheduleForm, setRescheduleForm] = useState({
+    new_planned_date: "",
+    new_planned_time: "",
+    reason: "",
+  });
 
-  useEffect(() => { loadVisit(); }, [id]);
+  const [attendeeForm, setAttendeeForm] = useState({
+    contact_id: "",
+  });
+
+  const loadVisit = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch(`/api/visits/${id}`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success) {
+        setVisit(json.data);
+        // Fetch contacts for this account (for attendee dropdown)
+        if (json.data?.customerId) {
+          const contactsRes = await fetch(`/api/contacts?customerId=${json.data.customerId}`);
+          if (contactsRes.ok) {
+            const contactsJson = await contactsRes.json();
+            setAccountContacts(contactsJson.data || []);
+          }
+        }
+      }
+    } else {
+      toast.error("Failed to load visit");
+    }
+    setLoading(false);
+  }, [id]);
+
+  useEffect(() => {
+    loadVisit();
+  }, [loadVisit]);
 
   const handleCheckIn = async () => {
-    try {
-      const res = await fetch(`/api/visits/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "checkin" }) });
-      const data = await res.json();
-      if (data.success) { toast.success("Checked in"); loadVisit(); }
-      else toast.error(data.message || "Failed");
-    } catch { toast.error("Failed"); }
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by this browser");
+      return;
+    }
+    setGpsLoading(true);
+    toast.info("Capturing your location...");
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        const res = await fetch(`/api/visits/${id}/checkin`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ gps_lat: latitude, gps_lng: longitude }),
+        });
+        const json = await res.json();
+        setGpsLoading(false);
+        if (json.success) {
+          toast.success("Checked in successfully");
+          if (json.warning) toast.warning(json.warning);
+          loadVisit();
+        } else {
+          toast.error(json.message || "Check-in failed");
+        }
+      },
+      (err) => {
+        setGpsLoading(false);
+        toast.error(`Failed to get location: ${err.message}`);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const handleCheckOut = async () => {
-    if (!checkoutForm.meetingSummary) { toast.error("Meeting summary is required"); return; }
-    try {
-      const res = await fetch(`/api/visits/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "checkout", ...checkoutForm }),
-      });
-      const data = await res.json();
-      if (data.success) { toast.success("Checked out"); setShowCheckout(false); loadVisit(); }
-      else toast.error(data.message || "Failed");
-    } catch { toast.error("Failed"); }
+    const res = await fetch(`/api/visits/${id}/checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const json = await res.json();
+    if (json.success) {
+      toast.success("Checked out");
+      loadVisit();
+    } else {
+      toast.error(json.message || "Failed");
+    }
   };
 
-  const handleDelete = async () => {
-    try {
-      const res = await fetch(`/api/visits/${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.success) { toast.success("Visit deleted"); router.push("/visits"); }
-      else toast.error(data.message || "Failed");
-    } catch { toast.error("Failed"); }
-    setConfirmDelete(false);
+  const handleComplete = async () => {
+    if (!completeForm.visit_summary.trim()) {
+      toast.error("Visit summary is required");
+      return;
+    }
+    const res = await fetch(`/api/visits/${id}/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(completeForm),
+    });
+    const json = await res.json();
+    if (json.success) {
+      toast.success("Visit completed");
+      setShowComplete(false);
+      loadVisit();
+    } else {
+      toast.error(json.message || "Failed");
+    }
   };
 
-  if (loading) return <PageContainer className="p-6"><p className="text-slate-400">Loading...</p></PageContainer>;
-  if (!visit) return <PageContainer className="p-6"><p className="text-slate-400">Visit not found</p></PageContainer>;
+  const handleReschedule = async () => {
+    if (!rescheduleForm.new_planned_date) {
+      toast.error("New planned date is required");
+      return;
+    }
+    const res = await fetch(`/api/visits/${id}/reschedule`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(rescheduleForm),
+    });
+    const json = await res.json();
+    if (json.success) {
+      toast.success("Visit rescheduled");
+      setShowReschedule(false);
+      setRescheduleForm({ new_planned_date: "", new_planned_time: "", reason: "" });
+      loadVisit();
+    } else {
+      toast.error(json.message || "Failed");
+    }
+  };
+
+  const handleAddAttendee = async () => {
+    if (!attendeeForm.contact_id) {
+      toast.error("Please select a contact");
+      return;
+    }
+    const res = await fetch(`/api/visits/${id}/attendees`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contact_id: attendeeForm.contact_id }),
+    });
+    const json = await res.json();
+    if (json.success) {
+      toast.success("Attendee added");
+      setShowAddAttendee(false);
+      setAttendeeForm({ contact_id: "" });
+      loadVisit();
+    } else {
+      toast.error(json.message || "Failed");
+    }
+  };
+
+  const handleRemoveAttendee = async (attendeeId: string) => {
+    const res = await fetch(`/api/visits/${id}/attendees?attendeeId=${attendeeId}`, {
+      method: "DELETE",
+    });
+    const json = await res.json();
+    if (json.success) {
+      toast.success("Attendee removed");
+      loadVisit();
+    } else {
+      toast.error(json.message || "Failed");
+    }
+  };
+
+  if (loading) return <PageShell title="Visit Details"><p className="text-slate-400 p-6">Loading...</p></PageShell>;
+  if (!visit) return (
+    <PageShell title="Visit Details">
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-slate-400">
+        <AlertTriangle size={40} className="mb-3" />
+        <p className="font-semibold">Visit not found</p>
+        <button onClick={() => router.push("/visits")} className="mt-4 text-[var(--primary)] font-bold text-sm">← Back to Visits</button>
+      </div>
+    </PageShell>
+  );
+
+  const currentStepIndex = TIMELINE_STEPS.findIndex((s) => s.key === visit.status);
+  const isMissed = visit.status === "MISSED";
 
   return (
-    <PageContainer className="space-y-4 p-0">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={() => router.push("/visits")} className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 cursor-pointer"><Ico d={icons.back} size={18} /></button>
-          <div><h1 className="text-2xl font-bold text-slate-800">Visit Details</h1><p className="text-sm text-slate-500 mt-0.5">{visit.customer?.name}</p></div>
-        </div>
-        <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${statusColors[visit.status]}`}>{visit.status.replace("_", " ")}</span>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <Field label="Customer" value={visit.customer?.name} />
-          <Field label="Host" value={visit.host?.name} />
-          <Field label="Purpose" value={visit.purpose} />
-          <Field label="Priority" value={visit.priority} />
-          <Field label="Meeting Type" value={visit.meetingType} />
-          <Field label="Source" value={visit.source} />
-          <Field label="Department" value={visit.department} />
-          <Field label="Check-In Time" value={visit.checkInTime ? new Date(visit.checkInTime).toLocaleString() : "—"} />
-          <Field label="Check-Out Time" value={visit.checkOutTime ? new Date(visit.checkOutTime).toLocaleString() : "—"} />
-          <div className="md:col-span-2"><Field label="Agenda" value={visit.agenda} full /></div>
-        </div>
-
-        {visit.status === "COMPLETED" && (
-          <div className="mt-6 pt-6 border-t border-slate-100 space-y-3">
-            <h3 className="text-sm font-bold text-slate-800">Checkout Details</h3>
-            <Field label="Meeting Summary" value={visit.meetingSummary} full />
-            <Field label="Outcome" value={visit.outcome} />
-            <Field label="Customer Decision" value={visit.customerDecision} />
-            {visit.rejectionReason && <Field label="Rejection Reason" value={visit.rejectionReason} />}
-            {visit.nextMeetingDate && <Field label="Next Meeting Date" value={new Date(visit.nextMeetingDate).toLocaleString()} />}
-            {visit.nextMeetingNotes && <Field label="Next Meeting Notes" value={visit.nextMeetingNotes} full />}
-          </div>
-        )}
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex gap-2">
-        {visit.status === "PLANNED" && (
-          <button onClick={handleCheckIn} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 cursor-pointer"><Ico d={icons.check} size={16} /> Check In</button>
-        )}
-        {visit.status === "CHECKED_IN" && (
-          <button onClick={() => setShowCheckout(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] cursor-pointer"><Ico d={icons.check} size={16} /> Check Out</button>
-        )}
-        <button onClick={() => setConfirmDelete(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 cursor-pointer"><Ico d={icons.trash} size={16} /> Delete</button>
-      </div>
-
-      {/* Checkout Modal */}
-      {showCheckout && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-lg w-full space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-slate-800">Check Out</h3>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Meeting Summary *</label>
-              <textarea value={checkoutForm.meetingSummary} onChange={(e) => setCheckoutForm({ ...checkoutForm, meetingSummary: e.target.value })} rows={3} className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20" />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Outcome</label>
-              <input type="text" value={checkoutForm.outcome} onChange={(e) => setCheckoutForm({ ...checkoutForm, outcome: e.target.value })} className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20" />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Customer Decision</label>
-              <select value={checkoutForm.customerDecision} onChange={(e) => setCheckoutForm({ ...checkoutForm, customerDecision: e.target.value })} className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 cursor-pointer">
-                <option value="">-- Select --</option>
-                <option>Interested</option><option>Needs Time</option><option>Rejected</option><option>Next Meeting</option>
-              </select>
-            </div>
-            {checkoutForm.customerDecision === "Rejected" && (
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Rejection Reason</label>
-                <input type="text" value={checkoutForm.rejectionReason} onChange={(e) => setCheckoutForm({ ...checkoutForm, rejectionReason: e.target.value })} className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20" />
+    <PageShell
+      title="Visit Details"
+      subtitle={visit.customer?.name}
+      breadcrumb={[{ label: "Visits", href: "/visits" }]}
+    >
+      <div className="space-y-6">
+        {/* Header Card */}
+        <div className="crm-card p-6">
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-slate-800">{visit.customer?.name}</h2>
+                <a
+                  href={`/customer-master/${visit.customerId}`}
+                  className="text-xs text-[var(--primary)] font-bold hover:underline"
+                >
+                  View Account →
+                </a>
               </div>
-            )}
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Next Meeting Date</label>
-              <input type="date" value={checkoutForm.nextMeetingDate} onChange={(e) => setCheckoutForm({ ...checkoutForm, nextMeetingDate: e.target.value })} className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20" />
+              {visit.plantLocation && (
+                <p className="text-sm text-slate-500 flex items-center gap-1">
+                  <MapPin size={14} /> {visit.plantLocation.locationName} — {visit.plantLocation.city}
+                </p>
+              )}
+              <div className="flex items-center gap-2 mt-2">
+                <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-md border border-indigo-100">
+                  {visit.purpose}
+                </span>
+                <span className={cn("px-2.5 py-1 text-xs font-bold rounded-lg border", STATUS_PILLS[visit.status])}>
+                  {STATUS_LABELS[visit.status] || visit.status}
+                </span>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Next Meeting Notes</label>
-              <textarea value={checkoutForm.nextMeetingNotes} onChange={(e) => setCheckoutForm({ ...checkoutForm, nextMeetingNotes: e.target.value })} rows={2} className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20" />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowCheckout(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer">Cancel</button>
-              <button onClick={handleCheckOut} className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] cursor-pointer">Complete Check Out</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Delete Confirmation */}
-      {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4">
-            <h3 className="text-lg font-bold text-slate-800">Delete Visit</h3>
-            <p className="text-sm text-slate-600">Are you sure you want to delete this visit? This action cannot be undone.</p>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer">Cancel</button>
-              <button onClick={handleDelete} className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 cursor-pointer">Delete</button>
+            <div className="text-right">
+              <p className="text-xs text-slate-400 font-semibold uppercase">Assigned To</p>
+              <p className="text-sm font-bold text-slate-700">{visit.host?.name}</p>
+              {visit.plannedDate && (
+                <p className="text-xs text-slate-500 mt-1">{formatDate(visit.plannedDate)} at {visit.plannedTime}</p>
+              )}
             </div>
           </div>
         </div>
-      )}
-    </PageContainer>
-  );
-}
 
-function Field({ label, value, full }: { label: string; value?: string | null; full?: boolean }) {
-  return <div className={full ? "md:col-span-2" : ""}><p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{label}</p><p className="text-sm text-slate-800">{value || "—"}</p></div>;
+        {/* Status Timeline */}
+        <div className="crm-card p-6">
+          <h3 className="text-sm font-bold text-slate-800 mb-4">Visit Timeline</h3>
+          <div className="flex items-center gap-2">
+            {TIMELINE_STEPS.map((step, idx) => {
+              const Icon = step.icon;
+              const isReached = isMissed
+                ? step.key === "PLANNED"
+                : idx <= currentStepIndex;
+              const isCurrent = step.key === visit.status;
+              return (
+                <div key={step.key} className="flex items-center flex-1">
+                  <div className={cn(
+                    "flex flex-col items-center gap-1.5",
+                    isReached ? "text-[var(--primary)]" : "text-slate-300"
+                  )}>
+                    <div className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all",
+                      isReached ? "border-[var(--primary)] bg-[var(--primary)]/10" : "border-slate-200 bg-slate-50",
+                      isCurrent && "ring-4 ring-[var(--primary)]/20"
+                    )}>
+                      <Icon size={18} />
+                    </div>
+                    <span className={cn("text-[11px] font-bold", isReached ? "text-slate-700" : "text-slate-400")}>
+                      {step.label}
+                    </span>
+                  </div>
+                  {idx < TIMELINE_STEPS.length - 1 && (
+                    <div className={cn(
+                      "flex-1 h-0.5 mx-1",
+                      isMissed ? "bg-rose-200" : idx < currentStepIndex ? "bg-[var(--primary)]" : "bg-slate-200"
+                    )} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {isMissed && (
+            <div className="mt-4 px-3 py-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 font-medium flex items-center gap-2">
+              <AlertTriangle size={14} /> This visit was missed — no check-in was recorded before the planned time.
+            </div>
+          )}
+        </div>
+
+        {/* GPS / Check-In Section */}
+        <div className="crm-card p-6">
+          <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <Navigation size={16} /> GPS &amp; Check-In
+          </h3>
+          {visit.gpsLat != null ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-slate-400 font-semibold uppercase">Check-In Time</p>
+                  <p className="text-sm font-bold text-slate-700">{visit.checkInTime ? formatDateTime(visit.checkInTime) : "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-semibold uppercase">Check-Out Time</p>
+                  <p className="text-sm font-bold text-slate-700">{visit.checkOutTime ? formatDateTime(visit.checkOutTime) : "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-semibold uppercase">GPS Coordinates</p>
+                  <p className="text-sm font-bold text-slate-700">
+                    {visit.gpsLat.toFixed(6)}, {visit.gpsLng.toFixed(6)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-semibold uppercase">GPS Status</p>
+                  <p className={cn("text-sm font-bold", visit.gpsAnomaly ? "text-amber-600" : "text-emerald-600")}>
+                    {visit.gpsAnomaly ? "Anomaly Detected" : "On Location"}
+                  </p>
+                </div>
+              </div>
+              {visit.gpsAnomaly && (
+                <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 font-medium flex items-center gap-2">
+                  <AlertTriangle size={14} /> Check-in location was more than 1km from the registered plant address.
+                </div>
+              )}
+              <a
+                href={`https://www.openstreetmap.org/?mlat=${visit.gpsLat}&mlon=${visit.gpsLng}&zoom=16`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--primary)] hover:underline"
+              >
+                <MapPin size={12} /> View on Map
+              </a>
+            </div>
+          ) : (
+            <div className="text-center py-6">
+              <MapPin size={32} className="mx-auto text-slate-300 mb-2" />
+              <p className="text-sm text-slate-400 mb-4">No GPS check-in recorded yet.</p>
+              {visit.status === "PLANNED" && (
+                <button
+                  onClick={handleCheckIn}
+                  disabled={gpsLoading}
+                  className="px-6 py-3 bg-amber-600 text-white font-bold text-sm rounded-xl hover:bg-amber-700 disabled:opacity-50 flex items-center gap-2 mx-auto"
+                >
+                  {gpsLoading ? (
+                    <><Clock size={18} className="animate-spin" /> Capturing location...</>
+                  ) : (
+                    <><MapPin size={18} /> Check In Now</>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Attendees Section */}
+        <div className="crm-card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <Users size={16} /> Attendees
+            </h3>
+            {visit.status !== "COMPLETED" && (
+              <button
+                onClick={() => setShowAddAttendee(true)}
+                className="px-3 py-1.5 text-xs font-bold text-[var(--primary)] border border-[var(--primary)]/30 rounded-lg hover:bg-[var(--primary)]/5 flex items-center gap-1"
+              >
+                <UserPlus size={13} /> Add Attendee
+              </button>
+            )}
+          </div>
+          {visit.visitAttendees && visit.visitAttendees.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {visit.visitAttendees.map((att: any) => (
+                <div key={att.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">{att.contact?.name}</p>
+                    <p className="text-xs text-slate-500">{att.contact?.designation || "—"}</p>
+                    {att.contact?.phone && <p className="text-xs text-slate-400">{att.contact.phone}</p>}
+                  </div>
+                  {visit.status !== "COMPLETED" && (
+                    <button
+                      onClick={() => handleRemoveAttendee(att.id)}
+                      className="text-xs text-rose-500 hover:text-rose-700 font-bold"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 text-center py-4">No attendees added yet.</p>
+          )}
+        </div>
+
+        {/* Visit Summary Section */}
+        {visit.status === "COMPLETED" && (
+          <div className="crm-card p-6">
+            <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <FileText size={16} /> Visit Summary
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs text-slate-400 font-semibold uppercase">Summary</p>
+                <p className="text-sm text-slate-700 whitespace-pre-wrap">{visit.visitSummary || "—"}</p>
+              </div>
+              {visit.nextAction && (
+                <div>
+                  <p className="text-xs text-slate-400 font-semibold uppercase">Next Action</p>
+                  <p className="text-sm text-slate-700">{visit.nextAction}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Linked Opportunity */}
+        {visit.linkedOpportunity && (
+          <div className="crm-card p-6">
+            <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <Briefcase size={16} /> Related Opportunity
+            </h3>
+            <a
+              href={`/sales-pipeline/${visit.linkedOpportunity.id}/opportunity-detail`}
+              className="block p-3 bg-indigo-50 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors"
+            >
+              <p className="text-sm font-bold text-indigo-800">{visit.linkedOpportunity.dealName}</p>
+              <p className="text-xs text-indigo-600">{visit.linkedOpportunity.opportunityCode} — {visit.linkedOpportunity.status}</p>
+            </a>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 flex-wrap">
+          {visit.status === "PLANNED" && (
+            <button
+              onClick={handleCheckIn}
+              disabled={gpsLoading}
+              className="px-5 py-2.5 bg-amber-600 text-white font-bold text-sm rounded-xl hover:bg-amber-700 disabled:opacity-50 flex items-center gap-2"
+            >
+              <MapPin size={16} /> Check In
+            </button>
+          )}
+          {visit.status === "CHECKED_IN" && (
+            <>
+              <button
+                onClick={handleCheckOut}
+                className="px-5 py-2.5 bg-teal-600 text-white font-bold text-sm rounded-xl hover:bg-teal-700 flex items-center gap-2"
+              >
+                <Clock size={16} /> Check Out
+              </button>
+              <button
+                onClick={() => setShowComplete(true)}
+                className="px-5 py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl hover:bg-emerald-700 flex items-center gap-2"
+              >
+                <CheckCircle size={16} /> Complete Visit
+              </button>
+            </>
+          )}
+          {visit.status === "CHECKED_OUT" && (
+            <button
+              onClick={() => setShowComplete(true)}
+              className="px-5 py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl hover:bg-emerald-700 flex items-center gap-2"
+            >
+              <CheckCircle size={16} /> Complete Visit
+            </button>
+          )}
+          {(visit.status === "PLANNED" || visit.status === "MISSED") && (
+            <button
+              onClick={() => setShowReschedule(true)}
+              className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-200 flex items-center gap-2"
+            >
+              <CalendarClock size={16} /> Reschedule
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Complete Visit Modal */}
+      <Modal
+        open={showComplete}
+        onClose={() => setShowComplete(false)}
+        title="Complete Visit"
+        subtitle="Record the visit outcome"
+        size="md"
+        footer={
+          <>
+            <button onClick={() => setShowComplete(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Cancel</button>
+            <button onClick={handleComplete} className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700">Complete</button>
+          </>
+        }
+      >
+        <div className="p-6 space-y-4">
+          <FormField label="Visit Summary" required hint="Enter visit outcome: discussions, decisions, next steps">
+            <Textarea
+              rows={4}
+              value={completeForm.visit_summary}
+              onChange={(e) => setCompleteForm({ ...completeForm, visit_summary: e.target.value })}
+              placeholder="Enter visit outcome: discussions, decisions, next steps"
+            />
+          </FormField>
+          <FormField label="Next Action">
+            <Input
+              value={completeForm.next_action}
+              onChange={(e) => setCompleteForm({ ...completeForm, next_action: e.target.value })}
+              placeholder="e.g. Send quotation, Schedule demo..."
+            />
+          </FormField>
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={completeForm.create_followup}
+              onChange={(e) => setCompleteForm({ ...completeForm, create_followup: e.target.checked })}
+              className="w-4 h-4 accent-[var(--primary)]"
+            />
+            Create Follow Up
+          </label>
+          {completeForm.create_followup && (
+            <div className="space-y-3 pl-6 border-l-2 border-[var(--primary)]/20">
+              <FormField label="Follow-up Type">
+                <Select
+                  value={completeForm.followup_type}
+                  onChange={(e) => setCompleteForm({ ...completeForm, followup_type: e.target.value })}
+                >
+                  <option value="">Select type...</option>
+                  <option value="Call">Call</option>
+                  <option value="Meeting">Meeting</option>
+                  <option value="Email">Email</option>
+                  <option value="Visit">Visit</option>
+                </Select>
+              </FormField>
+              <FormField label="Follow-up Date & Time">
+                <Input
+                  type="datetime-local"
+                  value={completeForm.followup_datetime}
+                  onChange={(e) => setCompleteForm({ ...completeForm, followup_datetime: e.target.value })}
+                />
+              </FormField>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Reschedule Modal */}
+      <Modal
+        open={showReschedule}
+        onClose={() => setShowReschedule(false)}
+        title="Reschedule Visit"
+        subtitle="Set a new date and time"
+        size="sm"
+        footer={
+          <>
+            <button onClick={() => setShowReschedule(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Cancel</button>
+            <button onClick={handleReschedule} className="px-4 py-2 bg-[var(--primary)] text-white text-sm font-bold rounded-lg hover:bg-[var(--primary-hover)]">Reschedule</button>
+          </>
+        }
+      >
+        <div className="p-6 space-y-4">
+          <FormField label="New Planned Date" required>
+            <Input
+              type="date"
+              value={rescheduleForm.new_planned_date}
+              onChange={(e) => setRescheduleForm({ ...rescheduleForm, new_planned_date: e.target.value })}
+            />
+          </FormField>
+          <FormField label="New Planned Time">
+            <Input
+              type="time"
+              value={rescheduleForm.new_planned_time}
+              onChange={(e) => setRescheduleForm({ ...rescheduleForm, new_planned_time: e.target.value })}
+            />
+          </FormField>
+          <FormField label="Reason">
+            <Textarea
+              rows={2}
+              value={rescheduleForm.reason}
+              onChange={(e) => setRescheduleForm({ ...rescheduleForm, reason: e.target.value })}
+              placeholder="Reason for rescheduling..."
+            />
+          </FormField>
+        </div>
+      </Modal>
+
+      {/* Add Attendee Modal */}
+      <Modal
+        open={showAddAttendee}
+        onClose={() => setShowAddAttendee(false)}
+        title="Add Attendee"
+        subtitle="Select a contact from this account"
+        size="sm"
+        footer={
+          <>
+            <button onClick={() => setShowAddAttendee(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Cancel</button>
+            <button onClick={handleAddAttendee} className="px-4 py-2 bg-[var(--primary)] text-white text-sm font-bold rounded-lg hover:bg-[var(--primary-hover)]">Add</button>
+          </>
+        }
+      >
+        <div className="p-6">
+          <FormField label="Contact" required>
+            <Select
+              value={attendeeForm.contact_id}
+              onChange={(e) => setAttendeeForm({ contact_id: e.target.value })}
+            >
+              <option value="">Select contact...</option>
+              {accountContacts.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name} {c.designation ? `(${c.designation})` : ""}</option>
+              ))}
+            </Select>
+          </FormField>
+        </div>
+      </Modal>
+    </PageShell>
+  );
 }

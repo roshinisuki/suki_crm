@@ -13,11 +13,35 @@ export async function GET(request: NextRequest) {
   if (isActive === "true") where.isActive = true;
   if (isActive === "false") where.isActive = false;
 
-  const reasons = await prisma.lossReason.findMany({
+  let reasons = await prisma.lossReason.findMany({
     where,
     orderBy: { createdAt: "asc" },
     include: { _count: { select: { lostDealAnalyses: true } } },
   });
+
+  // Seed predefined loss reasons for this company if none exist yet
+  if (reasons.length === 0 && isActive !== "false" && user.companyId) {
+    const defaults = [
+      "Price too high",
+      "Lost to competitor",
+      "No budget / Project cancelled",
+      "No decision / Stalled",
+      "Product fit mismatch",
+      "Customer went silent",
+    ];
+    await prisma.lossReason.createMany({
+      data: defaults.map((name) => ({
+        name,
+        isActive: true,
+        companyId: user.companyId,
+      })),
+    });
+    reasons = await prisma.lossReason.findMany({
+      where: { companyId: user.companyId, isActive: true },
+      orderBy: { createdAt: "asc" },
+      include: { _count: { select: { lostDealAnalyses: true } } },
+    });
+  }
 
   return NextResponse.json({ success: true, data: reasons });
 }

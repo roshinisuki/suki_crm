@@ -1,60 +1,136 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
-import PageContainer from "@/components/PageContainer";
+import { PageShell } from "@/components/ui/PageShell";
+import { FormField, Input, Textarea, Select } from "@/components/ui/FormField";
+import { cn } from "@/lib/ui-utils";
+import { getCustomersAction } from "@/app/actions/customers";
+import { Search, X, Check } from "lucide-react";
 
-const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
-  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d={d} />
-  </svg>
-);
-
-const icons = { back: "M10 19l-7-7m0 0l7-7m-7 7h18" };
-
-const meetingTypes = ["Product Demo", "Technical Discussion", "Sales Meeting", "Complaint", "Courtesy Visit", "Site Visit"];
+const PURPOSE_OPTIONS = [
+  "Demo", "Technical Discussion", "Commercial Meeting",
+  "Relationship Visit", "Complaint Resolution",
+];
 
 export default function NewVisitPage() {
   const router = useRouter();
   const toast = useToast();
-  const { user } = useAuth();
 
   const [customers, setCustomers] = useState<any[]>([]);
+  const [plantLocations, setPlantLocations] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [opportunities, setOpportunities] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
+  const [plantLocationSearch, setPlantLocationSearch] = useState("");
 
   const [form, setForm] = useState({
     customerId: "",
+    plantLocationId: "",
     purpose: "",
-    priority: "Normal",
-    meetingType: "",
-    source: "Outbound",
+    plannedDate: "",
+    plannedTime: "09:00",
+    assignedTo: "",
+    linkedOpportunityId: "",
     agenda: "",
-    department: "",
+    attendeeContactIds: [] as string[],
   });
 
+  // Fetch customers
   useEffect(() => {
-    fetch("/api/customer-master").then(res => res.json()).then(data => { if (data.success) setCustomers(data.data || []); });
+    getCustomersAction().then((res) => {
+      if (res.success && res.data) setCustomers(res.data as any[]);
+    });
+    fetch("/api/users").then((res) => res.json()).then((data) => {
+      if (data.success) setUsers(data.data || []);
+    });
   }, []);
+
+  // Fetch plant locations and contacts when customer is selected
+  const loadCustomerData = useCallback(async (customerId: string) => {
+    if (!customerId) {
+      setPlantLocations([]);
+      setContacts([]);
+      setOpportunities([]);
+      return;
+    }
+    const [locRes, contactRes, oppRes] = await Promise.all([
+      fetch(`/api/plant-locations?customerId=${customerId}`),
+      fetch(`/api/contacts?customerId=${customerId}`),
+      fetch(`/api/opportunities?search=&customerId=${customerId}`),
+    ]);
+    if (locRes.ok) {
+      const locData = await locRes.json();
+      setPlantLocations(locData.data || []);
+    }
+    if (contactRes.ok) {
+      const contactData = await contactRes.json();
+      setContacts(contactData.data || []);
+    }
+    if (oppRes.ok) {
+      const oppData = await oppRes.json();
+      setOpportunities(oppData.data || []);
+    }
+  }, []);
+
+  const handleCustomerSelect = (customerId: string) => {
+    setForm((prev) => ({
+      ...prev,
+      customerId,
+      plantLocationId: "",
+      attendeeContactIds: [],
+      linkedOpportunityId: "",
+    }));
+    setPlantLocationSearch("");
+    loadCustomerData(customerId);
+  };
+
+  const toggleAttendee = (contactId: string) => {
+    setForm((prev) => ({
+      ...prev,
+      attendeeContactIds: prev.attendeeContactIds.includes(contactId)
+        ? prev.attendeeContactIds.filter((id) => id !== contactId)
+        : [...prev.attendeeContactIds, contactId],
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.customerId) { toast.error("Please select a customer"); return; }
+    if (!form.customerId) { toast.error("Please select an account"); return; }
     if (!form.purpose) { toast.error("Purpose is required"); return; }
+    if (!form.plannedDate) { toast.error("Planned date is required"); return; }
     setSaving(true);
     try {
       const res = await fetch("/api/visits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          customerId: form.customerId,
+          plantLocationId: form.plantLocationId || undefined,
+          purpose: form.purpose,
+          plannedDate: form.plannedDate,
+          plannedTime: form.plannedTime,
+          assignedTo: form.assignedTo || undefined,
+          attendeeContactIds: form.attendeeContactIds,
+          linkedOpportunityId: form.linkedOpportunityId || undefined,
+          agenda: form.agenda,
+        }),
       });
       const data = await res.json();
-      if (data.success) { toast.success("Visit created"); router.push(`/visits/${data.data.id}`); }
-      else toast.error(data.message || "Failed");
-    } catch { toast.error("Failed"); }
-    finally { setSaving(false); }
+      if (data.success) {
+        toast.success("Visit planned successfully");
+        router.push(`/visits/${data.data.id}`);
+      } else {
+        toast.error(data.message || "Failed to plan visit");
+      }
+    } catch {
+      toast.error("Failed to plan visit");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const filteredCustomers = customers.filter((c: any) => {
@@ -63,61 +139,232 @@ export default function NewVisitPage() {
     return c.name?.toLowerCase().includes(q) || c.customerCode?.toLowerCase().includes(q);
   });
 
-  return (
-    <PageContainer className="space-y-4 p-0">
-      <div className="flex items-center gap-3">
-        <button onClick={() => router.push("/visits")} className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 cursor-pointer"><Ico d={icons.back} size={18} /></button>
-        <div><h1 className="text-2xl font-bold text-slate-800">New Visit</h1><p className="text-sm text-slate-500 mt-0.5">Schedule a customer visit</p></div>
-      </div>
+  const selectedCustomer = customers.find((c) => c.id === form.customerId);
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-6 space-y-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Customer *</label>
-            <input type="text" placeholder="Search customer..." value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 mb-2" />
-            <select value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })} required className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 cursor-pointer">
-              <option value="">-- Select Customer --</option>
-              {filteredCustomers.map((c: any) => <option key={c.id} value={c.id}>{c.customerCode} - {c.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Purpose *</label>
-            <input type="text" value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })} required className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20" />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Priority</label>
-            <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 cursor-pointer">
-              <option>Normal</option><option>High</option><option>Urgent</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Meeting Type</label>
-            <select value={form.meetingType} onChange={(e) => setForm({ ...form, meetingType: e.target.value })} className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 cursor-pointer">
-              <option value="">-- Select --</option>
-              {meetingTypes.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Source</label>
-            <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 cursor-pointer">
-              <option>Inbound</option><option>Outbound</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Department</label>
-            <input type="text" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20" />
-          </div>
+  return (
+    <PageShell
+      title="Plan Visit"
+      subtitle="Schedule a customer visit with attendees and plant location"
+      breadcrumb={[{ label: "Visits", href: "/visits" }]}
+    >
+      <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
+        {/* Account Search */}
+        <div className="crm-card p-6 space-y-4">
+          <h3 className="text-sm font-bold text-slate-800">Account</h3>
+          <FormField label="Search Account" required>
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="Search by name or code..."
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </FormField>
+          {form.customerId ? (
+            <div className="flex items-center justify-between p-3 bg-[var(--primary)]/5 border border-[var(--primary)]/20 rounded-lg">
+              <div>
+                <p className="text-sm font-bold text-slate-800">{selectedCustomer?.name}</p>
+                <p className="text-xs text-slate-500">{selectedCustomer?.customerCode} — {selectedCustomer?.city}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setForm({ ...form, customerId: "" }); setPlantLocations([]); setContacts([]); }}
+                className="text-slate-400 hover:text-rose-500"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
+              {filteredCustomers.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-4">No accounts found</p>
+              ) : (
+                filteredCustomers.slice(0, 20).map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => handleCustomerSelect(c.id)}
+                    className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors"
+                  >
+                    <p className="text-sm font-bold text-slate-700">{c.name}</p>
+                    <p className="text-xs text-slate-400">{c.customerCode} — {c.city}</p>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
-        <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Agenda</label>
-          <textarea value={form.agenda} onChange={(e) => setForm({ ...form, agenda: e.target.value })} rows={3} className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20" />
-        </div>
-        <div className="p-3 bg-slate-50 rounded-xl text-sm text-slate-600">Hosted By: <strong>{user?.name}</strong> (you)</div>
-        <div className="flex gap-3">
-          <button type="submit" disabled={saving} className="px-6 py-2.5 rounded-xl text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-70 cursor-pointer">{saving ? "Creating..." : "Create Visit"}</button>
-          <button type="button" onClick={() => router.push("/visits")} className="px-6 py-2.5 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer">Cancel</button>
-        </div>
+
+        {/* Visit Details */}
+        {form.customerId && (
+          <>
+            <div className="crm-card p-6 space-y-4">
+              <h3 className="text-sm font-bold text-slate-800">Visit Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField label="Plant Location">
+                  <div className="relative mb-2">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search plant locations..."
+                      value={plantLocationSearch}
+                      onChange={(e) => setPlantLocationSearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)]"
+                    />
+                  </div>
+                  <Select
+                    value={form.plantLocationId}
+                    onChange={(e) => setForm({ ...form, plantLocationId: e.target.value })}
+                  >
+                    <option value="">-- Select Plant Location --</option>
+                    {plantLocations
+                      .filter((loc) => {
+                        if (!plantLocationSearch) return true;
+                        const q = plantLocationSearch.toLowerCase();
+                        return (
+                          loc.locationName?.toLowerCase().includes(q) ||
+                          loc.city?.toLowerCase().includes(q) ||
+                          loc.address?.toLowerCase().includes(q)
+                        );
+                      })
+                      .map((loc) => (
+                        <option key={loc.id} value={loc.id}>
+                          {loc.locationName} — {loc.city || "N/A"}
+                          {loc.isPrimary ? " (Primary)" : ""}
+                        </option>
+                      ))}
+                  </Select>
+                  {form.plantLocationId && (
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, plantLocationId: "" })}
+                      className="mt-2 text-xs text-slate-500 hover:text-rose-500 flex items-center gap-1"
+                    >
+                      <X size={12} /> Clear selection
+                    </button>
+                  )}
+                </FormField>
+                <FormField label="Purpose" required>
+                  <Select
+                    value={form.purpose}
+                    onChange={(e) => setForm({ ...form, purpose: e.target.value })}
+                  >
+                    <option value="">Select purpose...</option>
+                    {PURPOSE_OPTIONS.map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </Select>
+                </FormField>
+                <FormField label="Planned Date" required>
+                  <Input
+                    type="date"
+                    value={form.plannedDate}
+                    onChange={(e) => setForm({ ...form, plannedDate: e.target.value })}
+                    min={new Date().toISOString().split("T")[0]}
+                  />
+                </FormField>
+                <FormField label="Planned Time">
+                  <Input
+                    type="time"
+                    value={form.plannedTime}
+                    onChange={(e) => setForm({ ...form, plannedTime: e.target.value })}
+                  />
+                </FormField>
+                <FormField label="Assigned To">
+                  <Select
+                    value={form.assignedTo}
+                    onChange={(e) => setForm({ ...form, assignedTo: e.target.value })}
+                  >
+                    <option value="">Yourself (default)</option>
+                    {users.filter((u) => u.role !== "Customer").map((u) => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </Select>
+                </FormField>
+                <FormField label="Link Opportunity (optional)">
+                  <Select
+                    value={form.linkedOpportunityId}
+                    onChange={(e) => setForm({ ...form, linkedOpportunityId: e.target.value })}
+                  >
+                    <option value="">None</option>
+                    {opportunities.map((opp) => (
+                      <option key={opp.id} value={opp.id}>{opp.dealName} ({opp.opportunityCode})</option>
+                    ))}
+                  </Select>
+                </FormField>
+              </div>
+              <FormField label="Agenda">
+                <Textarea
+                  rows={3}
+                  value={form.agenda}
+                  onChange={(e) => setForm({ ...form, agenda: e.target.value })}
+                  placeholder="Visit agenda and discussion points..."
+                />
+              </FormField>
+            </div>
+
+            {/* Attendees Multi-Select */}
+            <div className="crm-card p-6 space-y-4">
+              <h3 className="text-sm font-bold text-slate-800">Attendees</h3>
+              <p className="text-xs text-slate-500">Select contacts from this account to attend the visit.</p>
+              {contacts.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-4">No contacts found for this account.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {contacts.map((c) => {
+                    const isSelected = form.attendeeContactIds.includes(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => toggleAttendee(c.id)}
+                        className={cn(
+                          "flex items-center justify-between p-3 rounded-lg border transition-all text-left",
+                          isSelected
+                            ? "border-[var(--primary)] bg-[var(--primary)]/5"
+                            : "border-slate-200 bg-slate-50 hover:bg-slate-100"
+                        )}
+                      >
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">{c.name}</p>
+                          <p className="text-xs text-slate-500">{c.designation || c.contactType}</p>
+                        </div>
+                        {isSelected && <Check size={16} className="text-[var(--primary)]" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {form.attendeeContactIds.length > 0 && (
+                <p className="text-xs font-bold text-slate-600">
+                  {form.attendeeContactIds.length} attendee{form.attendeeContactIds.length !== 1 ? "s" : ""} selected
+                </p>
+              )}
+            </div>
+
+            {/* Submit */}
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-6 py-2.5 bg-[var(--primary)] text-white font-bold text-sm rounded-xl hover:bg-[var(--primary-hover)] disabled:opacity-70"
+              >
+                {saving ? "Planning..." : "Plan Visit"}
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/visits")}
+                className="px-6 py-2.5 text-slate-700 font-bold text-sm rounded-xl bg-slate-100 hover:bg-slate-200"
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        )}
       </form>
-    </PageContainer>
+    </PageShell>
   );
 }

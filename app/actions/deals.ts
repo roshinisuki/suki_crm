@@ -538,7 +538,7 @@ export async function updateDealStatusAction(id: string, status: string, lostRea
 export async function deleteDealAction(id: string) {
   try {
     const userPayload = await verifyAuth();
-    if (!userPayload || !["Admin", "SalesManager", "SuperAdmin"].includes(userPayload.role)) {
+    if (!userPayload || !["Admin", "SuperAdmin"].includes(userPayload.role)) {
       return { success: false, message: "Unauthorized." };
     }
 

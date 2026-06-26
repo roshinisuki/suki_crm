@@ -8,6 +8,7 @@ import { useToast } from "@/components/ToastProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { DollarSign, Trophy, Users, TrendingUp, Download } from "lucide-react";
 import { ReportFilterLayout, FilterField, filterInputClass } from "@/components/reports/ReportFilterLayout";
+import { CRMSpinner } from "@/components/CRMSpinner";
 
 export default function SalesPerformanceReportPage() {
   const toast = useToast();
@@ -111,7 +112,13 @@ export default function SalesPerformanceReportPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr><td colSpan={9} className="text-center py-12 text-slate-400 text-sm">Loading...</td></tr>
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center">
+                      <div className="flex justify-center">
+                        <CRMSpinner size={36} label="Loading report..." />
+                      </div>
+                    </td>
+                  </tr>
                 ) : rows.length === 0 ? (
                   <tr><td colSpan={9} className="text-center py-12 text-slate-400 text-sm">No data found</td></tr>
                 ) : (

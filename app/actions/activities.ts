@@ -305,7 +305,7 @@ export async function updateActivityAction(id: string, input: Partial<CallInput 
 export async function deleteActivityAction(id: string) {
   try {
     const user = await verifyAuth();
-    if (!user || user.role === "Customer") {
+    if (!user || user.role === "Customer" || user.role === "SalesExecutive") {
       return { success: false, message: "Unauthorized" };
     }
 

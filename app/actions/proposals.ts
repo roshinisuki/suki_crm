@@ -258,7 +258,9 @@ export async function advanceProposalStatusAction(id: string, newStatus: string)
 export async function deleteProposalAction(id: string) {
   try {
     const user = await verifyAuth();
-    if (!user) return { success: false, message: "Unauthorized" };
+    if (!user || user.role === "Customer" || user.role === "SalesExecutive") {
+      return { success: false, message: "Unauthorized" };
+    }
 
     const existing = await prisma.proposal.findFirst({
       where: { id, deletedAt: null, companyId: user.companyId },

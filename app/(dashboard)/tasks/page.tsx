@@ -169,15 +169,19 @@ export default function TasksPage() {
                 ) : pagedTasks.map((task) => {
                   const isOverdue = task.status === "Overdue" || (task.dueDate && task.status !== "Done" && task.status !== "Cancelled" && new Date(task.dueDate) < new Date());
                   return (
-                    <tr key={task.id} className={cn("border-b border-slate-50 hover:bg-slate-50/50 transition-colors text-slate-600 text-sm", task.status === "Done" && "opacity-60")}>
-                      <td className="px-4 py-4">
+                    <tr
+                      key={task.id}
+                      className={cn("border-b border-slate-50 hover:bg-slate-50/50 transition-colors text-slate-600 text-sm table-row-clickable", task.status === "Done" && "opacity-60")}
+                      onClick={() => router.push(`/tasks/${task.id}`)}
+                    >
+                      <td className="px-4 py-4" onClick={e => e.stopPropagation()}>
                         <button onClick={() => toggleDone(task)} title={task.status === "Done" ? "Mark as open" : "Mark as done"} className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors", task.status === "Done" ? "border-green-400 bg-green-400" : "border-slate-300 hover:border-green-400")}>
                           {task.status === "Done" && <CheckCircle2 size={12} className="text-white" />}
                         </button>
                       </td>
                       <td className="px-4 py-4 font-mono text-xs font-semibold text-[var(--primary)]">{task.taskCode}</td>
                       <td className="px-4 py-4 max-w-xs">
-                        <p className={cn("font-semibold text-slate-800 truncate", task.status === "Done" && "line-through text-slate-400")}>{task.title}</p>
+                        <span className={cn("row-primary-link truncate", task.status === "Done" && "line-through text-slate-400")}>{task.title}</span>
                         {task.description && <p className="text-xs text-slate-400 truncate mt-0.5">{task.description}</p>}
                       </td>
                       <td className="px-4 py-4"><span className={cn("inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full", PRIORITY_COLOR[task.priority] ?? "bg-slate-100 text-slate-500")}><Tag size={10} /> {task.priority}</span></td>
@@ -191,10 +195,10 @@ export default function TasksPage() {
                       </td>
                       <td className="px-4 py-4"><div className="flex items-center gap-1.5 text-xs text-slate-500"><User2 size={12} /><span className="truncate max-w-[120px]">{task.User?.name || "—"}</span></div></td>
                       <td className="px-4 py-4"><StatusBadge status={task.status} size="sm" /></td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => router.push(`/tasks/${task.id}`)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors" title="Edit"><Pencil size={13} /></button>
-                          <button onClick={() => confirmDelete(task)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors" title="Delete"><Trash2 size={13} /></button>
+                      <td className="px-4 py-4" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button onClick={() => router.push(`/tasks/${task.id}`)} className="row-action-btn" title="Edit"><Pencil size={14} /></button>
+                          <button onClick={() => confirmDelete(task)} className="row-action-btn row-action-btn-danger" title="Delete"><Trash2 size={14} /></button>
                         </div>
                       </td>
                     </tr>

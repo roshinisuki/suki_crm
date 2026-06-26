@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
 import PageContainer from "@/components/PageContainer";
+import { CRMSpinner } from "@/components/CRMSpinner";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
   <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -137,7 +138,13 @@ export default function TerritoriesSettingsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="text-center py-8 text-slate-400">Loading...</td></tr>
+              <tr>
+                <td colSpan={6} className="py-12 text-center">
+                  <div className="flex justify-center">
+                    <CRMSpinner size={36} label="Loading..." />
+                  </div>
+                </td>
+              </tr>
             ) : filtered.length === 0 ? (
               <tr><td colSpan={6} className="text-center py-8 text-slate-400">No territories found</td></tr>
             ) : (

@@ -21,7 +21,6 @@ export async function GET(request: NextRequest) {
     if (startDate) where.createdAt.gte = new Date(startDate);
     if (endDate) where.createdAt.lte = new Date(endDate + "T23:59:59");
   }
-
   if (user.role === "SalesExecutive") where.assignedUserId = user.id;
 
   const deals = await prisma.deal.findMany({
@@ -33,26 +32,47 @@ export async function GET(request: NextRequest) {
     orderBy: { createdAt: "desc" },
   });
 
+  const now = new Date();
   const total = deals.length;
   const won = deals.filter((d) => d.status === "Won").length;
   const lost = deals.filter((d) => d.status === "Lost").length;
-  const active = deals.filter((d) => !["Won", "Lost"].includes(d.status)).length;
-  const winRate = total > 0 ? Math.round((won / total) * 1000) / 10 : 0;
+  const active = deals.filter((d) => !["Won", "Lost"].includes(d.status));
+  const winRate = (won + lost) > 0 ? Math.round((won / (won + lost)) * 1000) / 10 : 0;
 
-  const formattedDeals = deals.map((d) => ({
-    id: d.id,
-    dealName: d.dealName,
-    customerName: d.customer?.name || "—",
-    stage: d.status,
-    dealValue: d.dealValue,
-    expectedCloseDate: d.expectedCloseDate ? new Date(d.expectedCloseDate).toISOString() : null,
-    assignedTo: d.assignedUser?.name || "—",
-    createdDate: new Date(d.createdAt).toISOString(),
-  }));
+  const totalPipeline = active.reduce((s, d) => s + d.dealValue, 0);
+  const weightedPipeline = active.reduce((s, d) => s + d.dealValue * (d.probabilityPercent || 0) / 100, 0);
+  const avgDealSize = total > 0 ? Math.round(deals.reduce((s, d) => s + d.dealValue, 0) / total) : 0;
+
+  // Avg sales cycle for won deals
+  const wonDeals = deals.filter((d) => d.status === "Won");
+  const avgSalesCycleDays = wonDeals.length > 0
+    ? Math.round(wonDeals.reduce((s, d) => {
+        const days = Math.floor((new Date(d.updatedAt).getTime() - new Date(d.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+        return s + days;
+      }, 0) / wonDeals.length)
+    : 0;
+
+  const formattedDeals = deals.map((d) => {
+    const daysOpen = Math.floor((now.getTime() - new Date(d.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+    const isOverdue = d.expectedCloseDate && new Date(d.expectedCloseDate) < now && !["Won", "Lost"].includes(d.status);
+    return {
+      id: d.id,
+      opportunityCode: d.opportunityCode || d.dealName,
+      opportunityName: d.dealName,
+      accountName: d.customer?.name || "—",
+      stage: d.status,
+      estimatedValue: d.dealValue,
+      probabilityPercent: d.probabilityPercent || 0,
+      expectedCloseDate: d.expectedCloseDate ? new Date(d.expectedCloseDate).toISOString() : null,
+      assignedToName: d.assignedUser?.name || "—",
+      daysOpen,
+      isOverdue: !!isOverdue,
+    };
+  });
 
   return NextResponse.json({
     success: true,
-    summary: { total, won, lost, active, winRate },
+    summary: { total, won, lost, active: active.length, winRate, totalPipeline, weightedPipeline, avgDealSize, avgSalesCycleDays },
     deals: formattedDeals,
   });
 }

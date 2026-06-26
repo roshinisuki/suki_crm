@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
+import { dispatchNotification } from "@/lib/notifications";
 import { nanoid } from "nanoid";
 
 // GET /api/tasks
@@ -43,6 +45,11 @@ export async function GET(request: Request) {
         include: {
           Contact: { select: { id: true, name: true, company: true } },
           User: { select: { id: true, name: true } },
+          AssignedBy: { select: { id: true, name: true } },
+          comments: {
+            include: { user: { select: { id: true, name: true } } },
+            orderBy: { createdAt: "desc" },
+          },
         },
         orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
         skip: (page - 1) * pageSize,
@@ -68,8 +75,21 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
+    // Validate: due_date > NOW() (400 if past date)
+    if (body.dueDate) {
+      const dueDate = new Date(body.dueDate);
+      if (dueDate <= new Date()) {
+        return NextResponse.json(
+          { success: false, message: "Due date must be in the future" },
+          { status: 400 }
+        );
+      }
+    }
+
     const count = await prisma.task.count();
     const taskCode = `TSK-${String(count + 1).padStart(4, "0")}`;
+
+    const assignedTo = body.assignedTo || body.assignedToId || user.id;
 
     const task = await prisma.task.create({
       data: {
@@ -81,9 +101,44 @@ export async function POST(request: Request) {
         priority: body.priority ?? "Medium",
         dueDate: body.dueDate ? new Date(body.dueDate) : null,
         contactId: body.contactId ?? null,
-        assignedTo: user.id,
+        dealId: body.dealId ?? null,
+        assignedTo,
+        assignedBy: user.id,
         companyId: user.companyId ?? null,
       },
+    });
+
+    // Notify assignee (In-App): 'New task: [title]'
+    if (assignedTo !== user.id) {
+      await dispatchNotification({
+        userId: assignedTo,
+        title: "New Task Assigned",
+        message: `New task: ${body.title}`,
+        type: "task",
+        link: "/tasks",
+      });
+    }
+
+    // Store reminder trigger: due_date - 1 day → INSERT notification for that time
+    if (body.dueDate) {
+      const dueDate = new Date(body.dueDate);
+      const reminderTime = new Date(dueDate.getTime() - 24 * 60 * 60 * 1000);
+      if (reminderTime > new Date()) {
+        await prisma.notification.create({
+          data: {
+            userId: assignedTo,
+            title: "Task Reminder",
+            message: `Task "${body.title}" is due tomorrow`,
+            type: "task",
+            link: "/tasks",
+          },
+        }).catch(() => {}); // non-blocking
+      }
+    }
+
+    await logAudit(user.id, "tasks", "create", `Task created: ${task.id} (${body.title})`, {
+      resourceId: task.id,
+      severity: "INFO",
     });
 
     return NextResponse.json({ success: true, data: task }, { status: 201 });

@@ -74,17 +74,6 @@ export async function GET(request: Request) {
       where: baseWhere,
     });
 
-    const now = new Date();
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const newLeadsThisMonth = await prisma.lead.count({
-      where: {
-        ...baseWhere,
-        createdAt: {
-          gte: firstDayOfMonth,
-        },
-      },
-    });
-
     const sqlCount = await prisma.lead.count({
       where: {
         ...baseWhere,
@@ -94,22 +83,49 @@ export async function GET(request: Request) {
       },
     });
 
-    const lostLeadsCount = await prisma.lead.count({
-      where: {
-        ...baseWhere,
-        status: "Lost",
-      },
+    const conversionRate = totalLeads > 0 ? Math.round((sqlCount / totalLeads) * 1000) / 10 : 0;
+
+    // By source
+    const allLeadsForSource = await prisma.lead.findMany({ where: baseWhere, select: { leadSource: true } });
+    const bySource: Record<string, number> = {};
+    for (const l of allLeadsForSource) {
+      const src = l.leadSource || "Unknown";
+      bySource[src] = (bySource[src] || 0) + 1;
+    }
+
+    // By status
+    const allLeadsForStatus = await prisma.lead.findMany({ where: baseWhere, select: { status: true } });
+    const byStatus: Record<string, number> = {};
+    for (const l of allLeadsForStatus) {
+      byStatus[l.status] = (byStatus[l.status] || 0) + 1;
+    }
+
+    const now = new Date();
+    const formattedLeads = leads.map((l) => {
+      const daysInStatus = Math.floor((now.getTime() - new Date(l.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        id: l.id,
+        leadCode: l.leadCode || "—",
+        companyName: l.companyName || l.name || "—",
+        sourceName: l.leadSource || "—",
+        leadStatus: l.status,
+        leadScore: l.leadScore || 0,
+        assignedToName: l.assignedUser?.name || "—",
+        createdAt: new Date(l.createdAt).toISOString(),
+        daysInCurrentStatus: daysInStatus,
+      };
     });
 
     return NextResponse.json({
       success: true,
       data: {
-        leads,
+        leads: formattedLeads,
         summary: {
           totalLeads,
-          newLeadsThisMonth,
           sqlCount,
-          lostLeadsCount,
+          conversionRate,
+          bySource,
+          byStatus,
         },
       },
     });

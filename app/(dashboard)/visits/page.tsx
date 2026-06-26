@@ -1,137 +1,363 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
-import { ConfirmModal } from "@/components/ConfirmModal";
-import PageContainer from "@/components/PageContainer";
+import { PageShell } from "@/components/ui/PageShell";
+import { SummaryCard } from "@/components/ui/SummaryCard";
+import { Modal } from "@/components/ui/Modal";
+import { FormField, Input, Textarea, Select } from "@/components/ui/FormField";
+import { formatDate, formatDateTime, cn } from "@/lib/ui-utils";
+import {
+  Plus, Eye, MapPin, CheckCircle, Clock, CalendarClock,
+  AlertTriangle, Briefcase, TrendingUp, X, ChevronRight,
+} from "lucide-react";
 
-const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
-  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d={d} />
-  </svg>
-);
+const STATUS_TABS = [
+  { key: "PLANNED", label: "Planned" },
+  { key: "CHECKED_IN", label: "Checked In" },
+  { key: "COMPLETED", label: "Completed" },
+  { key: "MISSED", label: "Missed" },
+  { key: "", label: "All Visits" },
+];
 
-const icons = {
-  plus: "M12 4v16m8-8H4",
-  eye: "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z",
-  trash: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
-  report: "M9 17v-6m3 6V6m3 12v-4M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z",
+const STATUS_PILLS: Record<string, string> = {
+  PLANNED: "bg-blue-50 text-blue-700 border-blue-200",
+  CHECKED_IN: "bg-amber-50 text-amber-700 border-amber-200",
+  CHECKED_OUT: "bg-teal-50 text-teal-700 border-teal-200",
+  COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  MISSED: "bg-rose-50 text-rose-700 border-rose-200",
 };
 
-const statusColors: Record<string, string> = {
-  PLANNED: "bg-blue-100 text-blue-700",
-  CHECKED_IN: "bg-amber-100 text-amber-700",
-  COMPLETED: "bg-green-100 text-green-700",
-  MISSED: "bg-red-100 text-red-700",
-  CHECKED_OUT: "bg-green-100 text-green-700",
+const STATUS_LABELS: Record<string, string> = {
+  PLANNED: "Planned",
+  CHECKED_IN: "Checked In",
+  CHECKED_OUT: "Checked Out",
+  COMPLETED: "Completed",
+  MISSED: "Missed",
 };
 
-const statusOptions = ["PLANNED", "CHECKED_IN", "COMPLETED", "MISSED"];
+const PURPOSE_OPTIONS = [
+  "Demo", "Technical Discussion", "Commercial Meeting",
+  "Relationship Visit", "Complaint Resolution",
+];
 
 export default function VisitsListPage() {
-  const [visits, setVisits] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [confirmState, setConfirmState] = useState<{ isOpen: boolean; title: string; message: string; action: () => void }>({ isOpen: false, title: "", message: "", action: () => {} });
-  const searchParams = useSearchParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
 
-  const statusFilter = searchParams.get("status") || "";
+  const initialTab = searchParams.get("status") || "";
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [visits, setVisits] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCompliance, setShowCompliance] = useState(false);
+  const [complianceData, setComplianceData] = useState<any[]>([]);
+  const [complianceLoading, setComplianceLoading] = useState(false);
 
-  const loadVisits = async () => {
+  const fetchVisits = useCallback(async () => {
     setLoading(true);
-    try {
-      const params: any = {};
-      if (statusFilter) params.status = statusFilter;
-      const res = await fetch(`/api/visits?${new URLSearchParams(params)}`);
-      const data = await res.json();
-      if (data.success) setVisits(data.data);
-    } catch { toast.error("Failed to load visits"); }
-    finally { setLoading(false); }
-  };
+    const params = new URLSearchParams();
+    if (activeTab) params.set("status", activeTab);
+    const res = await fetch(`/api/visits?${params.toString()}`);
+    if (res.ok) {
+      const json = await res.json();
+      setVisits(json.data || []);
+    } else {
+      toast.error("Failed to load visits");
+    }
+    setLoading(false);
+  }, [activeTab]);
 
   useEffect(() => {
-    loadVisits();
-    if (process.env.NODE_ENV === "development") {
-      fetch("/api/cron/visits-missed").catch(() => {});
-    }
-  }, [statusFilter]);
+    fetchVisits();
+  }, [fetchVisits]);
 
-  const handleDelete = (id: string, customerName: string) => {
-    setConfirmState({
-      isOpen: true,
-      title: "Delete Visit",
-      message: `Are you sure you want to delete the visit for "${customerName}"?`,
-      action: async () => {
-        try {
-          const res = await fetch(`/api/visits/${id}`, { method: "DELETE" });
-          const data = await res.json();
-          if (data.success) { toast.success("Visit deleted"); loadVisits(); }
-          else toast.error(data.message || "Failed");
-        } catch { toast.error("Failed"); }
-        setConfirmState({ isOpen: false, title: "", message: "", action: () => {} });
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    router.push(`/visits${tab ? `?status=${tab}` : ""}`);
+  };
+
+  const handleCheckIn = async (id: string) => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by this browser");
+      return;
+    }
+    toast.info("Capturing your location...");
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        const res = await fetch(`/api/visits/${id}/checkin`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ gps_lat: latitude, gps_lng: longitude }),
+        });
+        const json = await res.json();
+        if (json.success) {
+          toast.success("Checked in successfully");
+          if (json.warning) toast.warning(json.warning);
+          fetchVisits();
+        } else {
+          toast.error(json.message || "Check-in failed");
+        }
       },
-    });
+      (err) => {
+        toast.error(`Failed to get location: ${err.message}`);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const fetchCompliance = useCallback(async () => {
+    setComplianceLoading(true);
+    const res = await fetch(`/api/visits/key-account-compliance`);
+    if (res.ok) {
+      const json = await res.json();
+      setComplianceData(json.data || []);
+    } else {
+      toast.error("Failed to load compliance data");
+    }
+    setComplianceLoading(false);
+  }, []);
+
+  const handleOpenCompliance = () => {
+    setShowCompliance(true);
+    fetchCompliance();
+  };
+
+  const kpiPlanned = visits.filter((v) => v.status === "PLANNED").length;
+  const kpiCompleted = visits.filter((v) => v.status === "COMPLETED").length;
+  const kpiMissed = visits.filter((v) => v.status === "MISSED").length;
+  const kpiCheckedIn = visits.filter((v) => v.status === "CHECKED_IN").length;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const getComplianceColor = (days: number | null) => {
+    if (days == null) return "bg-rose-50";
+    if (days > 90) return "bg-rose-50";
+    if (days > 60) return "bg-orange-50";
+    if (days > 30) return "bg-amber-50";
+    return "bg-emerald-50";
   };
 
   return (
-    <PageContainer className="space-y-4 p-0">
-      <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-slate-800">Customer Visits</h1><p className="text-sm text-slate-500 mt-0.5">Manage customer visit tracking</p></div>
-        <div className="flex gap-2">
-          <button onClick={() => router.push("/visits/reports")} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer"><Ico d={icons.report} size={16} /> Reports</button>
-          <button onClick={() => router.push("/visits/new")} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] cursor-pointer"><Ico d={icons.plus} size={16} /> New Visit</button>
+    <PageShell
+      title="Customer Visits"
+      subtitle="Field sales tracking with GPS check-in and visit compliance."
+      action={
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleOpenCompliance}
+            className="px-3 py-2 text-sm font-bold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center gap-1.5"
+          >
+            <AlertTriangle size={15} /> Key Account Compliance
+          </button>
+          <button
+            onClick={() => router.push("/visits/new")}
+            className="px-4 py-2 bg-[var(--primary)] text-white font-bold text-sm rounded-lg hover:bg-[var(--primary-hover)] flex items-center gap-1.5"
+          >
+            <Plus size={15} /> Plan Visit
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-6">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <SummaryCard label="Planned" value={kpiPlanned.toString()} icon={<CalendarClock size={20} />} variant="indigo" />
+          <SummaryCard label="Checked In" value={kpiCheckedIn.toString()} icon={<MapPin size={20} />} variant="light" />
+          <SummaryCard label="Completed" value={kpiCompleted.toString()} icon={<CheckCircle size={20} />} variant="dark" />
+          <SummaryCard label="Missed" value={kpiMissed.toString()} icon={<AlertTriangle size={20} />} variant="orange" />
+        </div>
+
+        {/* Status Tabs */}
+        <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
+          {STATUS_TABS.map((tab) => (
+            <button
+              key={tab.key || "all"}
+              onClick={() => handleTabChange(tab.key)}
+              className={cn(
+                "px-4 py-2.5 text-sm font-bold border-b-2 transition-all whitespace-nowrap",
+                activeTab === tab.key
+                  ? "border-[var(--primary)] text-[var(--primary)]"
+                  : "border-transparent text-slate-400 hover:text-slate-600"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Visits Table */}
+        <div className="crm-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="crm-table">
+              <thead>
+                <tr className="crm-tr border-b border-slate-200/60">
+                  <th className="crm-th">Account</th>
+                  <th className="crm-th">Plant Location</th>
+                  <th className="crm-th">Purpose</th>
+                  <th className="crm-th">Date &amp; Time</th>
+                  <th className="crm-th">Assigned To</th>
+                  <th className="crm-th">Status</th>
+                  <th className="crm-th">GPS</th>
+                  <th className="crm-th text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-12 text-center text-slate-400">Loading visits...</td>
+                  </tr>
+                ) : visits.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-12 text-center text-slate-400">No visits found for the selected criteria.</td>
+                  </tr>
+                ) : (
+                  visits.map((v) => {
+                    const isPlannedToday =
+                      v.status === "PLANNED" &&
+                      v.plannedDate &&
+                      new Date(v.plannedDate).toDateString() === today.toDateString();
+                    return (
+                      <tr key={v.id} className="crm-tr hover:bg-slate-50/80 transition-colors">
+                        <td className="crm-td">
+                          <p className="font-bold text-slate-800 text-sm">{v.customer?.name || "—"}</p>
+                          <p className="text-[11px] text-slate-400">{v.customer?.customerCode}</p>
+                        </td>
+                        <td className="crm-td">
+                          <p className="text-sm text-slate-600">{v.plantLocation?.locationName || "—"}</p>
+                          <p className="text-[11px] text-slate-400">{v.plantLocation?.city}</p>
+                        </td>
+                        <td className="crm-td">
+                          <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-md border border-indigo-100">
+                            {v.purpose}
+                          </span>
+                        </td>
+                        <td className="crm-td">
+                          {v.plannedDate ? (
+                            <div>
+                              <p className="text-sm font-medium text-slate-700">{formatDate(v.plannedDate)}</p>
+                              <p className="text-[11px] text-slate-400">{v.plannedTime}</p>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-sm">—</span>
+                          )}
+                        </td>
+                        <td className="crm-td">
+                          <span className="text-sm text-slate-600">{v.host?.name || "—"}</span>
+                        </td>
+                        <td className="crm-td">
+                          <span className={cn("px-2.5 py-1 text-xs font-bold rounded-lg border", STATUS_PILLS[v.status] || "bg-slate-50 text-slate-600 border-slate-200")}>
+                            {STATUS_LABELS[v.status] || v.status}
+                          </span>
+                        </td>
+                        <td className="crm-td">
+                          {v.gpsLat != null ? (
+                            <MapPin size={15} className={v.gpsAnomaly ? "text-amber-500" : "text-emerald-500"} />
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )}
+                        </td>
+                        <td className="crm-td text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {isPlannedToday && (
+                              <button
+                                onClick={() => handleCheckIn(v.id)}
+                                className="px-2.5 py-1 bg-amber-600 text-white font-bold text-xs rounded-lg hover:bg-amber-700 flex items-center gap-1"
+                              >
+                                <MapPin size={12} /> Check In
+                              </button>
+                            )}
+                            {v.status === "CHECKED_IN" && (
+                              <button
+                                onClick={() => router.push(`/visits/${v.id}`)}
+                                className="px-2.5 py-1 bg-[var(--primary)] text-white font-bold text-xs rounded-lg hover:bg-[var(--primary-hover)]"
+                              >
+                                Complete
+                              </button>
+                            )}
+                            {(v.status === "PLANNED" || v.status === "MISSED") && (
+                              <button
+                                onClick={() => router.push(`/visits/${v.id}`)}
+                                className="px-2.5 py-1 bg-slate-50 text-slate-700 font-bold text-xs rounded-lg hover:bg-slate-100 border border-slate-200"
+                              >
+                                Reschedule
+                              </button>
+                            )}
+                            <button
+                              onClick={() => router.push(`/visits/${v.id}`)}
+                              className="p-1.5 text-slate-400 hover:text-[var(--primary)] hover:bg-slate-50 rounded-lg transition-all"
+                              title="View"
+                            >
+                              <Eye size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-2">
-        <button onClick={() => router.push("/visits")} className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer ${!statusFilter ? "bg-[var(--primary)] text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}>All</button>
-        {statusOptions.map((s) => (
-          <button key={s} onClick={() => router.push(`/visits?status=${s}`)} className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer ${statusFilter === s ? "bg-[var(--primary)] text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}>{s.replace("_", " ")}</button>
-        ))}
-      </div>
-
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead><tr className="bg-slate-50 border-b border-slate-200">
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Customer</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Purpose</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Priority</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Meeting Type</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Check-In</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Check-Out</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Status</th>
-            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Actions</th>
-          </tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan={8} className="text-center py-8 text-slate-400">Loading...</td></tr>
-            : visits.length === 0 ? <tr><td colSpan={8} className="text-center py-8 text-slate-400">No visits found</td></tr>
-            : visits.map((v: any) => (
-              <tr key={v.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                <td className="px-4 py-3 text-sm font-medium text-slate-800">{v.customer?.name || "—"}</td>
-                <td className="px-4 py-3 text-sm text-slate-700">{v.purpose}</td>
-                <td className="px-4 py-3 text-sm text-slate-700">{v.priority}</td>
-                <td className="px-4 py-3 text-sm text-slate-700">{v.meetingType || "—"}</td>
-                <td className="px-4 py-3 text-sm text-slate-700">{v.checkInTime ? new Date(v.checkInTime).toLocaleString() : "—"}</td>
-                <td className="px-4 py-3 text-sm text-slate-700">{v.checkOutTime ? new Date(v.checkOutTime).toLocaleString() : "—"}</td>
-                <td className="px-4 py-3"><span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[v.status] || "bg-gray-100 text-gray-600"}`}>{v.status.replace("_", " ")}</span></td>
-                <td className="px-4 py-3 text-right"><div className="flex justify-end gap-2"><button onClick={() => router.push(`/visits/${v.id}`)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 cursor-pointer" title="View"><Ico d={icons.eye} size={15} /></button><button onClick={() => handleDelete(v.id, v.customer?.name || "")} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 cursor-pointer" title="Delete"><Ico d={icons.trash} size={15} /></button></div></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <ConfirmModal
-        isOpen={confirmState.isOpen}
-        title={confirmState.title}
-        message={confirmState.message}
-        onConfirm={confirmState.action}
-        onCancel={() => setConfirmState({ isOpen: false, title: "", message: "", action: () => {} })}
-        isDestructive={true}
-      />
-    </PageContainer>
+      {/* Key Account Compliance Modal */}
+      <Modal
+        open={showCompliance}
+        onClose={() => setShowCompliance(false)}
+        title="Key Account Visit Compliance"
+        subtitle="Key accounts not visited in 30+ days"
+        size="lg"
+        footer={
+          <button onClick={() => setShowCompliance(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Close</button>
+        }
+      >
+        <div className="p-4">
+          {complianceLoading ? (
+            <div className="text-center py-8 text-slate-400">Loading compliance data...</div>
+          ) : complianceData.length === 0 ? (
+            <div className="text-center py-8 text-slate-400">No key accounts found.</div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="text-left px-3 py-2 text-xs font-bold text-slate-600 uppercase">Account</th>
+                  <th className="text-left px-3 py-2 text-xs font-bold text-slate-600 uppercase">City</th>
+                  <th className="text-left px-3 py-2 text-xs font-bold text-slate-600 uppercase">Sales Owner</th>
+                  <th className="text-left px-3 py-2 text-xs font-bold text-slate-600 uppercase">Last Visit</th>
+                  <th className="text-right px-3 py-2 text-xs font-bold text-slate-600 uppercase">Days Since</th>
+                </tr>
+              </thead>
+              <tbody>
+                {complianceData.map((c) => (
+                  <tr key={c.accountId} className={cn("border-b border-slate-100", getComplianceColor(c.daysSinceVisit))}>
+                    <td className="px-3 py-2.5 text-sm font-bold text-slate-800">{c.accountName}</td>
+                    <td className="px-3 py-2.5 text-sm text-slate-600">{c.city || "—"}</td>
+                    <td className="px-3 py-2.5 text-sm text-slate-600">{c.salesOwner}</td>
+                    <td className="px-3 py-2.5 text-sm text-slate-600">{c.lastVisitDate ? formatDate(c.lastVisitDate) : "Never"}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      <span className={cn(
+                        "text-sm font-bold",
+                        c.daysSinceVisit == null ? "text-rose-600" :
+                        c.daysSinceVisit > 90 ? "text-rose-600" :
+                        c.daysSinceVisit > 60 ? "text-orange-600" :
+                        c.daysSinceVisit > 30 ? "text-amber-600" :
+                        "text-emerald-600"
+                      )}>
+                        {c.daysSinceVisit == null ? "Never" : `${c.daysSinceVisit}d`}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </Modal>
+    </PageShell>
   );
 }

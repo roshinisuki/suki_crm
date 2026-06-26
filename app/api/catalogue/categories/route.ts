@@ -12,8 +12,9 @@ export async function GET(request: Request) {
 
     const url = new URL(request.url);
     const isActive = url.searchParams.get("isActive");
+    const search = url.searchParams.get("search") || "";
 
-    const where: any = { deletedAt: null };
+    const where: any = {};
     if (isActive !== null) {
       where.isActive = isActive === "true";
     } else {
@@ -22,6 +23,10 @@ export async function GET(request: Request) {
 
     if (user.companyId) {
       where.companyId = user.companyId;
+    }
+
+    if (search) {
+      where.name = { contains: search };
     }
 
     const categories = await prisma.productCategory.findMany({

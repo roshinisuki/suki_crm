@@ -10,7 +10,7 @@ const DEFAULT_DISCOUNT_THRESHOLD = 5;
 
 async function getDiscountThreshold(companyId: string): Promise<number> {
   const config = await prisma.systemConfig.findFirst({
-    where: { key: "approval_matrix_discount_threshold", companyId },
+    where: { key: "approval_matrix_discount_threshold" },
   });
   if (config) {
     const val = parseFloat(config.value);

@@ -10,6 +10,7 @@ import { getUsersAction } from "@/app/actions/users";
 import { getLeadSourcesAction } from "@/app/actions/leadSources";
 import { BarChart3, Clock, CheckCircle, AlertCircle, Download, RefreshCw, FileText } from "lucide-react";
 import { ReportFilterLayout, FilterField, filterInputClass } from "@/components/reports/ReportFilterLayout";
+import ReportActions from "@/components/reports/ReportActions";
 
 const leadStatuses = ["New", "Contacted", "FollowUpDue", "SQL", "Qualified", "Converted", "Lost"];
 
@@ -136,13 +137,16 @@ function LeadReportContent() {
       title="Lead Report"
       subtitle="Summary metrics and operational details for marketing leads"
       action={
-        <button
-          onClick={handleExportCSV}
-          disabled={leads.length === 0}
-          className="flex items-center gap-2 px-5 py-2.5 bg-[var(--primary)] text-white rounded-xl text-xs font-bold hover:bg-[var(--primary-hover)] transition-colors shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Download size={14} /> Export to CSV
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportCSV}
+            disabled={leads.length === 0}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[var(--primary)] text-white rounded-xl text-xs font-bold hover:bg-[var(--primary-hover)] transition-colors shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download size={14} /> Export to CSV
+          </button>
+          <ReportActions reportId="leads" filters={{ startDate, endDate, status, leadSource, assignedUserId }} />
+        </div>
       }
     >
       <PageContainer className="space-y-6">
@@ -183,7 +187,6 @@ function LeadReportContent() {
           title="Filter Lead Report"
           onApply={fetchReportData}
           onReset={handleClearFilters}
-          onRefresh={fetchReportData}
           applyLabel="Reload"
           resetLabel="Clear Filters"
           filters={[

@@ -16,6 +16,12 @@ export async function GET(
     include: {
       customer: { select: { id: true, name: true, customerCode: true, phone: true, email: true, city: true } },
       host: { select: { id: true, name: true, email: true } },
+      plantLocation: { select: { id: true, locationName: true, address: true, city: true, state: true, gpsLat: true, gpsLng: true } },
+      visitAttendees: {
+        include: { contact: { select: { id: true, name: true, designation: true, email: true, phone: true } } },
+        orderBy: { createdAt: "asc" },
+      },
+      linkedOpportunity: { select: { id: true, dealName: true, opportunityCode: true, status: true } },
     },
   });
 

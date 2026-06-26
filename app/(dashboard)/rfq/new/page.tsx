@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import PageContainer from "@/components/PageContainer";
+import { getCustomersAction } from "@/app/actions/customers";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
   <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -18,6 +19,7 @@ const icons = {
 
 export default function NewRFQPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
   const { user } = useAuth();
 
@@ -28,6 +30,9 @@ export default function NewRFQPage() {
   const [saving, setSaving] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
   const [productSearch, setProductSearch] = useState("");
+  const [opportunityId, setOpportunityId] = useState<string | null>(null);
+  const [loadingContext, setLoadingContext] = useState(false);
+  const [contextError, setContextError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     customerId: "",
@@ -42,15 +47,53 @@ export default function NewRFQPage() {
   });
 
   useEffect(() => {
-    fetch("/api/customer-master").then(res => res.json()).then(data => {
-      if (data.success) setCustomers(data.data || []);
-    });
+    getCustomersAction().then(res => {
+      if (res.success && res.data) setCustomers(res.data as any[]);
+      else console.error("Failed to load customers:", res.message);
+    }).catch(err => console.error("Error loading customers:", err));
     fetch("/api/catalogue/products").then(res => res.json()).then(data => {
       if (data.success) setProducts(data.data || []);
-    });
+      else console.error("Failed to load products:", data.message);
+    }).catch(err => console.error("Error loading products:", err));
     fetch("/api/users").then(res => res.json()).then(data => {
       if (data.success) setUsers(data.data || []);
-    });
+      else console.error("Failed to load users:", data.message);
+    }).catch(err => console.error("Error loading users:", err));
+
+    const oppId = searchParams.get("opportunityId");
+    if (oppId) {
+      setOpportunityId(oppId);
+      setLoadingContext(true);
+      setContextError(null);
+      fetch(`/api/opportunities/${oppId}/context`)
+        .then(async (res) => {
+          const data = await res.json().catch(() => ({ success: false }));
+          if (!res.ok || !data.success) {
+            throw new Error(data.message || "Failed to load opportunity context");
+          }
+          return data.data;
+        })
+        .then((ctx) => {
+          if (ctx.accountId) {
+            setCustomerSearch(ctx.accountName || "");
+            setForm(f => ({
+              ...f,
+              customerId: ctx.accountId,
+              contactId: ctx.contactId || "",
+              productId: ctx.primaryProductId || "",
+              assignedUserId: ctx.assignedUserId || "",
+            }));
+            if (ctx.contacts?.length > 0) {
+              setContacts(ctx.contacts);
+            }
+          }
+        })
+        .catch((err) => {
+          console.error("RFQ context fetch failed:", err);
+          setContextError(err.message || "Could not load linked customer details — please select manually.");
+        })
+        .finally(() => setLoadingContext(false));
+    }
   }, []);
 
   useEffect(() => {
@@ -74,12 +117,16 @@ export default function NewRFQPage() {
       const res = await fetch("/api/rfq", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, opportunity_id: opportunityId }),
       });
       const data = await res.json();
       if (data.success) {
         toast.success("RFQ created successfully");
-        router.push(`/rfq/${data.data.id}`);
+        if (opportunityId) {
+          router.push(`/sales-pipeline/${opportunityId}/opportunity-detail`);
+        } else {
+          router.push(`/rfq/${data.data.id}`);
+        }
       } else {
         toast.error(data.message || "Failed to create RFQ");
       }
@@ -113,6 +160,19 @@ export default function NewRFQPage() {
           <p className="text-sm text-slate-500 mt-0.5">Create a new Request for Quotation</p>
         </div>
       </div>
+
+      {loadingContext && (
+        <div className="flex items-center gap-3 text-sm text-slate-500 bg-white rounded-2xl border border-slate-200/60 shadow-sm p-6">
+          <div className="w-4 h-4 rounded-full border-2 border-[var(--primary)] border-t-transparent animate-spin" />
+          Loading opportunity details...
+        </div>
+      )}
+
+      {contextError && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+          {contextError}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-6 space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

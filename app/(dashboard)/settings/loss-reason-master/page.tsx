@@ -5,6 +5,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
 import PageContainer from "@/components/PageContainer";
+import { CRMSpinner } from "@/components/CRMSpinner";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
   <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -96,7 +97,9 @@ export default function LossReasonMasterPage() {
       </div>
 
       {loading ? (
-        <div className="py-12 text-center text-sm text-gray-500">Loading...</div>
+        <div className="flex justify-center py-12">
+          <CRMSpinner size={36} label="Loading..." />
+        </div>
       ) : reasons.length === 0 ? (
         <div className="py-12 text-center text-sm text-gray-500">No loss reasons defined yet.</div>
       ) : (

@@ -11,8 +11,9 @@ import { SummaryCard } from "@/components/ui/SummaryCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { ConfirmModal } from "@/components/ConfirmModal";
-import { Search, Filter, Plus, BookUser, Eye, Pencil, Trash2, Mail, Phone, User, Tag, Users, CheckCircle2, ArchiveX } from "lucide-react";
+import { Search, Filter, Plus, BookUser, Pencil, Trash2, Mail, Phone, User, Tag, Users, CheckCircle2, ArchiveX } from "lucide-react";
 import { useGlobalLoading } from "@/components/GlobalLoadingProvider";
+import { CRMSpinner } from "@/components/CRMSpinner";
 import { getInitials, getAvatarColor, cn } from "@/lib/ui-utils";
 
 const CONTACT_TYPES = ["Technical", "Purchase", "Finance", "Management"];
@@ -123,10 +124,29 @@ export default function ContactsPage() {
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
-            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-[var(--primary)]">
-              <option value="">All Types</option>
-              {CONTACT_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
-            </select>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setTypeFilter("")}
+                className={cn(
+                  "px-3 py-2 text-xs font-medium rounded-xl border transition-colors",
+                  typeFilter === "" ? "bg-[var(--primary)] text-white border-[var(--primary)]" : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                )}
+              >
+                All
+              </button>
+              {CONTACT_TYPES.map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTypeFilter(t)}
+                  className={cn(
+                    "px-3 py-2 text-xs font-medium rounded-xl border transition-colors",
+                    typeFilter === t ? "bg-[var(--primary)] text-white border-[var(--primary)]" : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                  )}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -148,7 +168,13 @@ export default function ContactsPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={8} className="py-10 text-center text-sm text-slate-400">Loading...</td></tr>
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center">
+                      <div className="flex justify-center">
+                        <CRMSpinner size={36} label="Loading contacts..." />
+                      </div>
+                    </td>
+                  </tr>
                 ) : paginatedContacts.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-16 text-center">
@@ -159,7 +185,11 @@ export default function ContactsPage() {
                   </tr>
                 ) : (
                   paginatedContacts.map((contact) => (
-                    <tr key={contact.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors text-slate-600 text-sm">
+                    <tr
+                      key={contact.id}
+                      className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors text-slate-600 text-sm table-row-clickable"
+                      onClick={() => router.push(`/contacts/${contact.id}`)}
+                    >
                       <td className="px-4 py-4 font-mono text-xs font-semibold text-[var(--primary)]">{contact.contactCode}</td>
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-3">
@@ -167,7 +197,7 @@ export default function ContactsPage() {
                             {getInitials(contact.name)}
                           </div>
                           <div>
-                            <div className="font-semibold text-slate-800">{contact.name}</div>
+                            <div className="row-primary-link">{contact.name}</div>
                             {contact.isPrimary && <span className="text-[10px] bg-[var(--primary)]/10 text-[var(--primary)] px-1.5 py-0.5 rounded font-bold">Primary</span>}
                           </div>
                         </div>
@@ -189,11 +219,10 @@ export default function ContactsPage() {
                         {contact.email ? <div className="flex items-center gap-1.5 text-xs"><Mail size={12} className="text-slate-400" />{contact.email}</div> : <span className="text-xs text-slate-300">—</span>}
                       </td>
                       <td className="px-4 py-4"><StatusBadge status={contact.status} size="sm" /></td>
-                      <td className="px-4 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => router.push(`/contacts/${contact.id}`)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-[var(--primary)] transition-colors" title="View"><Eye size={15} /></button>
-                          <button onClick={() => router.push(`/contacts/${contact.id}`)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors" title="Edit"><Pencil size={15} /></button>
-                          <button onClick={() => confirmDelete(contact)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500 transition-colors" title="Delete"><Trash2 size={15} /></button>
+                      <td className="px-4 py-4 text-right" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button onClick={() => router.push(`/contacts/${contact.id}`)} className="row-action-btn" title="Edit"><Pencil size={15} /></button>
+                          <button onClick={() => confirmDelete(contact)} className="row-action-btn row-action-btn-danger" title="Delete"><Trash2 size={15} /></button>
                         </div>
                       </td>
                     </tr>

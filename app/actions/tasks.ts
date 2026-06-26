@@ -200,17 +200,12 @@ export async function updateTaskAction(id: string, input: Partial<TaskInput> & {
 export async function deleteTaskAction(id: string) {
   try {
     const user = await verifyAuth();
-    if (!user || user.role === "Customer") {
+    if (!user || user.role === "Customer" || user.role === "SalesExecutive") {
       return { success: false, message: "Unauthorized" };
     }
 
     const existing = await prisma.task.findUnique({ where: { id, deletedAt: null } });
     if (!existing) {
-      return { success: false, message: "Task not found." };
-    }
-
-    // Authorization check
-    if (user.role === "SalesExecutive" && existing.assignedTo !== user.id) {
       return { success: false, message: "Task not found." };
     }
 

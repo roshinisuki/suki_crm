@@ -87,6 +87,12 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
   const [expectedCloseDate, setExpectedCloseDate] = useState("");
   const [assignedUserId, setAssignedUserId] = useState("");
   const [dealNotes, setDealNotes] = useState("");
+
+  // Document Upload State
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [docType, setDocType] = useState("Customer");
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [dealStatus, setDealStatus] = useState("Open");
   const [savingDeal, setSavingDeal] = useState(false);
 
@@ -113,6 +119,12 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
     loadCustomer();
     loadExecutives();
   }, [customerId]);
+
+  useEffect(() => {
+    if (activeTab === "documents" && customer) {
+      loadDocuments();
+    }
+  }, [activeTab, customer]);
 
   const handleStatusChange = async (newStatus: string) => {
     if (!customer) return;
@@ -301,6 +313,50 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
     }
   };
 
+  // Document upload handlers
+  const loadDocuments = async () => {
+    try {
+      const res = await fetch(`/api/accounts/${customer.id}/documents`);
+      const data = await res.json();
+      if (data.success) setDocuments(data.data || []);
+    } catch { /* silent */ }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingDoc(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("documentType", docType);
+      const res = await fetch(`/api/accounts/${customer.id}/documents`, { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Document uploaded");
+        loadDocuments();
+      } else {
+        toast.error(data.message || "Upload failed");
+      }
+    } catch {
+      toast.error("Upload failed");
+    } finally {
+      setUploadingDoc(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file && fileInputRef.current) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      fileInputRef.current.files = dt.files;
+      handleFileUpload({ target: { files: dt.files } } as any);
+    }
+  };
+
   if (loading) {
     return <div className="p-8 text-slate-500">Loading Customer details...</div>;
   }
@@ -430,63 +486,89 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
   timelineEvents.sort((a, b) => b.date.getTime() - a.date.getTime());
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => router.push("/customer-master")}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-650 transition-colors"
-          >
-            <Ico d={icons.back} size={20} />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">{customer.name}</h1>
-            <p className="text-sm text-slate-500 font-medium">
-              {customer.customerCode} • {customer.city || "No City"}
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex gap-2">
+      <div className="flex items-center justify-between gap-3 py-1">
+        <button
+          onClick={() => router.push("/customer-master")}
+          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-[var(--primary)] font-medium transition-colors shrink-0"
+        >
+          <Ico d={icons.back} size={15} /> Back to Accounts
+        </button>
+        <div className="flex items-center gap-2 shrink-0">
           {currentUser?.role !== "Customer" && (
-            <button 
+            <button
               onClick={openCreateDealModal}
-              className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-sm font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-2 cursor-pointer"
+              className="h-8 px-3 text-xs font-semibold rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Ico d={icons.plus} />
-              New Deal
+              <Ico d={icons.plus} size={13} /> New Opportunity
             </button>
           )}
         </div>
       </div>
 
-      {/* Progress Pipeline */}
-      <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
-        <h3 className="text-sm font-bold text-slate-800 mb-4">Lead Status Pipeline</h3>
-        <div className="flex items-center gap-2 overflow-x-auto pb-2">
-          {STATUS_OPTIONS.map((status, index) => {
-            const isCompleted = currentIndex > index || (currentIndex === index && (status === "Converted" || status === "Lost"));
-            const isCurrent = currentIndex === index && status !== "Converted" && status !== "Lost";
-            
-            let colorClass = "bg-slate-100 text-slate-400 border-slate-200";
-            if (isCompleted) colorClass = "bg-emerald-50 text-emerald-600 border-emerald-200";
-            if (isCurrent) colorClass = "bg-[var(--primary)] text-white border-[#C94F4F] shadow-md";
-            
-            return (
-              <React.Fragment key={status}>
-                <div 
-                  onClick={() => handleStatusChange(status)}
-                  className={`flex items-center justify-center px-4 py-2 rounded-xl text-sm font-bold border transition-all cursor-pointer ${colorClass} ${status === "Lost" && isCurrent ? "!bg-rose-500 !text-white !border-rose-600" : ""}`}
-                >
-                  {status}
-                </div>
-                {index < STATUS_OPTIONS.length - 1 && (
-                  <div className={`h-0.5 w-8 shrink-0 ${isCompleted ? "bg-emerald-200" : "bg-slate-100"}`} />
-                )}
-              </React.Fragment>
-            );
-          })}
+      {/* Account Summary Card */}
+      <div className="crm-card p-5">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-base font-black shrink-0 bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600">
+            {(customer.name || "A").charAt(0)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">{customer.name}</h1>
+              <span className="text-[11px] font-mono font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-400 px-2 py-0.5 rounded">{customer.customerCode}</span>
+              <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                customer.status === "Active" || customer.status === "ActiveCustomer"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : customer.status === "Prospect"
+                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                  : customer.status === "Lost" || customer.status === "Churned"
+                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                  : "bg-slate-100 text-slate-700 border-slate-200"
+              }`}>
+                {customer.status}
+              </span>
+              {customer.isKeyAccountV2 && (
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border-amber-200">
+                  <span>⭐</span> Key Account
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-6 gap-y-2 mt-3 text-sm text-slate-600">
+              <div>
+                <span className="text-slate-400 text-xs">Email:</span>
+                <span className="font-medium truncate">{customer.email || "—"}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 text-xs">Phone:</span>
+                <span className="font-medium">{customer.phone || "—"}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 text-xs">City:</span>
+                <span className="font-medium">{customer.city || "—"}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 text-xs">Type:</span>
+                <span className="font-medium">{customer.accountType || "—"}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 text-xs">Industry:</span>
+                <span className="font-medium">{customer.industryType || "—"}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 text-xs">GSTIN:</span>
+                <span className="font-mono text-xs">{customer.gstNumber || "—"}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 text-xs">Assigned:</span>
+                <span className="font-medium">{customer.assignedUser?.name || "Unassigned"}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 text-xs">Created:</span>
+                <span className="font-medium">{new Date(customer.createdAt).toLocaleDateString()}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -494,11 +576,13 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
       <div className="flex border-b border-slate-200 gap-6 overflow-x-auto pb-px">
         {[
           { id: "overview", label: "Overview" },
-          { id: "timeline", label: "Timeline History" },
-          { id: "deals", label: `Deals (${customer.deals?.length || 0})` },
-          { id: "visits", label: "Visits" },
-          { id: "followups", label: "Follow-Ups" },
-          { id: "subscriptions", label: "Subscriptions" }
+          { id: "contacts", label: `Contacts (${customer.contacts?.length || 0})` },
+          { id: "opportunities", label: `Opportunities (${customer.deals?.filter((d: any) => d.status !== "Won" && d.status !== "Lost").length || 0})` },
+          { id: "quotations", label: `Quotations (${customer.quotations?.length || 0})` },
+          { id: "rfqs", label: `RFQs (${customer.rfqs?.length || 0})` },
+          { id: "visits", label: `Visits (${(customer.customerVisits?.length || 0)})` },
+          { id: "documents", label: "Documents" },
+          { id: "timeline", label: "Activity Timeline" },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -514,117 +598,134 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
         ))}
       </div>
 
-      {/* Tab Panels */}
-      <div>
+      {/* Tab Content + Sidebar */}
+      <div className="flex gap-6">
+        {/* Main Content */}
+        <div className="flex-1 min-w-0">
         {activeTab === "overview" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Box: details */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-5">
+            {/* Account Details */}
+            <div className="crm-card p-5">
+              <h3 className="text-sm font-bold text-slate-700 mb-4">Account Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 <div>
-                  <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Customer Name</h4>
-                  <p className="text-slate-800 text-base font-semibold">{customer.name}</p>
+                  <p className="text-xs text-slate-400 mb-1">Account Name</p>
+                  <p className="text-sm font-semibold text-slate-700">{customer.name}</p>
                 </div>
                 <div>
-                  <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Customer Code</h4>
-                  <p className="text-slate-800 text-base font-semibold">{customer.customerCode}</p>
+                  <p className="text-xs text-slate-400 mb-1">Account Code</p>
+                  <p className="text-sm font-mono font-semibold text-slate-700">{customer.customerCode}</p>
                 </div>
                 <div>
-                  <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Email Address</h4>
-                  <p className="text-slate-800 text-sm font-medium">{customer.email || "Not provided"}</p>
+                  <p className="text-xs text-slate-400 mb-1">Status</p>
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                    customer.status === "Active" || customer.status === "ActiveCustomer" || customer.status === "Converted"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : customer.status === "Lost" || customer.status === "Churned"
+                      ? "bg-rose-50 text-rose-700 border-rose-200"
+                      : "bg-amber-50 text-amber-700 border-amber-200"
+                  }`}>
+                    {customer.status}
+                  </span>
                 </div>
                 <div>
-                  <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Phone Number</h4>
-                  <p className="text-slate-800 text-sm font-medium">{customer.phone || "Not provided"}</p>
+                  <p className="text-xs text-slate-400 mb-1">Email</p>
+                  <p className="text-sm font-medium text-slate-700">{customer.email || "—"}</p>
                 </div>
                 <div>
-                  <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">City</h4>
-                  <p className="text-slate-800 text-sm font-medium">{customer.city || "Not provided"}</p>
+                  <p className="text-xs text-slate-400 mb-1">Phone</p>
+                  <p className="text-sm font-medium text-slate-700">{customer.phone || "—"}</p>
                 </div>
                 <div>
-                  <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Lead Source</h4>
+                  <p className="text-xs text-slate-400 mb-1">City</p>
+                  <p className="text-sm font-medium text-slate-700">{customer.city || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">Account Type</p>
+                  <p className="text-sm font-medium text-slate-700">{customer.accountType || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">Industry</p>
+                  <p className="text-sm font-medium text-slate-700">{customer.industryType || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">GSTIN</p>
+                  <p className="text-sm font-mono text-slate-700">{customer.gstNumber || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">Lead Source</p>
                   <select
                     value={customer.leadSource || ""}
                     onChange={(e) => handleLeadSourceChange(e.target.value)}
-                    className="mt-1 block w-full pl-3 pr-10 py-1.5 text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)] rounded-xl font-medium text-slate-800 transition-all cursor-pointer"
+                    className="mt-0.5 block w-full pl-2 pr-8 py-1 text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)] rounded-lg font-medium text-slate-700 transition-all cursor-pointer"
                   >
-                    <option value="">Select source...</option>
+                    <option value="">Select...</option>
                     {LEAD_SOURCES.map((source) => (
                       <option key={source} value={source}>{source}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Pipeline Status</h4>
-                  <span className={`inline-block px-3 py-1 text-xs font-bold rounded-full border mt-1 ${
-                    customer.status === "Converted" || customer.status === "Active"
-                      ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                      : customer.status === "Lost"
-                      ? "bg-rose-50 text-rose-600 border-rose-200"
-                      : "bg-amber-50 text-amber-600 border-amber-200"
-                  }`}>
-                    {customer.status}
-                  </span>
-                </div>
-                <div>
-                  <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Assigned Executive</h4>
-                  <p className="text-slate-800 text-sm font-medium mt-1">
+                  <p className="text-xs text-slate-400 mb-1">Assigned Executive</p>
+                  <p className="text-sm font-medium text-slate-700">
                     {customer.assignedUserId ? executives.find(e => e.id === customer.assignedUserId)?.name || "Assigned" : "Unassigned"}
                   </p>
                 </div>
                 <div>
-                  <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Next Follow Up Date</h4>
-                  <p className="text-slate-850 text-sm font-bold text-orange-600 mt-1">
-                    {nextFollowUpDateText}
-                  </p>
-                </div>
-                <div>
-                  <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Last Contact Date</h4>
-                  <p className="text-slate-850 text-sm font-medium mt-1">
-                    {lastContactDateText}
-                  </p>
+                  <p className="text-xs text-slate-400 mb-1">Next Follow Up</p>
+                  <p className="text-sm font-bold text-orange-600">{nextFollowUpDateText}</p>
                 </div>
               </div>
             </div>
 
-            {/* Right Box: Quick Call Logger Widget */}
-            <div className="lg:col-span-1">
-              <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm space-y-4">
-                <div className="flex items-center gap-2 text-slate-800 font-bold border-b border-slate-100 pb-3">
-                  <Ico d={icons.phone} size={18} className="text-[var(--primary)]" />
-                  <h4>Quick Log Call</h4>
-                </div>
-                <form onSubmit={handleLogCall} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-1">Call Duration (seconds)</label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 120"
-                      value={callDuration}
-                      onChange={(e) => setCallDuration(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)] rounded-xl"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-1">Conversation Notes</label>
-                    <textarea
-                      rows={3}
-                      placeholder="What was discussed?"
-                      value={callNotes}
-                      required
-                      onChange={(e) => setCallNotes(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)] rounded-xl resize-none"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={savingCall}
-                    className="w-full py-2 bg-slate-850 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    {savingCall ? "Saving..." : "Log Completed Call"}
-                  </button>
-                </form>
+            {/* Addresses */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="crm-card p-5">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Billing Address</h4>
+                <p className="text-sm text-slate-600">{customer.billingAddress || "Not provided"}</p>
               </div>
+              <div className="crm-card p-5">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Shipping Address</h4>
+                <p className="text-sm text-slate-600">{customer.shippingAddress || "Not provided"}</p>
+              </div>
+            </div>
+
+            {/* Quick Log Call */}
+            <div className="crm-card p-5">
+              <div className="flex items-center gap-2 text-slate-700 font-bold border-b border-slate-100 pb-3 mb-4">
+                <Ico d={icons.phone} size={16} className="text-[var(--primary)]" />
+                <h4 className="text-sm">Quick Log Call</h4>
+              </div>
+              <form onSubmit={handleLogCall} className="flex items-end gap-4">
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Call Duration (seconds)</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 120"
+                    value={callDuration}
+                    onChange={(e) => setCallDuration(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)] rounded-lg"
+                  />
+                </div>
+                <div className="flex-[2]">
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Conversation Notes</label>
+                  <input
+                    type="text"
+                    placeholder="What was discussed?"
+                    value={callNotes}
+                    required
+                    onChange={(e) => setCallNotes(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)] rounded-lg"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={savingCall}
+                  className="h-9 px-4 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg transition-all cursor-pointer disabled:opacity-50 shrink-0"
+                >
+                  {savingCall ? "Saving..." : "Log Call"}
+                </button>
+              </form>
             </div>
           </div>
         )}
@@ -670,6 +771,354 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
                         </div>
                       )}
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "contacts" && (
+          <div className="crm-card p-5">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-sm font-bold text-slate-700">Contacts</h3>
+              <button
+                onClick={() => router.push(`/contacts/new?customerId=${customer.id}`)}
+                className="h-8 px-3 text-xs font-semibold rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Ico d={icons.plus} size={13} /> Add Contact
+              </button>
+            </div>
+            {(!customer.contacts || customer.contacts.length === 0) ? (
+              <div className="text-center py-12">
+                <p className="text-sm font-semibold text-slate-400">No contacts yet</p>
+                <p className="text-xs text-slate-300 mt-1 mb-4">Add contacts to manage account relationships</p>
+                <button
+                  onClick={() => router.push(`/contacts/new?customerId=${customer.id}`)}
+                  className="h-8 px-3 text-xs font-semibold rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white flex items-center gap-1.5 mx-auto transition-colors cursor-pointer"
+                >
+                  <Ico d={icons.plus} size={13} /> Add Contact
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {customer.contacts.map((contact: any) => (
+                  <div
+                    key={contact.id}
+                    className="border border-slate-200 rounded-xl p-4 hover:border-[var(--primary)] transition-colors cursor-pointer"
+                    onClick={() => router.push(`/contacts/${contact.id}`)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold bg-slate-100 text-slate-600 shrink-0">
+                        {(contact.name || "C").charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-semibold text-slate-800 text-sm truncate">{contact.name}</p>
+                          {contact.isPrimary && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Primary</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 truncate">{contact.designation || contact.title || "No designation"}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                            contact.contactType === "Technical"
+                              ? "bg-blue-50 text-blue-700 border-blue-200"
+                              : contact.contactType === "Purchase"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : contact.contactType === "Finance"
+                              ? "bg-purple-50 text-purple-700 border-purple-200"
+                              : "bg-slate-100 text-slate-700 border-slate-200"
+                          }`}>
+                            {contact.contactType || "General"}
+                          </span>
+                          {contact.isDecisionMaker && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-0.5">👑 DM</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "opportunities" && (
+          <div className="crm-card p-5">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-sm font-bold text-slate-700">Opportunities</h3>
+              <button
+                onClick={openCreateDealModal}
+                className="h-8 px-3 text-xs font-semibold rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Ico d={icons.plus} size={13} /> New Opportunity
+              </button>
+            </div>
+            {(!customer.deals || customer.deals.length === 0) ? (
+              <div className="text-center py-12">
+                <p className="text-sm font-semibold text-slate-400">No opportunities yet</p>
+                <p className="text-xs text-slate-300 mt-1 mb-4">Create opportunities to track sales pipeline</p>
+                <button
+                  onClick={openCreateDealModal}
+                  className="h-8 px-3 text-xs font-semibold rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white flex items-center gap-1.5 mx-auto transition-colors cursor-pointer"
+                >
+                  <Ico d={icons.plus} size={13} /> New Opportunity
+                </button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="crm-table" style={{ minWidth: "800px" }}>
+                  <colgroup>
+                    <col style={{ width: "120px" }} />
+                    <col style={{ width: "180px" }} />
+                    <col style={{ width: "100px" }} />
+                    <col style={{ width: "80px" }} />
+                    <col style={{ width: "120px" }} />
+                    <col style={{ width: "100px" }} />
+                    <col style={{ width: "80px" }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th className="crm-th">Stage</th>
+                      <th className="crm-th">Name</th>
+                      <th className="crm-th">Value</th>
+                      <th className="crm-th">Prob%</th>
+                      <th className="crm-th">Expected Close</th>
+                      <th className="crm-th">Progress</th>
+                      <th className="crm-th text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customer.deals.map((deal: any) => {
+                      const stageOrder = ["SalesOpportunity", "RequirementGathering", "MeetingScheduled", "ProposalSent", "Negotiation", "Active", "Won"];
+                      const stageIdx = stageOrder.indexOf(deal.status);
+                      const progressPct = deal.status === "Won" ? 100 : deal.status === "Lost" ? 0 : stageIdx >= 0 ? Math.round((stageIdx / (stageOrder.length - 1)) * 100) : 0;
+                      return (
+                      <tr key={deal.id} className="crm-tr">
+                        <td className="crm-td">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                            deal.status === "Won"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : deal.status === "Lost"
+                              ? "bg-rose-50 text-rose-700 border-rose-200"
+                              : "bg-blue-50 text-blue-700 border-blue-200"
+                          }`}>
+                            {deal.status}
+                          </span>
+                        </td>
+                        <td className="crm-td font-semibold text-slate-700">{deal.dealName}</td>
+                        <td className="crm-td font-mono text-slate-600">₹{deal.dealValue?.toLocaleString("en-IN") || "—"}</td>
+                        <td className="crm-td text-center text-slate-600 font-semibold">{deal.discountPercent ? `${Math.round(deal.discountPercent)}%` : "60%"}</td>
+                        <td className="crm-td text-slate-600">{deal.expectedCloseDate ? new Date(deal.expectedCloseDate).toLocaleDateString() : "-"}</td>
+                        <td className="crm-td">
+                          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all ${
+                              deal.status === "Won" ? "bg-emerald-500" : deal.status === "Lost" ? "bg-rose-500" : "bg-[var(--primary)]"
+                            }`} style={{ width: `${progressPct}%` }} />
+                          </div>
+                        </td>
+                        <td className="crm-td text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => openEditDealModal(deal)}
+                              className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-[var(--primary)] hover:bg-slate-100 transition-colors cursor-pointer"
+                              title="Edit"
+                            >
+                              <Ico d={icons.pencil} size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDeal(deal.id)}
+                              className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                              title="Delete"
+                            >
+                              <Ico d={icons.trash} size={12} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "quotations" && (
+          <div className="crm-card p-5">
+            <h3 className="text-sm font-bold text-slate-700 mb-5">Quotations</h3>
+            {(!customer.quotations || customer.quotations.length === 0) ? (
+              <div className="text-center py-12">
+                <p className="text-sm font-semibold text-slate-400">No quotations yet</p>
+                <p className="text-xs text-slate-300 mt-1">Quotations linked to this account will appear here</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="crm-table" style={{ minWidth: "700px" }}>
+                  <colgroup>
+                    <col style={{ width: "120px" }} />
+                    <col style={{ width: "100px" }} />
+                    <col style={{ width: "100px" }} />
+                    <col style={{ width: "100px" }} />
+                    <col style={{ width: "100px" }} />
+                    <col style={{ width: "60px" }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th className="crm-th">Quote #</th>
+                      <th className="crm-th">Amount</th>
+                      <th className="crm-th">Validity</th>
+                      <th className="crm-th">Date</th>
+                      <th className="crm-th">Status</th>
+                      <th className="crm-th text-center">PDF</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customer.quotations.map((q: any) => (
+                      <tr key={q.id} className="crm-tr">
+                        <td className="crm-td font-mono text-xs text-slate-600">{q.quotationCode || q.id.slice(-8)}</td>
+                        <td className="crm-td font-mono text-slate-600">₹{q.totalAmount?.toLocaleString("en-IN") || "—"}</td>
+                        <td className="crm-td text-slate-600">{q.validUntil ? new Date(q.validUntil).toLocaleDateString() : "—"}</td>
+                        <td className="crm-td text-slate-600">{q.createdAt ? new Date(q.createdAt).toLocaleDateString() : "-"}</td>
+                        <td className="crm-td">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                            q.status === "Accepted"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : q.status === "Rejected" || q.status === "Expired"
+                              ? "bg-rose-50 text-rose-700 border-rose-200"
+                              : "bg-amber-50 text-amber-700 border-amber-200"
+                          }`}>
+                            {q.status || "Draft"}
+                          </span>
+                        </td>
+                        <td className="crm-td text-center">
+                          {q.pdfUrl ? (
+                            <a href={q.pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-[var(--primary)] hover:bg-slate-100 transition-colors cursor-pointer" title="Download PDF">
+                              <Ico d={icons.document} size={14} />
+                            </a>
+                          ) : (
+                            <span className="text-slate-300 text-xs">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "rfqs" && (
+          <div className="crm-card p-5">
+            <h3 className="text-sm font-bold text-slate-700 mb-5">RFQs</h3>
+            {(!customer.rfqs || customer.rfqs.length === 0) ? (
+              <div className="text-center py-12">
+                <p className="text-sm font-semibold text-slate-400">No RFQs yet</p>
+                <p className="text-xs text-slate-300 mt-1">RFQs linked to this account will appear here</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="crm-table" style={{ minWidth: "700px" }}>
+                  <colgroup>
+                    <col style={{ width: "120px" }} />
+                    <col style={{ width: "80px" }} />
+                    <col style={{ width: "120px" }} />
+                    <col style={{ width: "100px" }} />
+                    <col style={{ width: "100px" }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th className="crm-th">RFQ #</th>
+                      <th className="crm-th">Priority</th>
+                      <th className="crm-th">Due Date</th>
+                      <th className="crm-th">Date</th>
+                      <th className="crm-th">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customer.rfqs.map((r: any) => (
+                      <tr key={r.id} className="crm-tr">
+                        <td className="crm-td font-mono text-xs text-slate-600">{r.rfqCode || r.id.slice(-8)}</td>
+                        <td className="crm-td">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                            r.priority === "Urgent"
+                              ? "bg-rose-50 text-rose-700 border-rose-200"
+                              : "bg-slate-100 text-slate-600 border-slate-200"
+                          }`}>
+                            {r.priority || "Normal"}
+                          </span>
+                        </td>
+                        <td className="crm-td text-slate-600">{r.customerDueDate ? new Date(r.customerDueDate).toLocaleDateString() : "—"}</td>
+                        <td className="crm-td text-slate-600">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "-"}</td>
+                        <td className="crm-td">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                            r.status === "Closed"
+                              ? "bg-slate-100 text-slate-600 border-slate-200"
+                              : "bg-blue-50 text-blue-700 border-blue-200"
+                          }`}>
+                            {r.status || "Open"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "documents" && (
+          <div className="crm-card p-5">
+            <h3 className="text-sm font-bold text-slate-700 mb-5">Documents</h3>
+
+            {/* Upload Dropzone */}
+            <div
+              className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-[var(--primary)] transition-colors cursor-pointer mb-5"
+              onClick={() => fileInputRef.current?.click()}
+              onDrop={handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+            >
+              <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png" />
+              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                <Ico d={icons.document} size={22} className="text-slate-400" />
+              </div>
+              {uploadingDoc ? (
+                <p className="text-sm font-semibold text-[var(--primary)]">Uploading...</p>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-slate-600">Drop file here or click to upload</p>
+                  <p className="text-xs text-slate-400 mt-1">PDF, DOC, XLS, PPT, images — max 10MB</p>
+                </>
+              )}
+            </div>
+
+            {/* File List */}
+            {documents.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-sm font-semibold text-slate-400">No documents uploaded yet</p>
+                <p className="text-xs text-slate-300 mt-1">Upload contracts, proposals, and other account-related documents</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {documents.map((doc: any) => (
+                  <div key={doc.id} className="flex items-center gap-3 border border-slate-200 rounded-xl p-3 hover:border-slate-300 transition-colors">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-slate-100 text-slate-500">
+                      <Ico d={icons.document} size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-700 truncate">{doc.name}</p>
+                      <p className="text-xs text-slate-400">
+                        {doc.documentType} · {doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ""} · {new Date(doc.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--primary)] hover:underline font-medium shrink-0">
+                      Download
+                    </a>
                   </div>
                 ))}
               </div>
@@ -1056,6 +1505,81 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
           </div>
         </div>
       )}
+
+      {/* Right Sidebar */}
+      <div className="w-72 shrink-0 space-y-4 hidden lg:block">
+        {/* Credit Info Card */}
+        <div className="crm-card p-4">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Credit Info</h3>
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs text-slate-400 mb-1">Credit Limit</p>
+              <p className="text-sm font-bold text-slate-700">₹{customer.creditLimit?.toLocaleString("en-IN") || "₹0"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 mb-1">Credit Terms</p>
+              <p className="text-sm font-bold text-slate-700">{customer.creditTermsDays || 30} days</p>
+            </div>
+            {["Admin", "Finance"].includes(currentUser?.role || "") && (
+              <button className="w-full text-xs text-[var(--primary)] hover:underline font-medium">
+                Edit Credit
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Account Details Card */}
+        <div className="crm-card p-4">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Account Details</h3>
+          <div className="space-y-2 text-sm">
+            <div>
+              <p className="text-xs text-slate-400">Sales Owner</p>
+              <p className="font-medium text-slate-700">{customer.assignedUser?.name || "Unassigned"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Account Type</p>
+              <p className="font-medium text-slate-700">{customer.accountType || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Industry</p>
+              <p className="font-medium text-slate-700">{customer.industryType || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Territory</p>
+              <p className="font-medium text-slate-700">{customer.territory || customer.city || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Created</p>
+              <p className="font-medium text-slate-700">{new Date(customer.createdAt).toLocaleDateString()}</p>
+            </div>
+          </div>
+          {/* Key Account Toggle */}
+          {["Admin", "SalesManager", "SuperAdmin"].includes(currentUser?.role || "") && (
+            <div className="mt-3 pt-3 border-t border-slate-100">
+              <label className="flex items-center justify-between cursor-pointer select-none">
+                <span className="text-xs font-semibold text-slate-600 flex items-center gap-1">
+                  <span className="text-amber-500">⭐</span> Key Account
+                </span>
+                <button
+                  onClick={async () => {
+                    const res = await updateCustomerAction({ id: customer.id, isKeyAccountV2: !customer.isKeyAccountV2 });
+                    if (res.success) {
+                      toast.success(customer.isKeyAccountV2 ? "Removed key account flag" : "Marked as key account");
+                      loadCustomer();
+                    } else {
+                      toast.error("Failed to update");
+                    }
+                  }}
+                  className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer ${customer.isKeyAccountV2 ? "bg-amber-500" : "bg-slate-200"}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${customer.isKeyAccountV2 ? "translate-x-5" : ""}`} />
+                </button>
+              </label>
+            </div>
+          )}
+        </div>
+      </div>
+      </div>
 
       {/* Deal Create / Edit Modal */}
       {showDealModal && (

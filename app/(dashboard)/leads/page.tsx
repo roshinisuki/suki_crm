@@ -16,20 +16,62 @@ import { Modal } from "@/components/ui/Modal";
 import { FormField, Input, Select, Textarea } from "@/components/ui/FormField";
 import { Pagination, usePagination } from "@/components/ui/Pagination";
 import { SuccessOverlay, SuccessAction } from "@/components/SuccessOverlay";
+import { CRMSpinner } from "@/components/CRMSpinner";
 import { getInitials, getAvatarColor, formatDate, cn } from "@/lib/ui-utils";
 import {
-  Plus, Search, Download, Eye, Pencil, Trash2, Filter,
+  Plus, Search, Download, Pencil, Trash2,
   Users, Phone, CheckCircle, XCircle, PhoneCall, CalendarClock,
+  TrendingUp, AlertTriangle, Copy,
 } from "lucide-react";
 import { useGlobalLoading } from "@/components/GlobalLoadingProvider";
 
-const LEAD_STATUSES = ["New", "Contacted", "FollowUpDue", "SQL", "Qualified", "Converted", "Lost"];
-const LEAD_SOURCES  = ["Website", "Facebook", "Instagram", "LinkedIn", "Referral", "WalkIn", "ColdCall", "Partner"];
+const LEAD_STATUSES = ["New", "Contacted", "FollowUpDue", "SQL", "Qualified", "Converted", "Lost", "Overdue", "Duplicate"];
+const LEAD_SOURCES  = ["Website", "Facebook", "Instagram", "LinkedIn", "Referral", "WalkIn", "ColdCall", "Partner", "Trade Show", "Tender Portal"];
+const V2_TABS = [
+  { key: "", label: "All Leads" },
+  { key: "New", label: "New" },
+  { key: "TodayFollowUp", label: "Today's Follow Up" },
+  { key: "SQL", label: "SQL" },
+  { key: "Overdue", label: "Overdue" },
+  { key: "Lost", label: "Lost" },
+  { key: "Duplicate", label: "Duplicate" },
+] as const;
+const INDUSTRY_TYPES = ["Automotive", "Pharma", "Textile", "FMCG", "Infrastructure", "Others"];
+
+const COUNTRY_CODES = [
+  { code: "+91", label: "+91 🇮🇳 India" },
+  { code: "+1",  label: "+1 🇺🇸 USA" },
+  { code: "+44", label: "+44 🇬🇧 UK" },
+  { code: "+971", label: "+971 🇦🇪 UAE" },
+  { code: "+966", label: "+966 🇸🇦 Saudi Arabia" },
+  { code: "+65", label: "+65 🇸🇬 Singapore" },
+  { code: "+60", label: "+60 🇲🇾 Malaysia" },
+  { code: "+27", label: "+27 🇿🇦 South Africa" },
+  { code: "+234", label: "+234 🇳🇬 Nigeria" },
+  { code: "+20", label: "+20 🇪🇬 Egypt" },
+  { code: "+880", label: "+880 🇧🇩 Bangladesh" },
+  { code: "+94", label: "+94 🇱🇰 Sri Lanka" },
+  { code: "+977", label: "+977 🇳🇵 Nepal" },
+  { code: "+92", label: "+92 🇵🇰 Pakistan" },
+  { code: "+968", label: "+968 🇴🇲 Oman" },
+  { code: "+974", label: "+974 🇶🇦 Qatar" },
+  { code: "+965", label: "+965 🇰🇼 Kuwait" },
+  { code: "+973", label: "+973 🇧🇭 Bahrain" },
+  { code: "+62", label: "+62 🇮🇩 Indonesia" },
+  { code: "+66", label: "+66 🇹🇭 Thailand" },
+  { code: "+49", label: "+49 🇩🇪 Germany" },
+  { code: "+33", label: "+33 🇫🇷 France" },
+  { code: "+81", label: "+81 🇯🇵 Japan" },
+  { code: "+86", label: "+86 🇨🇳 China" },
+  { code: "+61", label: "+61 🇦🇺 Australia" },
+];
 
 const emptyForm = {
   id: "", leadCode: "", name: "", email: "",
-  phone: "", city: "", status: "New" as any,
+  phone: "", phoneCountryCode: "+91", city: "", status: "New" as any,
   assignedUserId: "", leadSource: "", notes: "",
+  // V2 fields
+  companyName: "", designation: "", industryType: "", estimatedValue: "",
 };
 
 export default function LeadsPage() {
@@ -49,6 +91,9 @@ export default function LeadsPage() {
   const [fuStatusFilter, setFuStatusFilter] = useState("");
   const [dateFrom,       setDateFrom]       = useState("");
   const [dateTo,         setDateTo]         = useState("");
+  const [activeTab,      setActiveTab]      = useState<string>("");
+  const [scoreMin,       setScoreMin]       = useState("");
+  const [scoreMax,       setScoreMax]       = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData,    setFormData]    = useState(emptyForm);
@@ -77,10 +122,26 @@ export default function LeadsPage() {
 
   const statusParam  = searchParams ? searchParams.get("status") : null;
   const followUpParam = searchParams ? searchParams.get("followUp") : null;
+  const queryString = searchParams ? searchParams.toString() : "";
 
+  // Sync activeTab with URL status param (from sidebar links)
   useEffect(() => {
-    setStatusFilter(statusParam || "");
-  }, [statusParam]);
+    if (statusParam === "TodayFollowUp") {
+      setActiveTab("TodayFollowUp");
+      setStatusFilter("");
+    } else if (statusParam) {
+      setActiveTab(statusParam);
+      setStatusFilter(statusParam);
+    } else if (followUpParam === "due") {
+      setActiveTab("TodayFollowUp");
+      setStatusFilter("");
+    } else {
+      setActiveTab("");
+      setStatusFilter("");
+    }
+    setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryString]);
 
   // ── Load data ─────────────────────────────────────────────────────────────
 
@@ -121,7 +182,30 @@ export default function LeadsPage() {
 
   const filtered = useMemo(() => {
     const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     return leads.filter(l => {
+      // V2 Tab filter
+      if (activeTab === "TodayFollowUp") {
+        // Today's Follow Up: leads with a pending follow-up scheduled for today,
+        // excluding terminal statuses (Converted/Lost)
+        if (l.status === "Lost" || l.status === "Converted") return false;
+        const hasTodayFU = (l as any).followUps?.some((f: any) =>
+          f.status === "Pending" && new Date(f.nextMeetingDate) >= startOfToday &&
+          new Date(f.nextMeetingDate) < new Date(startOfToday.getTime() + 86400000)
+        );
+        if (!hasTodayFU) return false;
+      } else if (activeTab === "Overdue") {
+        if (l.status !== "Overdue") return false;
+      } else if (activeTab === "Duplicate") {
+        if (l.status !== "Duplicate") return false;
+      } else if (activeTab && activeTab !== "") {
+        if (l.status !== activeTab) return false;
+      }
+
+      // Score range filter
+      if (scoreMin && (l as any).leadScore < parseInt(scoreMin)) return false;
+      if (scoreMax && (l as any).leadScore > parseInt(scoreMax)) return false;
+
       if (dateFrom && l.createdAt && new Date(l.createdAt) < new Date(dateFrom)) return false;
       if (dateTo   && l.createdAt && new Date(l.createdAt) > new Date(dateTo + "T23:59:59")) return false;
 
@@ -152,16 +236,27 @@ export default function LeadsPage() {
 
       return true;
     });
-  }, [leads, dateFrom, dateTo, followUpParam, fuStatusFilter]);
+  }, [leads, dateFrom, dateTo, followUpParam, fuStatusFilter, activeTab, scoreMin, scoreMax]);
 
   const { page, setPage, totalPages, paged, total } = usePagination(filtered, 10);
 
   // ── KPI counts ────────────────────────────────────────────────────────────
 
-  const kpiTotal     = leads.length;
-  const kpiContacted = leads.filter(l => l.status === "Contacted").length;
-  const kpiQualified = leads.filter(l => l.status === "Qualified").length;
-  const kpiOverdue   = leads.filter(l => l.status === "FollowUpDue").length;
+  // V2 KPI counts - aligned with tab sections
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const kpiTotal       = leads.length;
+  const kpiNew          = leads.filter(l => l.status === "New").length;
+  const kpiTodayFU      = leads.filter(l =>
+    (l as any).followUps?.some((f: any) =>
+      f.status === "Pending" && new Date(f.nextMeetingDate) >= startOfToday &&
+      new Date(f.nextMeetingDate) < new Date(startOfToday.getTime() + 86400000)
+    )
+  ).length;
+  const kpiSQL          = leads.filter(l => l.status === "SQL").length;
+  const kpiOverdue       = leads.filter(l => l.status === "Overdue" || l.status === "FollowUpDue").length;
+  const kpiLost          = leads.filter(l => l.status === "Lost").length;
+  const kpiDuplicate     = leads.filter(l => l.status === "Duplicate").length;
 
   // ── Form handlers ─────────────────────────────────────────────────────────
 
@@ -172,11 +267,23 @@ export default function LeadsPage() {
   };
 
   const openEdit = (l: any) => {
+    // Parse country code from existing phone (e.g. "+91 98765 43210")
+    let parsedCode = "+91";
+    let parsedPhone = l.phone || "";
+    if (l.phone) {
+      const match = l.phone.match(/^(\+\d{1,4})\s?(.*)$/);
+      if (match) {
+        parsedCode = match[1];
+        parsedPhone = match[2];
+      }
+    }
     setFormData({
       id: l.id, leadCode: l.leadCode, name: l.name,
-      email: l.email || "", phone: l.phone || "", city: l.city || "",
+      email: l.email || "", phone: parsedPhone, phoneCountryCode: parsedCode, city: l.city || "",
       status: l.status, assignedUserId: l.assignedUserId || "", leadSource: l.leadSource || "",
       notes: l.notes || "",
+      companyName: l.companyName || "", designation: l.designation || "",
+      industryType: l.industryType || "", estimatedValue: l.estimatedValue ? String(l.estimatedValue) : "",
     });
     setFormError("");
     setIsModalOpen(true);
@@ -189,7 +296,7 @@ export default function LeadsPage() {
     if (!formData.name.trim()) errors.push("Lead Name is required");
     if (!formData.phone.trim() && !formData.email.trim()) errors.push("Either Phone or Email is required");
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errors.push("Invalid email format");
-    if (formData.phone && formData.phone.replace(/\D/g, "").length < 10) errors.push("Phone number must be at least 10 digits");
+    if (formData.phone && formData.phone.replace(/\D/g, "").length < 10) errors.push("Phone number must be at least 10 digits (excluding country code)");
     if (!formData.city.trim()) errors.push("City is required");
     if (!formData.leadSource) errors.push("Lead Source is required");
     if (errors.length > 0) { setFormError(errors.join(", ")); return; }
@@ -201,22 +308,30 @@ export default function LeadsPage() {
       res = await updateLeadAction(formData.id, {
         name: formData.name,
         email: formData.email || undefined,
-        phone: formData.phone || undefined,
+        phone: formData.phone ? `${formData.phoneCountryCode} ${formData.phone}`.trim() : undefined,
         city: formData.city || undefined,
         status: formData.status,
         assignedUserId: formData.assignedUserId || undefined,
         leadSource: formData.leadSource as any,
         notes: formData.notes || undefined,
+        companyName: formData.companyName || undefined,
+        designation: formData.designation || undefined,
+        industryType: formData.industryType || undefined,
+        estimatedValue: formData.estimatedValue ? parseFloat(formData.estimatedValue) : undefined,
       });
     } else {
       res = await createLeadAction({
         name: formData.name,
         email: formData.email || undefined,
-        phone: formData.phone || undefined,
+        phone: formData.phone ? `${formData.phoneCountryCode} ${formData.phone}`.trim() : undefined,
         city: formData.city || undefined,
         assignedUserId: formData.assignedUserId || undefined,
         leadSource: formData.leadSource as any,
         notes: formData.notes || undefined,
+        companyName: formData.companyName || undefined,
+        designation: formData.designation || undefined,
+        industryType: formData.industryType || undefined,
+        estimatedValue: formData.estimatedValue ? parseFloat(formData.estimatedValue) : undefined,
       });
     }
 
@@ -264,10 +379,11 @@ export default function LeadsPage() {
 
   const exportCSV = () => {
     if (filtered.length === 0) { toast.error("No data to export."); return; }
-    const headers = ["S.No", "Lead Code", "Lead Name", "Phone", "Email", "City", "Status", "Lead Source", "SLA Status", "Created On"];
+    const headers = ["S.No", "Lead Code", "Lead Name", "Company", "Phone", "Email", "Industry", "Source", "Score", "Status", "Est. Value", "Created On"];
     const rows = filtered.map((l, i) => [
-      i + 1, (l as any).leadCode || "", l.name, l.phone || "", l.email || "", l.city || "",
-      l.status, (l as any).leadSource || "", (l as any).slaStatus || "", formatDate(l.createdAt),
+      i + 1, (l as any).leadCode || "", l.name, (l as any).companyName || "", l.phone || "", l.email || "",
+      (l as any).industryType || "", (l as any).leadSource || "", (l as any).leadScore ?? 0,
+      l.status, (l as any).estimatedValue || "", formatDate(l.createdAt),
     ]);
     const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -297,7 +413,7 @@ export default function LeadsPage() {
         </div>
       }
     >
-      {/* ── KPI Cards ── */}
+      {/* ── V2 KPI Cards (aligned with tab sections) ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
           label="Total Leads"
@@ -305,27 +421,31 @@ export default function LeadsPage() {
           subtitle="All pipeline leads"
           icon={<Users size={20} />}
           variant="orange"
+          onClick={() => { setActiveTab(""); setPage(1); }}
         />
         <SummaryCard
-          label="Contacted"
-          value={kpiContacted}
-          subtitle="Reached out"
-          icon={<Phone size={20} />}
-          variant="dark"
+          label="New Leads"
+          value={kpiNew}
+          subtitle="Awaiting first contact"
+          icon={<PhoneCall size={20} />}
+          variant="blue"
+          onClick={() => { setActiveTab("New"); setPage(1); }}
         />
         <SummaryCard
-          label="Qualified"
-          value={kpiQualified}
-          subtitle="Ready to convert"
-          icon={<CheckCircle size={20} />}
-          variant="light"
+          label="Today's Follow-Up"
+          value={kpiTodayFU}
+          subtitle="Scheduled for today"
+          icon={<CalendarClock size={20} />}
+          variant="indigo"
+          onClick={() => { setActiveTab("TodayFollowUp"); setPage(1); }}
         />
         <SummaryCard
-          label="Overdue Leads"
-          value={kpiOverdue}
-          subtitle="Follow-up past due"
-          icon={<XCircle size={20} />}
-          variant="orange"
+          label="SQL / Overdue"
+          value={kpiSQL + kpiOverdue}
+          subtitle={`${kpiSQL} SQL · ${kpiOverdue} overdue`}
+          icon={<TrendingUp size={20} />}
+          variant="amber"
+          onClick={() => { setActiveTab("SQL"); setPage(1); }}
         />
       </div>
 
@@ -333,18 +453,25 @@ export default function LeadsPage() {
       <div className="crm-card overflow-hidden">
 
         {/* Toolbar */}
-        <div className="px-5 py-4 border-b border-theme flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <h2 className="text-base font-bold text-theme-primary">Leads List</h2>
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-theme flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 shrink-0">
+            <h2 className="text-base font-bold text-theme-primary whitespace-nowrap">
+              {V2_TABS.find(t => t.key === activeTab)?.label || "All Leads"}
+            </h2>
+            <span className="text-xs font-medium text-theme-muted bg-surface-2 px-2 py-0.5 rounded-full whitespace-nowrap">
+              {filtered.length} {filtered.length === 1 ? "lead" : "leads"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
             {/* Search */}
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <div className="relative shrink-0">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search..."
                 value={search}
                 onChange={e => { setSearch(e.target.value); setPage(1); }}
-                className="pl-8 pr-3 py-2 text-sm rounded-xl bg-surface-2 border border-theme text-theme-primary focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-all w-52"
+                className="pl-7 pr-3 h-8 text-xs rounded-lg bg-surface-2 border border-theme text-theme-primary focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-all w-40"
               />
             </div>
 
@@ -352,7 +479,7 @@ export default function LeadsPage() {
             <select
               value={statusFilter}
               onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
-              className="px-3 py-2 text-sm rounded-xl bg-surface-2 border border-theme text-theme-secondary focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] cursor-pointer"
+              className="h-8 px-2.5 text-xs rounded-lg bg-surface-2 border border-theme text-theme-secondary focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] cursor-pointer shrink-0"
             >
               <option value="">All Status</option>
               {LEAD_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -362,81 +489,130 @@ export default function LeadsPage() {
             <select
               value={fuStatusFilter}
               onChange={e => { setFuStatusFilter(e.target.value); setPage(1); }}
-              className="px-3 py-2 text-sm rounded-xl bg-surface-2 border border-theme text-theme-secondary focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] cursor-pointer"
+              className="h-8 px-2.5 text-xs rounded-lg bg-surface-2 border border-theme text-theme-secondary focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] cursor-pointer shrink-0"
             >
               <option value="">All Follow-Up</option>
-              <option value="pending">Follow-Up Pending</option>
-              <option value="overdue">Follow-Up Overdue</option>
-              <option value="completed">Follow-Up Completed</option>
+              <option value="pending">Pending</option>
+              <option value="overdue">Overdue</option>
+              <option value="completed">Completed</option>
             </select>
-
 
             {/* Date from */}
             <input
               type="date"
               value={dateFrom}
               onChange={e => setDateFrom(e.target.value)}
-              className="px-3 py-2 text-sm rounded-xl bg-surface-2 border border-theme text-theme-secondary focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] [color-scheme:dark]"
+              className="h-8 px-2 text-xs rounded-lg bg-surface-2 border border-theme text-theme-secondary focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] [color-scheme:dark] shrink-0"
             />
-            <span className="text-slate-400 text-xs font-medium hidden sm:block">to</span>
             <input
               type="date"
               value={dateTo}
               onChange={e => setDateTo(e.target.value)}
-              className="px-3 py-2 text-sm rounded-xl bg-surface-2 border border-theme text-theme-secondary focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] [color-scheme:dark]"
+              className="h-8 px-2 text-xs rounded-lg bg-surface-2 border border-theme text-theme-secondary focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] [color-scheme:dark] shrink-0"
             />
 
             {(dateFrom || dateTo) && (
               <button
                 onClick={() => { setDateFrom(""); setDateTo(""); }}
-                className="px-2.5 py-2 text-xs font-medium text-theme-secondary hover:text-theme-primary bg-surface-2 border border-theme hover:bg-surface-offset rounded-lg transition-colors cursor-pointer"
+                className="h-8 px-2.5 text-xs font-medium text-theme-secondary hover:text-theme-primary bg-surface-2 border border-theme hover:bg-surface-offset rounded-lg transition-colors cursor-pointer shrink-0"
               >
-                Clear dates
+                Clear
               </button>
             )}
 
-            <button className="w-9 h-9 rounded-xl bg-surface-2 border border-theme flex items-center justify-center text-theme-secondary hover:bg-surface-offset transition-colors cursor-pointer">
-              <Filter size={14} />
-            </button>
+            {/* Score range filter */}
+            <input
+              type="number"
+              placeholder="Min"
+              value={scoreMin}
+              onChange={e => { setScoreMin(e.target.value); setPage(1); }}
+              className="w-14 h-8 px-2 text-xs rounded-lg bg-surface-2 border border-theme text-theme-secondary focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] shrink-0"
+              min="0" max="100"
+            />
+            <input
+              type="number"
+              placeholder="Max"
+              value={scoreMax}
+              onChange={e => { setScoreMax(e.target.value); setPage(1); }}
+              className="w-14 h-8 px-2 text-xs rounded-lg bg-surface-2 border border-theme text-theme-secondary focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] shrink-0"
+              min="0" max="100"
+            />
+
           </div>
         </div>
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="crm-table">
+          <table className="crm-table" style={{ minWidth: "1100px" }}>
+            <colgroup>
+              <col style={{ width: "45px" }} />
+              <col style={{ width: "90px" }} />
+              <col style={{ width: "160px" }} />
+              <col style={{ width: "130px" }} />
+              <col style={{ width: "90px" }} />
+              <col style={{ width: "110px" }} />
+              <col style={{ width: "90px" }} />
+              <col style={{ width: "55px" }} />
+              <col style={{ width: "90px" }} />
+              <col style={{ width: "70px" }} />
+              <col style={{ width: "110px" }} />
+              <col style={{ width: "85px" }} />
+              <col style={{ width: "85px" }} />
+            </colgroup>
             <thead>
               <tr>
-                <th className="crm-th">S.No</th>
+                <th className="crm-th">#</th>
                 <th className="crm-th">Lead Code</th>
                 <th className="crm-th">Lead Name</th>
-                <th className="crm-th">Company Name</th>
-                <th className="crm-th">Phone No</th>
-                <th className="crm-th">Email ID</th>
+                <th className="crm-th">Company</th>
+                <th className="crm-th">Industry</th>
+                <th className="crm-th">Phone</th>
                 <th className="crm-th">Source</th>
+                <th className="crm-th text-center">Score</th>
                 <th className="crm-th">Status</th>
                 <th className="crm-th">SLA</th>
                 <th className="crm-th">Assigned To</th>
-                <th className="crm-th">Created On</th>
-                <th className="crm-th text-right">Action</th>
+                <th className="crm-th">Created</th>
+                <th className="crm-th text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={12} className="crm-td text-center py-12">
-                    <span className="text-slate-400 text-sm">Loading...</span>
+                  <td colSpan={13} className="crm-td text-center py-12">
+                    <div className="flex justify-center">
+                      <CRMSpinner size={36} label="Loading leads..." />
+                    </div>
                   </td>
                 </tr>
               ) : paged.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="crm-td text-center py-16">
+                  <td colSpan={13} className="crm-td text-center py-16">
                     <div className="flex flex-col items-center gap-3">
-                      <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
-                        <Users size={28} className="text-slate-300" />
+                      <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                        {activeTab === "Lost" ? <XCircle size={28} className="text-slate-300 dark:text-slate-600" /> :
+                         activeTab === "Duplicate" ? <Copy size={28} className="text-slate-300 dark:text-slate-600" /> :
+                         activeTab === "Overdue" ? <AlertTriangle size={28} className="text-slate-300 dark:text-slate-600" /> :
+                         activeTab === "SQL" ? <CheckCircle size={28} className="text-slate-300 dark:text-slate-600" /> :
+                         activeTab === "TodayFollowUp" ? <CalendarClock size={28} className="text-slate-300 dark:text-slate-600" /> :
+                         <Users size={28} className="text-slate-300 dark:text-slate-600" />}
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-slate-500">No leads found</p>
-                        <p className="text-xs text-slate-400 mt-0.5">Try adjusting your filters or add a new lead</p>
+                        <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                          {activeTab === "New" ? "No new leads awaiting contact" :
+                           activeTab === "TodayFollowUp" ? "No follow-ups due today" :
+                           activeTab === "SQL" ? "No Sales Qualified Leads yet" :
+                           activeTab === "Overdue" ? "No overdue leads — all caught up!" :
+                           activeTab === "Lost" ? "No lost leads in this period" :
+                           activeTab === "Duplicate" ? "No duplicate leads detected" :
+                           "No leads found"}
+                        </p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                          {activeTab === "TodayFollowUp" ? "Check back tomorrow or view All Leads" :
+                           activeTab === "SQL" ? "Qualify leads via BANT checklist to promote" :
+                           activeTab === "Duplicate" ? "Duplicates are auto-detected on phone match" :
+                           "Try adjusting your filters or add a new lead"}
+                        </p>
                       </div>
                       {user?.role !== "Customer" && (
                         <button onClick={openCreate} className="btn-primary text-xs mt-1">
@@ -450,71 +626,75 @@ export default function LeadsPage() {
                 paged.map((l: any, idx) => (
                   <tr
                     key={l.id}
-                    className="crm-tr cursor-pointer"
+                    className="crm-tr table-row-clickable"
                     onClick={() => router.push(`/leads/${l.id}`)}
                   >
-                    <td className="crm-td text-theme-muted text-xs font-semibold w-12">
+                    <td className="crm-td text-theme-muted text-xs font-medium">
                       {(page - 1) * 10 + idx + 1}
                     </td>
                     <td className="crm-td">
-                      <span className="text-xs font-mono font-bold text-theme-secondary bg-surface-2 px-2 py-0.5 rounded-md">{l.leadCode || "—"}</span>
+                      <span className="text-[11px] font-mono font-bold text-theme-secondary bg-surface-2 px-1.5 py-0.5 rounded">{l.leadCode || "—"}</span>
                     </td>
                     <td className="crm-td">
-                      <div className="flex items-center gap-2.5">
-                        <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0", getAvatarColor(l.name))}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black shrink-0", getAvatarColor(l.name))}>
                           {getInitials(l.name)}
                         </div>
-                        <span className="font-semibold text-theme-primary text-sm leading-tight">{l.name}</span>
+                        <span className="row-primary-link text-xs truncate">{l.name}</span>
                       </div>
                     </td>
-                    <td className="crm-td text-theme-secondary text-sm">{l.city || "—"}</td>
-                    <td className="crm-td text-theme-secondary text-sm font-mono text-xs">{l.phone || "—"}</td>
-                    <td className="crm-td text-theme-muted text-xs">{l.email || "—"}</td>
-                    <td className="crm-td text-theme-secondary text-xs">{(l as any).leadSource || "—"}</td>
+                    <td className="crm-td text-theme-secondary text-xs truncate">{(l as any).companyName || l.city || "—"}</td>
+                    <td className="crm-td text-theme-muted text-xs truncate">{(l as any).industryType || "—"}</td>
+                    <td className="crm-td text-theme-secondary text-[11px] font-mono">{l.phone || "—"}</td>
+                    <td className="crm-td text-theme-muted text-xs truncate">{(l as any).leadSource || "—"}</td>
+                    <td className="crm-td text-center">
+                      {(() => {
+                        const score = (l as any).leadScore ?? 0;
+                        const cls = score <= 40
+                          ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/50"
+                          : score <= 70
+                          ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/50"
+                          : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/50";
+                        return <span className={cn("inline-flex items-center justify-center min-w-[28px] px-1.5 py-0.5 rounded-full text-[10px] font-bold border", cls)}>{score}</span>;
+                      })()}
+                    </td>
                     <td className="crm-td">
                       <StatusBadge status={l.status} />
                     </td>
                     <td className="crm-td">
                       {(() => {
                         const sla = (l as any).slaStatus;
-                        if (l.status !== "New" && sla === "Met") return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/50">Met</span>;
-                        if (sla === "Breached") return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800/50 animate-pulse">Breached</span>;
+                        if (l.status !== "New" && sla === "Met") return <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/50">Met</span>;
+                        if (sla === "Breached") return <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800/50 animate-pulse">Breach</span>;
                         if (sla === "Pending" && (l as any).slaResponseDeadline) {
                           const deadline = new Date((l as any).slaResponseDeadline);
                           const minsLeft = Math.floor((deadline.getTime() - Date.now()) / 60000);
-                          if (minsLeft <= 0) return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800/50 animate-pulse">Breached</span>;
-                          if (minsLeft <= 5) return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/50">{minsLeft}m left</span>;
-                          return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800/50">{minsLeft}m</span>;
+                          if (minsLeft <= 0) return <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800/50 animate-pulse">Breach</span>;
+                          if (minsLeft <= 5) return <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/50">{minsLeft}m</span>;
+                          return <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800/50">{minsLeft}m</span>;
                         }
                         return <span className="text-xs text-slate-400">—</span>;
                       })()}
                     </td>
-                    <td className="crm-td text-theme-secondary text-sm">{l.assignedUser?.name || "Unassigned"}</td>
-                    <td className="crm-td text-theme-muted text-xs whitespace-nowrap">{formatDate(l.createdAt)}</td>
+                    <td className="crm-td text-theme-secondary text-xs truncate">{l.assignedUser?.name || "Unassigned"}</td>
+                    <td className="crm-td text-theme-muted text-[11px]">{formatDate(l.createdAt)}</td>
                     <td className="crm-td text-right" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => router.push(`/leads/${l.id}`)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center text-theme-secondary hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-surface-2 transition-colors cursor-pointer"
-                          title="View"
-                        >
-                          <Eye size={14} />
-                        </button>
-                        <button
                           onClick={() => openEdit(l)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center text-theme-secondary hover:text-blue-600 dark:hover:text-blue-400 hover:bg-surface-2 transition-colors cursor-pointer"
+                          className="row-action-btn"
                           title="Edit"
                         >
-                          <Pencil size={13} />
+                          <Pencil size={14} />
                         </button>
                         {(user?.role === "Admin" || user?.role === "SalesManager") && (
                           <button
                             onClick={() => handleDelete(l)}
                             disabled={isDeleting}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-theme-secondary hover:text-rose-600 dark:hover:text-rose-400 hover:bg-surface-2 transition-colors disabled:opacity-40 cursor-pointer"
+                            className="row-action-btn row-action-btn-danger"
                             title="Delete"
                           >
-                            <Trash2 size={13} />
+                            <Trash2 size={14} />
                           </button>
                         )}
                       </div>
@@ -585,15 +765,25 @@ export default function LeadsPage() {
             </FormField>
 
             <FormField label="Phone No" required>
-              <Input
-                type="tel"
-                value={formData.phone}
-                onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))}
-                placeholder="+91 98765 43210"
-              />
+              <div className="flex gap-2">
+                <Select
+                  value={formData.phoneCountryCode}
+                  onChange={e => setFormData(p => ({ ...p, phoneCountryCode: e.target.value }))}
+                  className="w-40 shrink-0"
+                >
+                  {COUNTRY_CODES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+                </Select>
+                <Input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))}
+                  placeholder="98765 43210"
+                  className="flex-1"
+                />
+              </div>
             </FormField>
 
-            <FormField label="Email ID" required>
+            <FormField label="Email ID">
               <Input
                 type="email"
                 value={formData.email}
@@ -604,9 +794,45 @@ export default function LeadsPage() {
 
             <FormField label="Company Name">
               <Input
+                value={formData.companyName}
+                onChange={e => setFormData(p => ({ ...p, companyName: e.target.value }))}
+                placeholder="ABC Industries Pvt Ltd"
+              />
+            </FormField>
+
+            <FormField label="Designation">
+              <Input
+                value={formData.designation}
+                onChange={e => setFormData(p => ({ ...p, designation: e.target.value }))}
+                placeholder="Purchase Manager"
+              />
+            </FormField>
+
+            <FormField label="Industry Type">
+              <Select
+                value={formData.industryType}
+                onChange={e => setFormData(p => ({ ...p, industryType: e.target.value }))}
+              >
+                <option value="">Select industry...</option>
+                {INDUSTRY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </Select>
+            </FormField>
+
+            <FormField label="Estimated Value (₹)">
+              <Input
+                type="number"
+                value={formData.estimatedValue}
+                onChange={e => setFormData(p => ({ ...p, estimatedValue: e.target.value }))}
+                placeholder="500000"
+                min="0"
+              />
+            </FormField>
+
+            <FormField label="City">
+              <Input
                 value={formData.city}
                 onChange={e => setFormData(p => ({ ...p, city: e.target.value }))}
-                placeholder="Company / City"
+                placeholder="Mumbai"
               />
             </FormField>
 

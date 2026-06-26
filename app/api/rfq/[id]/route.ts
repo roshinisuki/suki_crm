@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
 
 const VALID_STATUSES = ["New", "UnderReview", "CostingPending", "QuotationCreated", "Closed"];
+const RFQ_STATUS_ORDER = ["New", "UnderReview", "CostingPending", "QuotationCreated", "Closed"];
 
 export async function GET(
   request: NextRequest,
@@ -20,6 +21,11 @@ export async function GET(
       contact: { select: { id: true, name: true, email: true, phone: true, title: true } },
       product: { select: { id: true, name: true, productCode: true, unit: true, basePrice: true } },
       assignedUser: { select: { id: true, name: true, email: true } },
+      costingOwner: { select: { id: true, name: true, email: true } },
+      opportunity: { select: { id: true, dealName: true, opportunityCode: true, status: true } },
+      lineItems: { include: { product: { select: { id: true, name: true, productCode: true, unit: true } } }, orderBy: { displayOrder: "asc" } },
+      costingSheets: { include: { submittedBy: { select: { id: true, name: true } } }, orderBy: { createdAt: "desc" } },
+      rfqStatusHistories: { include: { changedBy: { select: { id: true, name: true } } }, orderBy: { changedAt: "desc" } },
       quotations: { select: { id: true, quotationCode: true, status: true, finalAmount: true } },
     },
   });
@@ -47,6 +53,17 @@ export async function PUT(
 
   if (body.status && !VALID_STATUSES.includes(body.status)) {
     return NextResponse.json({ success: false, message: "Invalid status" }, { status: 400 });
+  }
+
+  if (body.status && body.status !== existing.status) {
+    const currentIndex = RFQ_STATUS_ORDER.indexOf(existing.status);
+    const newIndex = RFQ_STATUS_ORDER.indexOf(body.status);
+    if (newIndex > currentIndex + 1) {
+      return NextResponse.json(
+        { success: false, message: `Cannot skip RFQ statuses. Move to ${RFQ_STATUS_ORDER[currentIndex + 1]} first.` },
+        { status: 400 }
+      );
+    }
   }
 
   const updateData: any = {};

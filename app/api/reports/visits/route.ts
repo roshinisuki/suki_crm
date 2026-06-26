@@ -67,41 +67,33 @@ export async function GET(request: NextRequest) {
   const completed = visits.filter((v) => v.status === "COMPLETED").length;
   const missed = visits.filter((v) => v.status === "MISSED").length;
   const planned = visits.filter((v) => v.status === "PLANNED").length;
+  const completionRate = total > 0 ? Math.round((completed / total) * 1000) / 10 : 0;
 
-  let avgDuration = 0;
-  const completedVisits = visits.filter((v) => v.status === "COMPLETED" && v.checkInTime && v.checkOutTime);
-  if (completedVisits.length > 0) {
-    const totalMinutes = completedVisits.reduce((sum, v) => {
-      const diff = new Date(v.checkOutTime!).getTime() - new Date(v.checkInTime).getTime();
-      return sum + diff / (1000 * 60);
-    }, 0);
-    avgDuration = Math.round(totalMinutes / completedVisits.length);
-  }
+  // Key account compliance: key accounts with a visit in the period
+  const keyAccounts = await prisma.customer.findMany({
+    where: { companyId: user.companyId, deletedAt: null, isKeyAccountV2: true },
+    select: { id: true },
+  });
+  const keyAccountIds = keyAccounts.map((k) => k.id);
+  const keyAccountsVisited = new Set(visits.filter((v) => v.status === "COMPLETED" && keyAccountIds.includes(v.customerId)).map((v) => v.customerId));
+  const keyAccountComplianceRate = keyAccountIds.length > 0 ? Math.round((keyAccountsVisited.size / keyAccountIds.length) * 1000) / 10 : 0;
 
   const formattedVisits = visits.map((v) => {
-    let duration: number | null = null;
-    if (v.status === "COMPLETED" && v.checkInTime && v.checkOutTime) {
-      duration = Math.round((new Date(v.checkOutTime).getTime() - new Date(v.checkInTime).getTime()) / (1000 * 60));
-    }
     return {
       id: v.id,
-      customerName: v.customer?.name || "—",
-      customerCode: v.customer?.customerCode || "—",
-      hostName: v.host?.name || "—",
-      purpose: v.purpose,
-      meetingType: v.meetingType || "—",
-      checkInTime: v.checkInTime ? new Date(v.checkInTime).toISOString() : null,
-      checkOutTime: v.checkOutTime ? new Date(v.checkOutTime).toISOString() : null,
-      duration,
-      outcome: v.outcome || "—",
-      customerDecision: v.customerDecision || "—",
-      status: v.status,
+      accountName: v.customer?.name || "—",
+      plantLocation: v.plantLocationId || "—",
+      visitPurpose: v.purpose || "—",
+      plannedDate: v.plannedDate ? new Date(v.plannedDate).toISOString() : v.checkInTime ? new Date(v.checkInTime).toISOString() : null,
+      visitStatus: v.status,
+      visitSummaryPreview: v.meetingSummary ? v.meetingSummary.substring(0, 80) : v.visitSummary ? v.visitSummary.substring(0, 80) : "",
+      assignedToName: v.host?.name || "—",
     };
   });
 
   return NextResponse.json({
     success: true,
-    summary: { total, completed, missed, planned, avgDuration },
+    summary: { total, planned, completed, missed, completionRate, keyAccountComplianceRate },
     visits: formattedVisits,
   });
 }

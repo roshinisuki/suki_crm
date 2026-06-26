@@ -64,12 +64,6 @@ export default function AdminDashboard({ dashboardData, salesData, user, loadDat
             <option value="last3months">Last 3 Months</option>
             <option value="last6months">Last 6 Months</option>
           </select>
-          <button onClick={() => setIsInboundOpen(true)} className="btn-secondary h-9 text-xs">
-            + Office Visit
-          </button>
-          <button onClick={() => setIsOutboundOpen(true)} className="btn-primary h-9 text-xs bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white">
-            + Field Check-In
-          </button>
         </div>
       }
     >

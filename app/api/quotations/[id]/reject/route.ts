@@ -9,6 +9,7 @@ export async function POST(
 ) {
   const user = await verifyAuth();
   if (!user) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  if (user.role === "Customer") return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
 
   const { id } = await params;
   const body = await request.json();
@@ -22,25 +23,48 @@ export async function POST(
     return NextResponse.json({ success: false, message: "Only Sent or UnderReview quotations can be rejected" }, { status: 400 });
   }
 
-  if (!body.rejectionReason) {
+  // Require rejection_reason_id
+  if (!body.rejectionReasonId) {
     return NextResponse.json({ success: false, message: "Rejection reason is required" }, { status: 400 });
   }
 
-  const quotation = await prisma.quotation.update({
-    where: { id },
-    data: {
-      status: "Rejected",
-      rejectedAt: new Date(),
-      rejectionReason: body.rejectionReason,
-    },
-  });
+  try {
+    const quotation = await prisma.$transaction(async (tx) => {
+      const q = await tx.quotation.update({
+        where: { id },
+        data: {
+          status: "Rejected",
+          rejectedAt: new Date(),
+          rejectionReason: body.rejectionReasonText || null,
+          rejectionReasonId: body.rejectionReasonId,
+        },
+      });
 
-  await logAudit(user.id, "Quotation", "Reject", `Rejected quotation ${existing.quotationCode}: ${body.rejectionReason}`, {
-    resourceId: id,
-    previousState: { status: existing.status },
-    newState: { status: "Rejected", rejectionReason: body.rejectionReason },
-    context: extractAuditContext(request),
-  });
+      await tx.quotationStatusHistory.create({
+        data: {
+          quotationId: id,
+          fromStatus: existing.status,
+          toStatus: "Rejected",
+          changedById: user.id,
+          notes: body.rejectionReasonText || `Rejected (reason ID: ${body.rejectionReasonId})`,
+        },
+      });
 
-  return NextResponse.json({ success: true, data: quotation });
+      return q;
+    });
+
+    await logAudit(user.id, "Quotation", "Reject", `Rejected quotation ${existing.quotationCode}: ${body.rejectionReasonText || body.rejectionReasonId}`, {
+      resourceId: id,
+      previousState: { status: existing.status },
+      newState: { status: "Rejected", rejectionReasonId: body.rejectionReasonId },
+      context: extractAuditContext(request),
+    });
+
+    return NextResponse.json({ success: true, data: quotation });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, message: `Failed to reject quotation: ${error.message}` },
+      { status: 500 }
+    );
+  }
 }

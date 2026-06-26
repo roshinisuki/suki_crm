@@ -18,7 +18,21 @@ export async function GET(
     const contact = await prisma.contact.findUnique({
       where: { id, deletedAt: null },
       include: {
-        customer: { select: { id: true, name: true, customerCode: true } },
+        customer: { select: { id: true, name: true, customerCode: true, city: true, status: true, accountType: true, industryType: true } },
+        rfqs: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, rfqCode: true, status: true, requirementDetails: true, createdAt: true },
+        },
+        quotations: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, quotationCode: true, status: true, totalAmount: true, createdAt: true },
+        },
+        Task: {
+          orderBy: { createdAt: "desc" },
+          select: { id: true, title: true, status: true, priority: true, dueDate: true },
+        },
       },
     });
 
@@ -51,6 +65,28 @@ export async function PUT(
       return NextResponse.json({ success: false, message: "Contact not found" }, { status: 404 });
     }
 
+    // Auto-detect decision-maker from designation
+    let isDecisionMaker = body.isDecisionMaker;
+    if (body.designation && isDecisionMaker === undefined) {
+      const decisionMakerKeywords = ["Head", "Director", "VP", "GM", "President", "CEO", "MD", "CTO", "COO"];
+      isDecisionMaker = decisionMakerKeywords.some((keyword) =>
+        body.designation.toLowerCase().includes(keyword.toLowerCase())
+      );
+    }
+
+    // If setting isPrimary=true, unset old primary for the same account
+    if (body.isPrimary === true && existing.customerId) {
+      await prisma.contact.updateMany({
+        where: {
+          customerId: existing.customerId,
+          id: { not: id },
+          isPrimary: true,
+          deletedAt: null,
+        },
+        data: { isPrimary: false },
+      });
+    }
+
     const updated = await prisma.contact.update({
       where: { id },
       data: {
@@ -63,6 +99,7 @@ export async function PUT(
         ...(body.status !== undefined && { status: body.status }),
         ...(body.contactType !== undefined && { contactType: body.contactType }),
         ...(body.isPrimary !== undefined && { isPrimary: body.isPrimary }),
+        ...(isDecisionMaker !== undefined && { isDecisionMaker }),
         ...(body.notes !== undefined && { notes: body.notes }),
         ...(body.customerId !== undefined && { customerId: body.customerId }),
       },
@@ -90,6 +127,35 @@ export async function DELETE(
     const existing = await prisma.contact.findUnique({ where: { id, deletedAt: null } });
     if (!existing || existing.ownerId !== user.id) {
       return NextResponse.json({ success: false, message: "Contact not found" }, { status: 404 });
+    }
+
+    // Check for active quotation references
+    const activeQuotations = await prisma.quotation.count({
+      where: {
+        contactId: id,
+        status: { notIn: ["Rejected", "Expired", "Cancelled"] },
+        deletedAt: null,
+      },
+    });
+
+    // Check for active RFQ references
+    const activeRfqs = await prisma.rFQ.count({
+      where: {
+        contactId: id,
+        status: { not: "Closed" },
+        deletedAt: null,
+      },
+    });
+
+    if (activeQuotations > 0 || activeRfqs > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Reassign contact from active quotations/RFQs first",
+          count: activeQuotations + activeRfqs,
+        },
+        { status: 409 }
+      );
     }
 
     await prisma.contact.update({

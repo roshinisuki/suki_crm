@@ -37,12 +37,26 @@ export interface Lead {
   email: string | null;
   phone: string | null;
   city: string | null;
-  status: "New" | "Contacted" | "FollowUpDue" | "SQL" | "Qualified" | "Converted" | "Lost";
+  status: "New" | "Contacted" | "FollowUpDue" | "SQL" | "Qualified" | "Converted" | "Lost" | "Overdue" | "Duplicate";
   assignedUserId: string | null;
   assignedUser?: Partial<User>;
   createdAt?: string;
   updatedAt?: string;
   leadSource?: string | null;
+  // V2 fields
+  companyName?: string | null;
+  designation?: string | null;
+  industryType?: string | null;
+  estimatedValue?: number | null;
+  leadScore?: number;
+  isDuplicateOf?: string | null;
+  convertedAccountId?: string | null;
+  convertedOpportunityId?: string | null;
+  lostReason?: string | null;
+  lostReasonRefId?: string | null;
+  slaStatus?: string;
+  slaResponseDeadline?: string;
+  followUps?: any[];
 }
 
 export interface Subscription {

@@ -32,8 +32,8 @@ export function PageShell({ title, subtitle, action, breadcrumb, children, class
               ))}
             </nav>
           )}
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight leading-none">{title}</h1>
-          {subtitle && <p className="text-sm text-slate-500 font-medium mt-1">{subtitle}</p>}
+          <h1 className="tracking-tight leading-none" style={{ fontSize: "22px", fontWeight: 500, color: "var(--text-primary)" }}>{title}</h1>
+          {subtitle && <p className="mt-1" style={{ fontSize: "13px", color: "var(--text-secondary)" }}>{subtitle}</p>}
         </div>
         {action && <div className="flex items-center gap-2 shrink-0">{action}</div>}
       </div>

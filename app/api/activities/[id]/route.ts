@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 
 // GET /api/activities/[id]
 export async function GET(
@@ -21,6 +22,7 @@ export async function GET(
         customer: { select: { id: true, name: true, customerCode: true } },
         lead: { select: { id: true, name: true, leadCode: true } },
         sentByUser: { select: { id: true, name: true } },
+        attendees: { include: { contact: { select: { id: true, name: true } }, user: { select: { id: true, name: true } } } },
       },
     });
 
@@ -53,6 +55,16 @@ export async function PUT(
       return NextResponse.json({ success: false, message: "Activity not found" }, { status: 404 });
     }
 
+    // 24-hour edit lock for non-Admin users
+    const ageMs = Date.now() - new Date(existing.sentAt).getTime();
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+    if (ageMs >= TWENTY_FOUR_HOURS && user.role !== "Admin") {
+      return NextResponse.json(
+        { success: false, message: "Edit window expired. Contact Admin." },
+        { status: 409 }
+      );
+    }
+
     const updated = await prisma.communicationLog.update({
       where: { id },
       data: {
@@ -68,6 +80,11 @@ export async function PUT(
         ...(body.agenda !== undefined && { agenda: body.agenda }),
         ...(body.outcome !== undefined && { outcome: body.outcome }),
       },
+    });
+
+    await logAudit(user.id, "activities", "update", `Activity ${id} updated`, {
+      resourceId: id,
+      severity: "WARN",
     });
 
     return NextResponse.json({ success: true, data: updated });
@@ -97,6 +114,11 @@ export async function DELETE(
     await prisma.communicationLog.update({
       where: { id },
       data: { deletedAt: new Date(), deletedById: user.id },
+    });
+
+    await logAudit(user.id, "activities", "delete", `Activity ${id} soft-deleted`, {
+      resourceId: id,
+      severity: "HIGH",
     });
 
     return NextResponse.json({ success: true });

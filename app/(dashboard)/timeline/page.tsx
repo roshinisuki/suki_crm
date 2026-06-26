@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { useRouter } from "next/navigation";
 import PageContainer from "@/components/PageContainer";
+import { CRMSpinner } from "@/components/CRMSpinner";
 
 const activityIcons: Record<string, { icon: string; color: string }> = {
   Call: { icon: "M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z", color: "text-blue-600 bg-blue-100" },
@@ -138,7 +139,9 @@ export default function TimelinePage() {
         {/* Right Panel - Feed */}
         <div className="flex-1 space-y-2">
           {loading && items.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-8 text-center text-slate-400">Loading...</div>
+            <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-8 flex justify-center">
+              <CRMSpinner size={36} label="Loading timeline..." />
+            </div>
           ) : items.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-8 text-center text-slate-400">No activities found</div>
           ) : (
