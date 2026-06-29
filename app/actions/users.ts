@@ -7,6 +7,94 @@ import { logAudit } from "@/lib/audit";
 import { buildScope, checkRecordScope } from "@/lib/scopes";
 import { dispatchNotification } from "@/lib/notifications";
 
+/**
+ * Create an internal user (Admin only)
+ * Admins can create users within their company only
+ */
+export async function createInternalUserAction(data: {
+  email: string;
+  name: string;
+  role: "Admin" | "SalesManager" | "SalesExecutive";
+  department?: string;
+  phone?: string;
+}) {
+  try {
+    const userPayload = await verifyAuth();
+    if (!userPayload || userPayload.role !== "Admin") {
+      return { success: false, message: "Unauthorized: Admin only" };
+    }
+
+    // Tenant check: SuperAdmin supportMode check
+    if (userPayload.role === "SuperAdmin" && (!userPayload.supportMode || !userPayload.companyId)) {
+      return { success: false, message: "Unauthorized: SuperAdmin must access business data via support/impersonation mode." };
+    }
+
+    const { email, name, role, department, phone } = data;
+
+    if (!email || !name || !role) {
+      return { success: false, message: "Email, name, and role are required" };
+    }
+
+    // Check for duplicate email globally
+    const existingUser = await prisma.user.findFirst({
+      where: { email: email.toLowerCase() }
+    });
+    if (existingUser) {
+      return { success: false, message: "A user with this email already exists" };
+    }
+
+    // Validate email domain matches company domain if set
+    if (userPayload.companyId) {
+      const company = await prisma.company.findUnique({
+        where: { id: userPayload.companyId }
+      });
+      if (company && company.domain) {
+        const emailDomain = email.split('@')[1]?.toLowerCase();
+        if (emailDomain !== company.domain) {
+          return { success: false, message: `Email must match company domain: ${company.domain}` };
+        }
+      }
+    }
+
+    const passwordHash = await bcrypt.hash("Welcome@123", 10);
+
+    const user = await prisma.user.create({
+      data: {
+        email: email.toLowerCase(),
+        name,
+        role,
+        department: department || null,
+        phone: phone || null,
+        passwordHash,
+        userType: "internal",
+        companyId: userPayload.companyId,
+        isActive: true,
+        isFirstLogin: true,
+      },
+    });
+
+    await logAudit(
+      userPayload.id,
+      "User",
+      "Create",
+      `Created internal user "${name}" (${email}, Role: ${role}, Department: ${department || "N/A"})`
+    );
+
+    return {
+      success: true,
+      data: {
+        ...user,
+        createdAt: user.createdAt.toISOString(),
+        updatedAt: user.updatedAt.toISOString(),
+      },
+      message: "User created successfully",
+    };
+  } catch (error) {
+    console.error("createInternalUserAction error:", error);
+    return { success: false, message: "Failed to create user" };
+  }
+}
+
 export async function getUsersAction() {
   try {
     const userPayload = await verifyAuth();

@@ -103,38 +103,40 @@ export default function LossReasonMasterPage() {
       ) : reasons.length === 0 ? (
         <div className="py-12 text-center text-sm text-gray-500">No loss reasons defined yet.</div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Name</th>
-                <th className="px-4 py-3 font-semibold">Used in analyses</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-                {canManage && <th className="px-4 py-3 font-semibold text-right">Actions</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {reasons.map((r) => (
-                <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{r.name}</td>
-                  <td className="px-4 py-3 text-gray-600">{r._count?.lostDealAnalyses ?? 0}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${r.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}>
-                      {r.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  {canManage && (
-                    <td className="px-4 py-3 text-right">
-                      <div className="inline-flex gap-1.5">
-                        <button onClick={() => openEdit(r)} className="p-1.5 rounded hover:bg-gray-100" title="Edit"><Ico d={icons.edit} /></button>
-                        <button onClick={() => handleDelete(r)} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Delete"><Ico d={icons.trash} /></button>
-                      </div>
-                    </td>
-                  )}
+        <div className="crm-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="crm-table">
+              <thead>
+                <tr>
+                  <th className="crm-th">Name</th>
+                  <th className="crm-th">Used in analyses</th>
+                  <th className="crm-th">Status</th>
+                  {canManage && <th className="crm-th text-right">Actions</th>}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {reasons.map((r) => (
+                  <tr key={r.id} className="crm-tr">
+                    <td className="crm-td font-medium text-foreground">{r.name}</td>
+                    <td className="crm-td text-foreground">{r._count?.lostDealAnalyses ?? 0}</td>
+                    <td className="crm-td">
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${r.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}>
+                        {r.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    {canManage && (
+                      <td className="crm-td text-right">
+                        <div className="inline-flex gap-1.5">
+                          <button onClick={() => openEdit(r)} className="p-1.5 rounded hover:bg-muted" title="Edit"><Ico d={icons.edit} /></button>
+                          <button onClick={() => handleDelete(r)} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Delete"><Ico d={icons.trash} /></button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

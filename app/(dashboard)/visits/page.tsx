@@ -7,7 +7,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { SummaryCard } from "@/components/ui/SummaryCard";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, Input, Textarea, Select } from "@/components/ui/FormField";
-import { formatDate, formatDateTime, cn } from "@/lib/ui-utils";
+import { formatDate, formatDateTime, cn, getCheckInWindow } from "@/lib/ui-utils";
 import {
   Plus, Eye, MapPin, CheckCircle, Clock, CalendarClock,
   AlertTriangle, Briefcase, TrendingUp, X, ChevronRight,
@@ -16,8 +16,11 @@ import {
 const STATUS_TABS = [
   { key: "PLANNED", label: "Planned" },
   { key: "CHECKED_IN", label: "Checked In" },
+  { key: "CHECKED_OUT", label: "Checked Out" },
   { key: "COMPLETED", label: "Completed" },
   { key: "MISSED", label: "Missed" },
+  { key: "CUSTOMER_UNAVAILABLE", label: "Unavailable" },
+  { key: "AUTO_CHECKED_OUT", label: "Auto Checked Out" },
   { key: "", label: "All Visits" },
 ];
 
@@ -27,6 +30,7 @@ const STATUS_PILLS: Record<string, string> = {
   CHECKED_OUT: "bg-teal-50 text-teal-700 border-teal-200",
   COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200",
   MISSED: "bg-rose-50 text-rose-700 border-rose-200",
+  CUSTOMER_UNAVAILABLE: "bg-slate-100 text-slate-700 border-slate-300",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -35,6 +39,7 @@ const STATUS_LABELS: Record<string, string> = {
   CHECKED_OUT: "Checked Out",
   COMPLETED: "Completed",
   MISSED: "Missed",
+  CUSTOMER_UNAVAILABLE: "Unavailable",
 };
 
 const PURPOSE_OPTIONS = [
@@ -47,18 +52,27 @@ export default function VisitsListPage() {
   const searchParams = useSearchParams();
   const toast = useToast();
 
-  const initialTab = searchParams.get("status") || "";
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const getTabFromUrl = useCallback(() => {
+    if (searchParams.get("autoCheckedOut") === "true") return "AUTO_CHECKED_OUT";
+    return searchParams.get("status") || "";
+  }, [searchParams]);
+
+  const [activeTab, setActiveTab] = useState(getTabFromUrl());
   const [visits, setVisits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCompliance, setShowCompliance] = useState(false);
   const [complianceData, setComplianceData] = useState<any[]>([]);
   const [complianceLoading, setComplianceLoading] = useState(false);
+  const [tooLateVisitIds, setTooLateVisitIds] = useState<Set<string>>(new Set());
 
   const fetchVisits = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
-    if (activeTab) params.set("status", activeTab);
+    if (activeTab === "AUTO_CHECKED_OUT") {
+      params.set("autoCheckedOut", "true");
+    } else if (activeTab) {
+      params.set("status", activeTab);
+    }
     const res = await fetch(`/api/visits?${params.toString()}`);
     if (res.ok) {
       const json = await res.json();
@@ -70,12 +84,25 @@ export default function VisitsListPage() {
   }, [activeTab]);
 
   useEffect(() => {
+    const tabFromUrl = getTabFromUrl();
+    if (tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [getTabFromUrl, activeTab]);
+
+  useEffect(() => {
     fetchVisits();
   }, [fetchVisits]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    router.push(`/visits${tab ? `?status=${tab}` : ""}`);
+    if (tab === "AUTO_CHECKED_OUT") {
+      router.push("/visits?autoCheckedOut=true");
+    } else if (tab) {
+      router.push(`/visits?status=${tab}`);
+    } else {
+      router.push("/visits");
+    }
   };
 
   const handleCheckIn = async (id: string) => {
@@ -97,6 +124,11 @@ export default function VisitsListPage() {
           toast.success("Checked in successfully");
           if (json.warning) toast.warning(json.warning);
           fetchVisits();
+        } else if (json.error === "TOO_EARLY") {
+          toast.warning(json.message || "Too early to check in");
+        } else if (json.error === "TOO_LATE") {
+          setTooLateVisitIds((prev) => new Set(prev).add(id));
+          toast.error(json.message || "Check-in window has passed for this visit.");
         } else {
           toast.error(json.message || "Check-in failed");
         }
@@ -129,6 +161,7 @@ export default function VisitsListPage() {
   const kpiCompleted = visits.filter((v) => v.status === "COMPLETED").length;
   const kpiMissed = visits.filter((v) => v.status === "MISSED").length;
   const kpiCheckedIn = visits.filter((v) => v.status === "CHECKED_IN").length;
+  const kpiUnavailable = visits.filter((v) => v.status === "CUSTOMER_UNAVAILABLE").length;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -141,10 +174,16 @@ export default function VisitsListPage() {
     return "bg-emerald-50";
   };
 
+  const activeTabLabel = activeTab ? STATUS_TABS.find((t) => t.key === activeTab)?.label : undefined;
+  const breadcrumb = activeTabLabel
+    ? [{ label: "Customer Visits", href: "/visits" }, { label: activeTabLabel }]
+    : [{ label: "Customer Visits" }];
+
   return (
     <PageShell
       title="Customer Visits"
       subtitle="Field sales tracking with GPS check-in and visit compliance."
+      breadcrumb={breadcrumb}
       action={
         <div className="flex items-center gap-2">
           <button
@@ -164,11 +203,12 @@ export default function VisitsListPage() {
     >
       <div className="space-y-6">
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <SummaryCard label="Planned" value={kpiPlanned.toString()} icon={<CalendarClock size={20} />} variant="indigo" />
           <SummaryCard label="Checked In" value={kpiCheckedIn.toString()} icon={<MapPin size={20} />} variant="light" />
           <SummaryCard label="Completed" value={kpiCompleted.toString()} icon={<CheckCircle size={20} />} variant="dark" />
           <SummaryCard label="Missed" value={kpiMissed.toString()} icon={<AlertTriangle size={20} />} variant="orange" />
+          <SummaryCard label="Unavailable" value={kpiUnavailable.toString()} icon={<Clock size={20} />} variant="light" />
         </div>
 
         {/* Status Tabs */}
@@ -220,6 +260,8 @@ export default function VisitsListPage() {
                       v.status === "PLANNED" &&
                       v.plannedDate &&
                       new Date(v.plannedDate).toDateString() === today.toDateString();
+                    const checkInWindow = isPlannedToday ? getCheckInWindow(v.plannedDate, v.plannedTime) : null;
+                    const isCheckInTooLate = checkInWindow?.status === "TOO_LATE" || tooLateVisitIds.has(v.id);
                     return (
                       <tr key={v.id} className="crm-tr hover:bg-slate-50/80 transition-colors">
                         <td className="crm-td">
@@ -249,9 +291,23 @@ export default function VisitsListPage() {
                           <span className="text-sm text-slate-600">{v.host?.name || "—"}</span>
                         </td>
                         <td className="crm-td">
-                          <span className={cn("px-2.5 py-1 text-xs font-bold rounded-lg border", STATUS_PILLS[v.status] || "bg-slate-50 text-slate-600 border-slate-200")}>
-                            {STATUS_LABELS[v.status] || v.status}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={cn("px-2.5 py-1 text-xs font-bold rounded-lg border", STATUS_PILLS[v.status] || "bg-slate-50 text-slate-600 border-slate-200")}>
+                              {STATUS_LABELS[v.status] || v.status}
+                            </span>
+                            {v.status === "CHECKED_IN" && v.checkInTime && (
+                              (new Date().getTime() - new Date(v.checkInTime).getTime()) / (1000 * 60 * 60) > 2
+                            ) && (
+                              <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-orange-100 text-orange-700 border border-orange-200">
+                                Long Check-in
+                              </span>
+                            )}
+                            {v.autoCheckedOut && (
+                              <span title="This visit was automatically checked out by the system after 9 hours of check-in with no manual checkout." className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-red-100 text-red-700 border border-red-200 cursor-help">
+                                Auto Checked Out
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="crm-td">
                           {v.gpsLat != null ? (
@@ -263,14 +319,35 @@ export default function VisitsListPage() {
                         <td className="crm-td text-right">
                           <div className="flex items-center justify-end gap-1">
                             {isPlannedToday && (
-                              <button
-                                onClick={() => handleCheckIn(v.id)}
-                                className="px-2.5 py-1 bg-amber-600 text-white font-bold text-xs rounded-lg hover:bg-amber-700 flex items-center gap-1"
-                              >
-                                <MapPin size={12} /> Check In
-                              </button>
+                              <div className="relative group">
+                                <button
+                                  onClick={() => !isCheckInTooLate && handleCheckIn(v.id)}
+                                  disabled={isCheckInTooLate}
+                                  className={cn(
+                                    "px-2.5 py-1 text-white font-bold text-xs rounded-lg flex items-center gap-1",
+                                    isCheckInTooLate
+                                      ? "bg-amber-300 cursor-not-allowed"
+                                      : "bg-amber-600 hover:bg-amber-700"
+                                  )}
+                                >
+                                  <MapPin size={12} /> Check In
+                                </button>
+                                {checkInWindow && (
+                                  <span className="absolute bottom-full right-0 mb-1 hidden group-hover:block w-56 px-2 py-1 text-xs text-white bg-slate-800 rounded-lg text-left">
+                                    Check-in available from {formatDateTime(checkInWindow.start)} to {formatDateTime(checkInWindow.end)}
+                                  </span>
+                                )}
+                              </div>
                             )}
                             {v.status === "CHECKED_IN" && (
+                              <button
+                                onClick={() => router.push(`/visits/${v.id}`)}
+                                className="px-2.5 py-1 bg-teal-600 text-white font-bold text-xs rounded-lg hover:bg-teal-700"
+                              >
+                                Check Out
+                              </button>
+                            )}
+                            {v.status === "CHECKED_OUT" && (
                               <button
                                 onClick={() => router.push(`/visits/${v.id}`)}
                                 className="px-2.5 py-1 bg-[var(--primary)] text-white font-bold text-xs rounded-lg hover:bg-[var(--primary-hover)]"

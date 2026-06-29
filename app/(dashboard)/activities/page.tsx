@@ -159,22 +159,22 @@ export default function ActivitiesPage() {
         </div>
 
         {/* Table */}
-        <div className="crm-card overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-100">
+        <div className="crm-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="crm-table">
               <thead>
-                <tr className="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-                  {activeTab === "calls" && <><th className="px-4 py-4">Date</th><th className="px-4 py-4">Linked To</th><th className="px-4 py-4">Direction</th><th className="px-4 py-4">Duration</th><th className="px-4 py-4">Status</th><th className="px-4 py-4">Notes</th><th className="px-4 py-4 text-right">Actions</th></>}
-                  {activeTab === "meetings" && <><th className="px-4 py-4">Date</th><th className="px-4 py-4">Linked To</th><th className="px-4 py-4">Mode</th><th className="px-4 py-4">Location</th><th className="px-4 py-4">Status</th><th className="px-4 py-4">Agenda</th><th className="px-4 py-4 text-right">Actions</th></>}
-                  {activeTab === "notes" && <><th className="px-4 py-4">Date</th><th className="px-4 py-4">Type</th><th className="px-4 py-4">Entity</th><th className="px-4 py-4">Content</th><th className="px-4 py-4">Created By</th><th className="px-4 py-4 text-right">Actions</th></>}
-                  {activeTab === "emails" && <><th className="px-4 py-4">Date</th><th className="px-4 py-4">Linked To</th><th className="px-4 py-4">Direction</th><th className="px-4 py-4">Status</th><th className="px-4 py-4">Content</th><th className="px-4 py-4 text-right">Actions</th></>}
-                  {activeTab === "whatsapp" && <><th className="px-4 py-4">Date</th><th className="px-4 py-4">Linked To</th><th className="px-4 py-4">Direction</th><th className="px-4 py-4">Status</th><th className="px-4 py-4">Content</th><th className="px-4 py-4 text-right">Actions</th></>}
+                <tr>
+                  {activeTab === "calls" && <><th className="crm-th">Date</th><th className="crm-th">Linked To</th><th className="crm-th">Direction</th><th className="crm-th">Duration</th><th className="crm-th">Status</th><th className="crm-th">Notes</th><th className="crm-th text-right">Actions</th></>}
+                  {activeTab === "meetings" && <><th className="crm-th">Date</th><th className="crm-th">Linked To</th><th className="crm-th">Mode</th><th className="crm-th">Location</th><th className="crm-th">Status</th><th className="crm-th">Agenda</th><th className="crm-th text-right">Actions</th></>}
+                  {activeTab === "notes" && <><th className="crm-th">Date</th><th className="crm-th">Type</th><th className="crm-th">Entity</th><th className="crm-th">Content</th><th className="crm-th">Created By</th><th className="crm-th text-right">Actions</th></>}
+                  {activeTab === "emails" && <><th className="crm-th">Date</th><th className="crm-th">Linked To</th><th className="crm-th">Direction</th><th className="crm-th">Status</th><th className="crm-th">Content</th><th className="crm-th text-right">Actions</th></>}
+                  {activeTab === "whatsapp" && <><th className="crm-th">Date</th><th className="crm-th">Linked To</th><th className="crm-th">Direction</th><th className="crm-th">Status</th><th className="crm-th">Content</th><th className="crm-th text-right">Actions</th></>}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center">
+                    <td colSpan={7} className="crm-td text-center py-12">
                       <div className="flex justify-center">
                         <CRMSpinner size={36} label="Loading activities..." />
                       </div>
@@ -182,72 +182,72 @@ export default function ActivitiesPage() {
                   </tr>
                 ) : paginatedItems.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-16 text-center">
-                      <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3"><MessageSquare size={20} className="text-slate-400" /></div>
-                      <p className="text-sm font-semibold text-slate-700">No {activeTab} found</p>
+                    <td colSpan={7} className="crm-td text-center py-16">
+                      <div className="w-12 h-12 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-3"><MessageSquare size={20} className="text-muted-foreground" /></div>
+                      <p className="text-sm font-semibold text-foreground">No {activeTab} found</p>
                     </td>
                   </tr>
                 ) : (
                   paginatedItems.map((item) => (
                     <tr
                       key={item.id}
-                      className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors text-slate-600 text-sm table-row-clickable"
+                      className="crm-tr table-row-clickable"
                       onClick={() => router.push(`/activities/${item.id}`)}
                     >
                       {activeTab === "calls" && (
                         <>
-                          <td className="px-4 py-4 text-xs">{formatDate(item.sentAt)}</td>
-                          <td className="px-4 py-4 text-xs">
+                          <td className="crm-td text-xs">{formatDate(item.sentAt)}</td>
+                          <td className="crm-td text-xs">
                             <span className="row-primary-link">{item.customer?.name || item.lead?.name || "—"}</span>
                             {item.followUpId && <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium">FU</span>}
                           </td>
-                          <td className="px-4 py-4"><span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100">{item.direction}</span></td>
-                          <td className="px-4 py-4 text-xs">{item.duration ? `${item.duration} min` : "—"}</td>
-                          <td className="px-4 py-4"><StatusBadge status={item.status} size="sm" /></td>
-                          <td className="px-4 py-4 text-xs max-w-xs truncate">{item.content}</td>
+                          <td className="crm-td"><span className="text-xs font-medium px-2 py-1 rounded-full bg-muted">{item.direction}</span></td>
+                          <td className="crm-td text-xs">{item.duration ? `${item.duration} min` : "—"}</td>
+                          <td className="crm-td"><StatusBadge status={item.status} size="sm" /></td>
+                          <td className="crm-td text-xs max-w-xs truncate">{item.content}</td>
                         </>
                       )}
                       {activeTab === "meetings" && (
                         <>
-                          <td className="px-4 py-4 text-xs">{item.meetingDate ? formatDate(item.meetingDate) : formatDate(item.sentAt)}</td>
-                          <td className="px-4 py-4 text-xs">
+                          <td className="crm-td text-xs">{item.meetingDate ? formatDate(item.meetingDate) : formatDate(item.sentAt)}</td>
+                          <td className="crm-td text-xs">
                             <span className="row-primary-link">{item.customer?.name || item.lead?.name || "—"}</span>
                             {item.followUpId && <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium">FU</span>}
                           </td>
-                          <td className="px-4 py-4"><span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100">{item.mode || "—"}</span></td>
-                          <td className="px-4 py-4 text-xs">{item.location || "—"}</td>
-                          <td className="px-4 py-4"><StatusBadge status={item.status} size="sm" /></td>
-                          <td className="px-4 py-4 text-xs max-w-xs truncate">{item.agenda || item.content}</td>
+                          <td className="crm-td"><span className="text-xs font-medium px-2 py-1 rounded-full bg-muted">{item.mode || "—"}</span></td>
+                          <td className="crm-td text-xs">{item.location || "—"}</td>
+                          <td className="crm-td"><StatusBadge status={item.status} size="sm" /></td>
+                          <td className="crm-td text-xs max-w-xs truncate">{item.agenda || item.content}</td>
                         </>
                       )}
                       {activeTab === "notes" && (
                         <>
-                          <td className="px-4 py-4 text-xs">{formatDate(item.createdAt)}</td>
-                          <td className="px-4 py-4"><span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100">{item.entityType}</span></td>
-                          <td className="px-4 py-4 text-xs font-mono text-slate-500">{(item.entityId || "").slice(0, 8)}...</td>
-                          <td className="px-4 py-4 text-xs max-w-sm truncate">{item.content}</td>
-                          <td className="px-4 py-4 text-xs">{item.createdBy?.name || "—"}</td>
+                          <td className="crm-td text-xs">{formatDate(item.createdAt)}</td>
+                          <td className="crm-td"><span className="text-xs font-medium px-2 py-1 rounded-full bg-muted">{item.entityType}</span></td>
+                          <td className="crm-td text-xs font-mono text-muted-foreground">{(item.entityId || "").slice(0, 8)}...</td>
+                          <td className="crm-td text-xs max-w-sm truncate">{item.content}</td>
+                          <td className="crm-td text-xs">{item.createdBy?.name || "—"}</td>
                         </>
                       )}
                       {activeTab === "emails" && (
                         <>
-                          <td className="px-4 py-4 text-xs">{formatDate(item.sentAt)}</td>
-                          <td className="px-4 py-4 text-xs"><span className="row-primary-link">{item.customer?.name || item.lead?.name || "—"}</span></td>
-                          <td className="px-4 py-4"><span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100">{item.direction}</span></td>
-                          <td className="px-4 py-4"><StatusBadge status={item.status} size="sm" /></td>
-                          <td className="px-4 py-4 text-xs max-w-xs truncate">{item.content}</td>
+                          <td className="crm-td text-xs">{formatDate(item.sentAt)}</td>
+                          <td className="crm-td text-xs"><span className="row-primary-link">{item.customer?.name || item.lead?.name || "—"}</span></td>
+                          <td className="crm-td"><span className="text-xs font-medium px-2 py-1 rounded-full bg-muted">{item.direction}</span></td>
+                          <td className="crm-td"><StatusBadge status={item.status} size="sm" /></td>
+                          <td className="crm-td text-xs max-w-xs truncate">{item.content}</td>
                         </>
                       )}
                       {activeTab === "whatsapp" && (
                         <>
-                          <td className="px-4 py-4 text-xs">{formatDate(item.sentAt)}</td>
-                          <td className="px-4 py-4 text-xs"><span className="row-primary-link">{item.customer?.name || item.lead?.name || "—"}</span></td>
-                          <td className="px-4 py-4"><span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100">{item.direction}</span></td>
-                          <td className="px-4 py-4"><StatusBadge status={item.status} size="sm" /></td>
-                          <td className="px-4 py-4 text-xs max-w-xs truncate">{item.content}</td>
+                          <td className="crm-td text-xs">{formatDate(item.sentAt)}</td>
+                          <td className="crm-td text-xs"><span className="row-primary-link">{item.customer?.name || item.lead?.name || "—"}</span></td>
+                          <td className="crm-td"><span className="text-xs font-medium px-2 py-1 rounded-full bg-muted">{item.direction}</span></td>
+                          <td className="crm-td"><StatusBadge status={item.status} size="sm" /></td>
+                          <td className="crm-td text-xs max-w-xs truncate">{item.content}</td>
                         </>
                       )}
-                      <td className="px-4 py-4 text-right" onClick={e => e.stopPropagation()}>
+                      <td className="crm-td text-right" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
                           <button onClick={() => confirmDelete(item)} className="row-action-btn row-action-btn-danger" title="Delete"><Trash2 size={15} /></button>
                         </div>

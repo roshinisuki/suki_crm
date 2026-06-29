@@ -96,43 +96,43 @@ export default function SalesPerformanceReportPage() {
         {/* Data Table */}
         <div className="crm-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="crm-table">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Exec Name</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Leads</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Calls</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Meetings</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Visits</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">RFQs</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Quotations</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Won Deals</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Revenue ({preferredCurrency})</th>
+                <tr>
+                  <th className="crm-th">Exec Name</th>
+                  <th className="crm-th text-right">Leads</th>
+                  <th className="crm-th text-right">Calls</th>
+                  <th className="crm-th text-right">Meetings</th>
+                  <th className="crm-th text-right">Visits</th>
+                  <th className="crm-th text-right">RFQs</th>
+                  <th className="crm-th text-right">Quotations</th>
+                  <th className="crm-th text-right">Won Deals</th>
+                  <th className="crm-th text-right">Revenue ({preferredCurrency})</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center">
+                    <td colSpan={9} className="crm-td py-12 text-center">
                       <div className="flex justify-center">
                         <CRMSpinner size={36} label="Loading report..." />
                       </div>
                     </td>
                   </tr>
                 ) : rows.length === 0 ? (
-                  <tr><td colSpan={9} className="text-center py-12 text-slate-400 text-sm">No data found</td></tr>
+                  <tr><td colSpan={9} className="crm-td text-center py-12 text-muted-foreground text-sm">No data found</td></tr>
                 ) : (
                   rows.map(r => (
-                    <tr key={r.id} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-3 text-sm font-medium text-slate-800">{r.name}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.leadsAssigned}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.callsMade}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.meetingsDone}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.visits}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.rfqs}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.quotationsSent}</td>
-                      <td className="px-4 py-3 text-sm font-semibold text-slate-800 text-right">{r.wonDeals}</td>
-                      <td className="px-4 py-3 text-sm font-bold text-[var(--accent)] text-right">{formatCurrency(r.revenue)}</td>
+                    <tr key={r.id} className="crm-tr">
+                      <td className="crm-td font-medium text-foreground">{r.name}</td>
+                      <td className="crm-td text-foreground text-right">{r.leadsAssigned}</td>
+                      <td className="crm-td text-foreground text-right">{r.callsMade}</td>
+                      <td className="crm-td text-foreground text-right">{r.meetingsDone}</td>
+                      <td className="crm-td text-foreground text-right">{r.visits}</td>
+                      <td className="crm-td text-foreground text-right">{r.rfqs}</td>
+                      <td className="crm-td text-foreground text-right">{r.quotationsSent}</td>
+                      <td className="crm-td font-semibold text-foreground text-right">{r.wonDeals}</td>
+                      <td className="crm-td font-bold text-[var(--accent)] text-right">{formatCurrency(r.revenue)}</td>
                     </tr>
                   ))
                 )}

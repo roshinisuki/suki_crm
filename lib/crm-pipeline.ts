@@ -77,7 +77,7 @@ export async function processVisitOutcome(
   // 2. Process Customer Progression
   if (customerId) {
     const customer = await prisma.customer.findUnique({ where: { id: customerId } });
-    if (!customer) return { success: false, error: "Customer not found." };
+    if (!customer) return { success: false, error: "Customer.status not found." };
 
     let nextCustomerStatus = customer.status;
     let requiresPortalActivation = false;
@@ -95,10 +95,22 @@ export async function processVisitOutcome(
       nextCustomerStatus = "Churned";
     }
 
-    await prisma.customer.update({
-      where: { id: customerId },
-      data: { status: nextCustomerStatus }
-    });
+    // Use centralized customer status service for validation and history
+    if (nextCustomerStatus !== customer.status) {
+      const { setCustomerStatus } = await import("@/lib/customerService");
+      // Get a system user ID for the transition
+      const systemUser = await prisma.user.findFirst({
+        where: { role: { in: ["SuperAdmin", "Admin"] }, isActive: true },
+        select: { id: true }
+      });
+      
+      await setCustomerStatus(customerId, nextCustomerStatus as any, {
+        actorId: systemUser?.id || "system",
+        reason: `Visit outcome: ${outcome}${customerDecision ? `, decision: ${customerDecision}` : ""}`,
+        companyId: customer.companyId,
+        isAdminOverride: true, // Allow visit-based activation with reason
+      });
+    }
 
     if (requiresPortalActivation) {
       const { activateCustomerPortal } = await import("@/app/actions/auth");

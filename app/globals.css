@@ -562,31 +562,36 @@ body {
 
 @utility crm-th {
   padding: 12px 16px;
-  background: var(--surface-offset);
-  color: var(--text-muted);
-  font-size: 11px;
+  height: 48px;
+  background: color-mix(in srgb, var(--primary) 80%, transparent);
+  color: var(--text-on-brand, #ffffff);
+  font-size: 13px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 80%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  vertical-align: middle;
 }
 
 @utility crm-td {
   padding: 12px 16px;
+  height: 56px;
   color: var(--text-primary);
   border-bottom: 1px solid var(--border-subtle);
   vertical-align: middle;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  height: 48px;
+  font-size: 13px;
 }
 
 @utility crm-tr {
   transition: background-color 120ms ease;
+  background-color: var(--surface);
+  &:nth-child(even) { background-color: var(--surface-2); }
   &:hover { background-color: var(--surface-2); }
   &:last-child td { border-bottom: none; }
 }

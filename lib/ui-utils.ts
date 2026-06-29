@@ -62,3 +62,56 @@ export function formatCurrency(value: number, currency = "INR", locale = "en-IN"
   if (!value || isNaN(value)) return new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 0 }).format(0);
   return new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
 }
+
+const DEFAULT_VISIT_TIMEZONE = "Asia/Kolkata";
+
+function getTimezoneOffset(timezone: string): string {
+  try {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      hour12: false,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+    const parts = formatter.formatToParts(now);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value;
+    const tzDateStr = `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}`;
+    const tzDate = new Date(tzDateStr);
+    const utcDate = new Date(now.toISOString().slice(0, 19));
+    const offsetMinutes = Math.round((tzDate.getTime() - utcDate.getTime()) / (60 * 1000));
+    const sign = offsetMinutes >= 0 ? "+" : "-";
+    const absMinutes = Math.abs(offsetMinutes);
+    const hours = Math.floor(absMinutes / 60);
+    const minutes = absMinutes % 60;
+    return `${sign}${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  } catch {
+    return "+05:30";
+  }
+}
+
+export function getCheckInWindow(
+  plannedDate: string | Date | null | undefined,
+  plannedTime: string | null | undefined,
+  timezone = DEFAULT_VISIT_TIMEZONE
+): { start: Date; end: Date; status: "TOO_EARLY" | "OPEN" | "TOO_LATE" } | null {
+  if (!plannedDate) return null;
+  // Use the UTC date part stored for plannedDate so it matches the date the user selected,
+  // then combine with plannedTime in the target timezone.
+  const d = new Date(plannedDate);
+  const dateStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  const time = plannedTime || "00:00";
+  const offset = timezone === "Asia/Kolkata" ? "+05:30" : getTimezoneOffset(timezone);
+  const planned = new Date(`${dateStr}T${time}:00${offset}`);
+  const start = new Date(planned.getTime() - 15 * 60 * 1000);
+  const end = new Date(planned.getTime() + 30 * 60 * 1000);
+  const now = new Date();
+  let status: "TOO_EARLY" | "OPEN" | "TOO_LATE" = "OPEN";
+  if (now < start) status = "TOO_EARLY";
+  else if (now > end) status = "TOO_LATE";
+  return { start, end, status };
+}

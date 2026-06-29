@@ -35,6 +35,9 @@ export async function GET(request: Request) {
         _count: {
           select: { products: true },
         },
+        parentCategory: {
+          select: { id: true, name: true },
+        },
       },
       orderBy: { name: "asc" },
     });
@@ -66,6 +69,8 @@ export async function POST(request: Request) {
         name: body.name,
         description: body.description ?? null,
         isActive: body.isActive ?? true,
+        defaultSpecifications: body.defaultSpecifications ?? null,
+        parentCategoryId: body.parentCategoryId ?? null,
         companyId: user.companyId ?? null,
       },
     });

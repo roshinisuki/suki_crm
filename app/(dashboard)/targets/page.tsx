@@ -122,47 +122,49 @@ export default function TargetsPage() {
           )}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Period</th>
-                <th className="px-4 py-3 font-semibold">Assigned User</th>
-                <th className="px-4 py-3 font-semibold">Territory</th>
-                <th className="px-4 py-3 font-semibold text-right">Target Amount</th>
-                <th className="px-4 py-3 font-semibold text-right">Achieved</th>
-                <th className="px-4 py-3 font-semibold text-right">Achievement %</th>
-                <th className="px-4 py-3 font-semibold">Progress</th>
-                {canManage && <th className="px-4 py-3 font-semibold text-right">Actions</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {targets.map((t) => {
-                const pct = t.targetAmount > 0 ? Math.round((t.achievedAmount / t.targetAmount) * 100) : 0;
-                return (
-                  <tr key={t.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">{t.period}</td>
-                    <td className="px-4 py-3 text-gray-600">{t.assignedUser?.name || "—"}</td>
-                    <td className="px-4 py-3 text-gray-600">{t.territory?.name || "—"}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(t.targetAmount)}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(t.achievedAmount)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${pct >= 80 ? "bg-green-50 text-green-700" : pct >= 50 ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{pct}%</span>
-                    </td>
-                    <td className="px-4 py-3"><ProgressBar pct={pct} /></td>
-                    {canManage && (
-                      <td className="px-4 py-3 text-right">
-                        <div className="inline-flex gap-1.5">
-                          <Link href={`/targets/${t.id}`} className="p-1.5 rounded hover:bg-gray-100" title="Edit"><Ico d={icons.edit} /></Link>
-                          <button onClick={() => handleDelete(t)} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Delete"><Ico d={icons.trash} /></button>
-                        </div>
+        <div className="crm-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="crm-table">
+              <thead>
+                <tr>
+                  <th className="crm-th">Period</th>
+                  <th className="crm-th">Assigned User</th>
+                  <th className="crm-th">Territory</th>
+                  <th className="crm-th text-right">Target Amount</th>
+                  <th className="crm-th text-right">Achieved</th>
+                  <th className="crm-th text-right">Achievement %</th>
+                  <th className="crm-th">Progress</th>
+                  {canManage && <th className="crm-th text-right">Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {targets.map((t) => {
+                  const pct = t.targetAmount > 0 ? Math.round((t.achievedAmount / t.targetAmount) * 100) : 0;
+                  return (
+                    <tr key={t.id} className="crm-tr">
+                      <td className="crm-td font-medium">{t.period}</td>
+                      <td className="crm-td text-foreground">{t.assignedUser?.name || "—"}</td>
+                      <td className="crm-td text-foreground">{t.territory?.name || "—"}</td>
+                      <td className="crm-td text-right text-foreground">{formatCurrency(t.targetAmount)}</td>
+                      <td className="crm-td text-right text-foreground">{formatCurrency(t.achievedAmount)}</td>
+                      <td className="crm-td text-right">
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${pct >= 80 ? "bg-green-50 text-green-700" : pct >= 50 ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{pct}%</span>
                       </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      <td className="crm-td"><ProgressBar pct={pct} /></td>
+                      {canManage && (
+                        <td className="crm-td text-right">
+                          <div className="inline-flex gap-1.5">
+                            <Link href={`/targets/${t.id}`} className="p-1.5 rounded hover:bg-muted" title="Edit"><Ico d={icons.edit} /></Link>
+                            <button onClick={() => handleDelete(t)} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Delete"><Ico d={icons.trash} /></button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

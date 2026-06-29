@@ -16,6 +16,11 @@ export async function GET(request: Request) {
     const categoryId = url.searchParams.get("categoryId") || "";
     const isActive = url.searchParams.get("isActive");
     const view = url.searchParams.get("view") || "";
+    const productType = url.searchParams.get("productType") || "";
+    const minPrice = url.searchParams.get("minPrice") || "";
+    const maxPrice = url.searchParams.get("maxPrice") || "";
+    const sortBy = url.searchParams.get("sortBy") || "createdAt";
+    const sortOrder = url.searchParams.get("sortOrder") || "desc";
     const page = parseInt(url.searchParams.get("page") || "1");
     const pageSize = parseInt(url.searchParams.get("pageSize") || "20");
 
@@ -35,6 +40,18 @@ export async function GET(request: Request) {
       where.isActive = true; // Default to active only
     }
 
+    if (productType) {
+      where.productType = productType;
+    }
+
+    if (minPrice) {
+      where.basePrice = { gte: parseFloat(minPrice) };
+    }
+
+    if (maxPrice) {
+      where.basePrice = { lte: parseFloat(maxPrice) };
+    }
+
     // Special views for datasheets and brochures
     if (view === "datasheets") {
       where.datasheetUrl = { not: null };
@@ -49,6 +66,15 @@ export async function GET(request: Request) {
       ];
     }
 
+    const orderBy: any = {};
+    if (sortBy === "basePrice") {
+      orderBy.basePrice = sortOrder === "asc" ? "asc" : "desc";
+    } else if (sortBy === "productCode") {
+      orderBy.productCode = sortOrder === "asc" ? "asc" : "desc";
+    } else {
+      orderBy[sortBy] = sortOrder === "asc" ? "asc" : "desc";
+    }
+
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
@@ -57,11 +83,11 @@ export async function GET(request: Request) {
             select: { id: true, name: true },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy,
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      prisma.product.count({ where }),
+      prisma.product.count({ where } ),
     ]);
 
     return NextResponse.json({ 

@@ -6,7 +6,7 @@ import { useToast } from "@/components/ToastProvider";
 import { PageShell } from "@/components/ui/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, Input, Textarea, Select } from "@/components/ui/FormField";
-import { formatDate, formatDateTime, cn } from "@/lib/ui-utils";
+import { formatDate, formatDateTime, cn, getCheckInWindow } from "@/lib/ui-utils";
 import {
   MapPin, CheckCircle, Clock, CalendarClock,
   AlertTriangle, UserPlus, Briefcase, Users, FileText, Navigation,
@@ -18,6 +18,7 @@ const STATUS_PILLS: Record<string, string> = {
   CHECKED_OUT: "bg-teal-50 text-teal-700 border-teal-200",
   COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200",
   MISSED: "bg-rose-50 text-rose-700 border-rose-200",
+  CUSTOMER_UNAVAILABLE: "bg-slate-100 text-slate-700 border-slate-300",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -26,6 +27,7 @@ const STATUS_LABELS: Record<string, string> = {
   CHECKED_OUT: "Checked Out",
   COMPLETED: "Completed",
   MISSED: "Missed",
+  CUSTOMER_UNAVAILABLE: "Customer Unavailable",
 };
 
 const TIMELINE_STEPS = [
@@ -51,15 +53,23 @@ export default function VisitDetailPage() {
   const [showComplete, setShowComplete] = useState(false);
   const [showReschedule, setShowReschedule] = useState(false);
   const [showAddAttendee, setShowAddAttendee] = useState(false);
+  const [showCustomerUnavailable, setShowCustomerUnavailable] = useState(false);
   const [accountContacts, setAccountContacts] = useState<any[]>([]);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [checkInTooLate, setCheckInTooLate] = useState(false);
 
   const [completeForm, setCompleteForm] = useState({
     visit_summary: "",
     next_action: "",
+    outcome_type: "",
     create_followup: false,
     followup_type: "",
     followup_datetime: "",
+    long_visit_justification: "",
+  });
+
+  const [customerUnavailableForm, setCustomerUnavailableForm] = useState({
+    reason: "",
   });
 
   const [rescheduleForm, setRescheduleForm] = useState({
@@ -79,6 +89,8 @@ export default function VisitDetailPage() {
       const json = await res.json();
       if (json.success) {
         setVisit(json.data);
+        const window = getCheckInWindow(json.data.plannedDate, json.data.plannedTime);
+        setCheckInTooLate(window?.status === "TOO_LATE");
         // Fetch contacts for this account (for attendee dropdown)
         if (json.data?.customerId) {
           const contactsRes = await fetch(`/api/contacts?customerId=${json.data.customerId}`);
@@ -119,6 +131,11 @@ export default function VisitDetailPage() {
           toast.success("Checked in successfully");
           if (json.warning) toast.warning(json.warning);
           loadVisit();
+        } else if (json.error === "TOO_EARLY") {
+          toast.warning(json.message || "Too early to check in");
+        } else if (json.error === "TOO_LATE") {
+          setCheckInTooLate(true);
+          toast.error(json.message || "Check-in window has passed for this visit.");
         } else {
           toast.error(json.message || "Check-in failed");
         }
@@ -131,23 +148,50 @@ export default function VisitDetailPage() {
     );
   };
 
-  const handleCheckOut = async () => {
-    const res = await fetch(`/api/visits/${id}/checkout`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-    const json = await res.json();
-    if (json.success) {
-      toast.success("Checked out");
-      loadVisit();
-    } else {
-      toast.error(json.message || "Failed");
+  const handleCheckOut = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by this browser");
+      return;
     }
+    setGpsLoading(true);
+    toast.info("Capturing your location...");
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        const res = await fetch(`/api/visits/${id}/checkout`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ gps_lat: latitude, gps_lng: longitude }),
+        });
+        const json = await res.json();
+        setGpsLoading(false);
+        if (json.success) {
+          toast.success("Checked out");
+          if (json.warning) toast.warning(json.warning);
+          loadVisit();
+        } else {
+          toast.error(json.message || "Failed");
+        }
+      },
+      (err) => {
+        setGpsLoading(false);
+        toast.error(`Failed to get location: ${err.message}`);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const handleComplete = async () => {
     if (!completeForm.visit_summary.trim()) {
       toast.error("Visit summary is required");
+      return;
+    }
+    if (!completeForm.outcome_type) {
+      toast.error("Outcome is required");
+      return;
+    }
+    if (visit?.longVisit && completeForm.long_visit_justification.trim().length < 20) {
+      toast.error("Justification for extended visit is required (min 20 characters)");
       return;
     }
     const res = await fetch(`/api/visits/${id}/complete`, {
@@ -165,9 +209,34 @@ export default function VisitDetailPage() {
     }
   };
 
+  const handleCustomerUnavailable = async () => {
+    if (!customerUnavailableForm.reason.trim()) {
+      toast.error("Reason is required");
+      return;
+    }
+    const res = await fetch(`/api/visits/${id}/customer-unavailable`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: customerUnavailableForm.reason }),
+    });
+    const json = await res.json();
+    if (json.success) {
+      toast.success("Marked as customer unavailable");
+      setShowCustomerUnavailable(false);
+      setCustomerUnavailableForm({ reason: "" });
+      loadVisit();
+    } else {
+      toast.error(json.message || "Failed");
+    }
+  };
+
   const handleReschedule = async () => {
     if (!rescheduleForm.new_planned_date) {
       toast.error("New planned date is required");
+      return;
+    }
+    if (!rescheduleForm.reason.trim()) {
+      toast.error("Reschedule reason is required");
       return;
     }
     const res = await fetch(`/api/visits/${id}/reschedule`, {
@@ -231,8 +300,27 @@ export default function VisitDetailPage() {
     </PageShell>
   );
 
-  const currentStepIndex = TIMELINE_STEPS.findIndex((s) => s.key === visit.status);
   const isMissed = visit.status === "MISSED";
+  const isCustomerUnavailable = visit.status === "CUSTOMER_UNAVAILABLE";
+  const timelineSteps = isCustomerUnavailable
+    ? [
+        { key: "PLANNED", label: "Planned", icon: CalendarClock },
+        { key: "CHECKED_IN", label: "Checked In", icon: MapPin },
+        { key: "CUSTOMER_UNAVAILABLE", label: "Customer Unavailable", icon: AlertTriangle },
+      ]
+    : isMissed
+    ? [
+        { key: "PLANNED", label: "Planned", icon: CalendarClock },
+        { key: "MISSED", label: "Missed", icon: AlertTriangle },
+      ]
+    : TIMELINE_STEPS;
+  const currentStepIndex = timelineSteps.findIndex((s) => s.key === visit.status);
+  const canComplete = visit.status === "CHECKED_OUT" && visit.checkOutGpsLocation != null;
+  const checkInWindow = visit.status === "PLANNED" ? getCheckInWindow(visit.plannedDate, visit.plannedTime) : null;
+  const completeSubmitEnabled =
+    completeForm.visit_summary.trim().length > 0 &&
+    completeForm.outcome_type !== "" &&
+    (!visit.longVisit || completeForm.long_visit_justification.trim().length >= 20);
 
   return (
     <PageShell
@@ -267,6 +355,14 @@ export default function VisitDetailPage() {
                   {STATUS_LABELS[visit.status] || visit.status}
                 </span>
               </div>
+              {visit.parentVisit && (
+                <a
+                  href={`/visits/${visit.parentVisit.id}`}
+                  className="inline-flex items-center gap-1 text-xs text-[var(--primary)] font-bold hover:underline mt-1"
+                >
+                  <Briefcase size={12} /> Follow-up of Visit #{visit.parentVisit.id.slice(-6)}
+                </a>
+              )}
             </div>
             <div className="text-right">
               <p className="text-xs text-slate-400 font-semibold uppercase">Assigned To</p>
@@ -278,14 +374,27 @@ export default function VisitDetailPage() {
           </div>
         </div>
 
+        {visit.autoCheckedOut && (
+          <div className="crm-card p-4 bg-red-50 border border-red-200 text-red-700 flex items-start gap-3">
+            <AlertTriangle size={20} className="shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold">Auto Checked Out</p>
+              <p className="text-sm">
+                This visit was automatically checked out by the system after 9 hours of check-in with no manual checkout.
+              </p>
+              {visit.autoCheckoutReason && <p className="text-xs mt-1">{visit.autoCheckoutReason}</p>}
+            </div>
+          </div>
+        )}
+
         {/* Status Timeline */}
         <div className="crm-card p-6">
           <h3 className="text-sm font-bold text-slate-800 mb-4">Visit Timeline</h3>
           <div className="flex items-center gap-2">
-            {TIMELINE_STEPS.map((step, idx) => {
+            {timelineSteps.map((step, idx) => {
               const Icon = step.icon;
-              const isReached = isMissed
-                ? step.key === "PLANNED"
+              const isReached = isMissed || isCustomerUnavailable
+                ? idx <= currentStepIndex
                 : idx <= currentStepIndex;
               const isCurrent = step.key === visit.status;
               return (
@@ -305,19 +414,38 @@ export default function VisitDetailPage() {
                       {step.label}
                     </span>
                   </div>
-                  {idx < TIMELINE_STEPS.length - 1 && (
+                  {idx < timelineSteps.length - 1 && (
                     <div className={cn(
                       "flex-1 h-0.5 mx-1",
-                      isMissed ? "bg-rose-200" : idx < currentStepIndex ? "bg-[var(--primary)]" : "bg-slate-200"
+                      isMissed || isCustomerUnavailable ? "bg-rose-200" : idx < currentStepIndex ? "bg-[var(--primary)]" : "bg-slate-200"
                     )} />
                   )}
                 </div>
               );
             })}
           </div>
+          {visit.autoCheckedOut && visit.autoCheckoutReason && (
+            <div className="mt-4 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-medium flex items-center gap-2">
+              <AlertTriangle size={14} /> {visit.autoCheckoutReason}
+            </div>
+          )}
           {isMissed && (
             <div className="mt-4 px-3 py-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 font-medium flex items-center gap-2">
               <AlertTriangle size={14} /> This visit was missed — no check-in was recorded before the planned time.
+            </div>
+          )}
+          {isCustomerUnavailable && visit.customerUnavailableReason && (
+            <div className="mt-4 px-3 py-2 bg-slate-100 border border-slate-300 rounded-lg text-xs text-slate-700 font-medium flex items-center gap-2">
+              <AlertTriangle size={14} /> Customer unavailable: {visit.customerUnavailableReason}
+            </div>
+          )}
+          {(visit.rescheduleCount > 0 || visit.rescheduleReason) && (
+            <div className="mt-4 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg text-xs text-indigo-700 font-medium flex items-start gap-2">
+              <CalendarClock size={14} className="mt-0.5 shrink-0" />
+              <div>
+                <p>Rescheduled {visit.rescheduleCount || 0} time{visit.rescheduleCount === 1 ? "" : "s"}</p>
+                {visit.rescheduleReason && <p className="text-indigo-600 mt-0.5">Latest reason: {visit.rescheduleReason}</p>}
+              </div>
             </div>
           )}
         </div>
@@ -339,21 +467,43 @@ export default function VisitDetailPage() {
                   <p className="text-sm font-bold text-slate-700">{visit.checkOutTime ? formatDateTime(visit.checkOutTime) : "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400 font-semibold uppercase">GPS Coordinates</p>
+                  <p className="text-xs text-slate-400 font-semibold uppercase">Check-In GPS</p>
                   <p className="text-sm font-bold text-slate-700">
                     {visit.gpsLat.toFixed(6)}, {visit.gpsLng.toFixed(6)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400 font-semibold uppercase">GPS Status</p>
+                  <p className="text-xs text-slate-400 font-semibold uppercase">Check-In GPS Status</p>
                   <p className={cn("text-sm font-bold", visit.gpsAnomaly ? "text-amber-600" : "text-emerald-600")}>
                     {visit.gpsAnomaly ? "Anomaly Detected" : "On Location"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-semibold uppercase">Check-Out GPS</p>
+                  <p className="text-sm font-bold text-slate-700">
+                    {visit.checkOutGpsLocation ? visit.checkOutGpsLocation : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-semibold uppercase">Check-Out GPS Status</p>
+                  <p className={cn("text-sm font-bold", visit.checkOutGpsAnomaly ? "text-amber-600" : "text-emerald-600")}>
+                    {visit.checkOutGpsAnomaly ? "Anomaly Detected" : visit.checkOutGpsLocation ? "On Location" : "Not Captured"}
                   </p>
                 </div>
               </div>
               {visit.gpsAnomaly && (
                 <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 font-medium flex items-center gap-2">
                   <AlertTriangle size={14} /> Check-in location was more than 1km from the registered plant address.
+                </div>
+              )}
+              {visit.checkOutGpsAnomaly && (
+                <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 font-medium flex items-center gap-2">
+                  <AlertTriangle size={14} /> Check-out location was more than 1km from check-in location.
+                </div>
+              )}
+              {visit.durationMinutes != null && visit.durationMinutes < 15 && (
+                <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 font-medium flex items-center gap-2">
+                  <AlertTriangle size={14} /> Short visit duration detected ({visit.durationMinutes} mins). Please verify.
                 </div>
               )}
               <a
@@ -437,10 +587,30 @@ export default function VisitDetailPage() {
                 <p className="text-xs text-slate-400 font-semibold uppercase">Summary</p>
                 <p className="text-sm text-slate-700 whitespace-pre-wrap">{visit.visitSummary || "—"}</p>
               </div>
+              {visit.outcomeType && (
+                <div>
+                  <p className="text-xs text-slate-400 font-semibold uppercase">Outcome</p>
+                  <span className={cn(
+                    "inline-block px-2 py-0.5 text-xs font-bold rounded-md border",
+                    visit.outcomeType === "POSITIVE" && "bg-emerald-50 text-emerald-700 border-emerald-200",
+                    visit.outcomeType === "NEUTRAL" && "bg-blue-50 text-blue-700 border-blue-200",
+                    visit.outcomeType === "NEEDS_FOLLOWUP" && "bg-amber-50 text-amber-700 border-amber-200",
+                    visit.outcomeType === "LOST" && "bg-rose-50 text-rose-700 border-rose-200"
+                  )}>
+                    {visit.outcomeType.replace(/_/g, " ")}
+                  </span>
+                </div>
+              )}
               {visit.nextAction && (
                 <div>
                   <p className="text-xs text-slate-400 font-semibold uppercase">Next Action</p>
                   <p className="text-sm text-slate-700">{visit.nextAction}</p>
+                </div>
+              )}
+              {visit.longVisitJustification && (
+                <div>
+                  <p className="text-xs text-slate-400 font-semibold uppercase">Justification for Extended Visit</p>
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{visit.longVisitJustification}</p>
                 </div>
               )}
             </div>
@@ -463,40 +633,101 @@ export default function VisitDetailPage() {
           </div>
         )}
 
+        {/* Follow-up Visits */}
+        {visit.childVisits && visit.childVisits.length > 0 && (
+          <div className="crm-card p-6">
+            <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <Briefcase size={16} /> Follow-up Visits
+            </h3>
+            <div className="space-y-2">
+              {visit.childVisits.map((child: any) => (
+                <a
+                  key={child.id}
+                  href={`/visits/${child.id}`}
+                  className="block p-3 bg-indigo-50 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-bold text-indigo-800">{child.purpose}</p>
+                    <span className={cn("px-2 py-0.5 text-xs font-bold rounded-md border", STATUS_PILLS[child.status] || "bg-slate-50 text-slate-600 border-slate-200")}>
+                      {STATUS_LABELS[child.status] || child.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-indigo-600">
+                    Planned: {child.plannedDate ? `${formatDate(child.plannedDate)} at ${child.plannedTime || "—"}` : "—"}
+                  </p>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons */}
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-start">
           {visit.status === "PLANNED" && (
-            <button
-              onClick={handleCheckIn}
-              disabled={gpsLoading}
-              className="px-5 py-2.5 bg-amber-600 text-white font-bold text-sm rounded-xl hover:bg-amber-700 disabled:opacity-50 flex items-center gap-2"
-            >
-              <MapPin size={16} /> Check In
-            </button>
+            <div className="flex flex-col gap-1">
+              <button
+                onClick={handleCheckIn}
+                disabled={gpsLoading || checkInTooLate}
+                className="px-5 py-2.5 bg-amber-600 text-white font-bold text-sm rounded-xl hover:bg-amber-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                <MapPin size={16} /> Check In
+              </button>
+              {checkInWindow && (
+                <span className="text-xs text-slate-500">
+                  Check-in available from {formatDateTime(checkInWindow.start)} to {formatDateTime(checkInWindow.end)}
+                </span>
+              )}
+            </div>
           )}
           {visit.status === "CHECKED_IN" && (
             <>
               <button
                 onClick={handleCheckOut}
-                className="px-5 py-2.5 bg-teal-600 text-white font-bold text-sm rounded-xl hover:bg-teal-700 flex items-center gap-2"
+                disabled={gpsLoading}
+                className="px-5 py-2.5 bg-teal-600 text-white font-bold text-sm rounded-xl hover:bg-teal-700 disabled:opacity-50 flex items-center gap-2"
               >
                 <Clock size={16} /> Check Out
               </button>
               <button
-                onClick={() => setShowComplete(true)}
-                className="px-5 py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl hover:bg-emerald-700 flex items-center gap-2"
+                onClick={() => setShowCustomerUnavailable(true)}
+                className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-200 flex items-center gap-2"
               >
-                <CheckCircle size={16} /> Complete Visit
+                <AlertTriangle size={16} /> Customer Unavailable
               </button>
             </>
           )}
           {visit.status === "CHECKED_OUT" && (
-            <button
-              onClick={() => setShowComplete(true)}
-              className="px-5 py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl hover:bg-emerald-700 flex items-center gap-2"
-            >
-              <CheckCircle size={16} /> Complete Visit
-            </button>
+            <div className="relative group">
+              <button
+                onClick={() => {
+                  if (!canComplete) return;
+                  setCompleteForm({
+                    visit_summary: "",
+                    next_action: "",
+                    outcome_type: "",
+                    create_followup: false,
+                    followup_type: "",
+                    followup_datetime: "",
+                    long_visit_justification: "",
+                  });
+                  setShowComplete(true);
+                }}
+                disabled={!canComplete}
+                className={cn(
+                  "px-5 py-2.5 font-bold text-sm rounded-xl flex items-center gap-2",
+                  canComplete
+                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                    : "bg-emerald-300 text-white cursor-not-allowed"
+                )}
+              >
+                <CheckCircle size={16} /> Complete Visit
+              </button>
+              {!canComplete && (
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 px-2 py-1 text-xs text-white bg-slate-800 rounded-lg text-center">
+                  Please complete checkout with GPS before finishing the visit
+                </span>
+              )}
+            </div>
           )}
           {(visit.status === "PLANNED" || visit.status === "MISSED") && (
             <button
@@ -519,11 +750,28 @@ export default function VisitDetailPage() {
         footer={
           <>
             <button onClick={() => setShowComplete(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Cancel</button>
-            <button onClick={handleComplete} className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700">Complete</button>
+            <button
+              onClick={handleComplete}
+              disabled={!completeSubmitEnabled}
+              className={cn(
+                "px-4 py-2 text-white text-sm font-bold rounded-lg",
+                completeSubmitEnabled ? "bg-emerald-600 hover:bg-emerald-700" : "bg-emerald-300 cursor-not-allowed"
+              )}
+            >
+              Complete
+            </button>
           </>
         }
       >
         <div className="p-6 space-y-4">
+          {visit.longVisit && (
+            <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800">
+              <AlertTriangle size={20} className="shrink-0 mt-0.5" />
+              <p className="text-sm">
+                This visit was auto checked out after 9 hours. Please provide a justification below before completing.
+              </p>
+            </div>
+          )}
           <FormField label="Visit Summary" required hint="Enter visit outcome: discussions, decisions, next steps">
             <Textarea
               rows={4}
@@ -532,6 +780,18 @@ export default function VisitDetailPage() {
               placeholder="Enter visit outcome: discussions, decisions, next steps"
             />
           </FormField>
+          <FormField label="Outcome" required>
+            <Select
+              value={completeForm.outcome_type}
+              onChange={(e) => setCompleteForm({ ...completeForm, outcome_type: e.target.value })}
+            >
+              <option value="">Select outcome...</option>
+              <option value="POSITIVE">Positive</option>
+              <option value="NEUTRAL">Neutral</option>
+              <option value="NEEDS_FOLLOWUP">Needs Follow-up</option>
+              <option value="LOST">Lost</option>
+            </Select>
+          </FormField>
           <FormField label="Next Action">
             <Input
               value={completeForm.next_action}
@@ -539,6 +799,19 @@ export default function VisitDetailPage() {
               placeholder="e.g. Send quotation, Schedule demo..."
             />
           </FormField>
+          {visit.longVisit && (
+            <FormField label="Justification for Extended Visit" required>
+              <Textarea
+                rows={3}
+                value={completeForm.long_visit_justification}
+                onChange={(e) => setCompleteForm({ ...completeForm, long_visit_justification: e.target.value })}
+                placeholder="Please explain why the visit lasted more than 9 hours (e.g., extended demo, factory audit, customer requested longer session)"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                Minimum 20 characters required. Current: {completeForm.long_visit_justification.trim().length}
+              </p>
+            </FormField>
+          )}
           <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
             <input
               type="checkbox"
@@ -609,6 +882,32 @@ export default function VisitDetailPage() {
               value={rescheduleForm.reason}
               onChange={(e) => setRescheduleForm({ ...rescheduleForm, reason: e.target.value })}
               placeholder="Reason for rescheduling..."
+            />
+          </FormField>
+        </div>
+      </Modal>
+
+      {/* Customer Unavailable Modal */}
+      <Modal
+        open={showCustomerUnavailable}
+        onClose={() => setShowCustomerUnavailable(false)}
+        title="Customer Unavailable"
+        subtitle="Record why the customer could not be met"
+        size="sm"
+        footer={
+          <>
+            <button onClick={() => setShowCustomerUnavailable(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Cancel</button>
+            <button onClick={handleCustomerUnavailable} className="px-4 py-2 bg-slate-700 text-white text-sm font-bold rounded-lg hover:bg-slate-800">Confirm</button>
+          </>
+        }
+      >
+        <div className="p-6 space-y-4">
+          <FormField label="Reason" required>
+            <Textarea
+              rows={3}
+              value={customerUnavailableForm.reason}
+              onChange={(e) => setCustomerUnavailableForm({ reason: e.target.value })}
+              placeholder="e.g. Customer was out of office, meeting cancelled..."
             />
           </FormField>
         </div>

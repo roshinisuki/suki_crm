@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 import { ToastProvider } from "@/components/ToastProvider";
 import { GlobalLoadingProvider } from "@/components/GlobalLoadingProvider";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import { getMeAction } from "@/app/actions/auth";
 
 const inter = { className: "font-sans" };
@@ -44,29 +45,11 @@ export default async function RootLayout({
   const isDark = themeMode === "dark";
 
   return (
-    <html lang="en" data-theme={themeColor} data-mode={themeMode} className={isDark ? "dark" : ""}>
+    <html lang="en" data-theme={themeColor} data-mode={themeMode} className={isDark ? "dark" : ""} suppressHydrationWarning>
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                var map = {ember:"orange",ocean:"blue",forest:"green",obsidian:"purple",black:"purple"};
-                var theme = localStorage.getItem("suki-theme") || localStorage.getItem("crm-theme-color") || "${themeColor}";
-                var mode = localStorage.getItem("suki-mode") || localStorage.getItem("crm-theme-mode") || "${themeMode}";
-                // Migrate old "black" to "purple"
-                if (theme === "black") theme = "purple";
-                theme = map[theme] || theme;
-                document.documentElement.setAttribute("data-theme", theme);
-                document.documentElement.setAttribute("data-mode", mode);
-                if (mode === "dark") document.documentElement.classList.add("dark");
-                else document.documentElement.classList.remove("dark");
-              })();
-              window.__CRM_VARIANT__ = ${process.env.NEXT_PUBLIC_CRM_VARIANT || "1"};
-            `,
-          }}
-        />
       </head>
       <body className={inter.className}>
+        <ThemeProvider />
         <ToastProvider>
           <AuthProvider initialUser={initialUser as any}>
             <GlobalLoadingProvider>

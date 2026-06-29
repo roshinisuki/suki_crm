@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
 import { logoutAction, saveUserThemeAction, saveUserThemeModeAction } from "@/app/actions/auth";
 import { cn } from "@/lib/ui-utils";
+import { searchModules, type ModuleSearchItem } from "@/lib/config/variantModuleMap";
 import { getInitials } from "@/lib/ui-utils";
 import { Search, Bell, ChevronDown, Menu, Settings, User, LogOut, Check, Trash2 } from "lucide-react";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
@@ -15,6 +16,13 @@ const ROLE_LABELS: Record<string, string> = {
   SalesManager:      "Marketing Lead",
   SalesExecutive: "Sales Executive",
   Customer:           "Customer",
+};
+
+const SEARCH_PLACEHOLDERS: Record<number, string> = {
+  1: 'Search leads, accounts, contacts, or jump to a module...',
+  2: 'Search leads, accounts, pipeline, RFQ, quotations, or go to a module...',
+  3: 'Search leads, accounts, pipeline, RFQ, quotations, samples, or go to a module...',
+  4: 'Search leads, accounts, pipeline, RFQ, quotations, territories, or go to a module...',
 };
 
 function useClock() {
@@ -81,6 +89,9 @@ export default function DashboardHeader({
   const [searchResults, setSearchResults] = useState<{ leads: any[]; customers: any[]; deals: any[]; contacts: any[]; pos: any[]; quotations: any[]; visits: any[]; visitors: any[] } | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const [moduleResults, setModuleResults] = useState<ModuleSearchItem[]>([]);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const activeVariant: number = user?.variant || user?.company?.variant || 1;
 
   // Notifications
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -148,6 +159,15 @@ export default function DashboardHeader({
     return () => clearTimeout(t);
   }, [searchQuery]);
 
+  useEffect(() => {
+    if (searchQuery.trim().length > 0) {
+      setModuleResults(searchModules(searchQuery, activeVariant));
+    } else {
+      setModuleResults([]);
+      setHighlightedIndex(-1);
+    }
+  }, [searchQuery, activeVariant]);
+
   const markAllRead = () => {
     fetch("/api/notifications", { method: "PATCH" }).catch(() => {});
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
@@ -159,6 +179,25 @@ export default function DashboardHeader({
   const clearAll = () => {
     fetch("/api/notifications", { method: "DELETE" }).catch(() => {});
     setNotifications([]);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(i => Math.min(i + 1, moduleResults.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(i => Math.max(i - 1, -1));
+    } else if (e.key === 'Enter' && highlightedIndex >= 0 && moduleResults[highlightedIndex]) {
+      router.push(moduleResults[highlightedIndex].href);
+      setSearchQuery('');
+      setIsSearchOpen(false);
+      setHighlightedIndex(-1);
+    } else if (e.key === 'Escape') {
+      setSearchQuery('');
+      setIsSearchOpen(false);
+      setHighlightedIndex(-1);
+    }
   };
 
   const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -197,15 +236,50 @@ export default function DashboardHeader({
             type="text"
             value={searchQuery}
             onChange={e => { setSearchQuery(e.target.value); setIsSearchOpen(true); }}
-            placeholder="Search leads, customers, deals, POs..."
+            onKeyDown={handleSearchKeyDown}
+            placeholder={SEARCH_PLACEHOLDERS[activeVariant] ?? SEARCH_PLACEHOLDERS[1]}
             className="w-[220px] lg:w-[300px] h-[30px] pl-8 pr-3 rounded-lg bg-[var(--surface-2)] text-xs text-[var(--text-primary)] placeholder:text-slate-400 border border-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] focus:bg-[var(--surface)] transition-all"
           />
 
-          {isSearchOpen && searchResults && (
+          {isSearchOpen && (moduleResults.length > 0 || searchResults) && (
             <div className="absolute top-full mt-2 w-[360px] right-0 bg-[var(--surface)] border border-[var(--border)] shadow-xl rounded-2xl overflow-hidden z-50">
               <div className="max-h-96 overflow-y-auto">
-                {searchResults.leads.length === 0 && searchResults.customers.length === 0 && searchResults.deals.length === 0 && searchResults.contacts.length === 0 && searchResults.pos.length === 0 && searchResults.quotations.length === 0 && searchResults.visits.length === 0 && searchResults.visitors.length === 0 ? (
-                  <div className="p-5 text-center text-xs text-slate-400 font-semibold">No results found for "{searchQuery}"</div>
+
+                {/* ── Module / Page results (local, instant) ── */}
+                {moduleResults.length > 0 && (
+                  <div>
+                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-4 pt-3 pb-1">Go to</h4>
+                    {moduleResults.map((item, idx) => (
+                      <div
+                        key={item.key}
+                        onClick={() => { router.push(item.href); setSearchQuery(""); setIsSearchOpen(false); setHighlightedIndex(-1); }}
+                        className="flex items-center gap-2.5 px-3 py-2 mx-1 rounded-xl cursor-pointer transition-colors"
+                        style={{ background: idx === highlightedIndex ? 'var(--surface-2)' : 'transparent' }}
+                        onMouseEnter={() => setHighlightedIndex(idx)}
+                        onMouseLeave={() => setHighlightedIndex(-1)}
+                      >
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[var(--surface-2)]">
+                          {item.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                            {item.parentLabel
+                              ? <>{item.parentLabel} <span className="text-slate-400 mx-0.5">›</span> {item.label}</>
+                              : item.label
+                            }
+                          </p>
+                          <p className="text-[10px] text-slate-400">{item.type === 'setting' ? 'Settings' : 'Navigate to page'}</p>
+                        </div>
+                        <span className="text-[11px] text-slate-400 shrink-0">↗</span>
+                      </div>
+                    ))}
+                    {searchResults && <div className="h-px bg-[var(--border-subtle)] mx-3 my-1" />}
+                  </div>
+                )}
+
+                {/* ── Data results (existing API search) ── */}
+                {searchResults && (searchResults.leads.length === 0 && searchResults.customers.length === 0 && searchResults.deals.length === 0 && searchResults.contacts.length === 0 && searchResults.pos.length === 0 && searchResults.quotations.length === 0 && searchResults.visits.length === 0 && searchResults.visitors.length === 0 ? (
+                  moduleResults.length === 0 && <div className="p-5 text-center text-xs text-slate-400 font-semibold">No results found for "{searchQuery}"</div>
                 ) : (
                   <>
                     {searchResults.leads.length > 0 && (
@@ -286,7 +360,7 @@ export default function DashboardHeader({
                       </div>
                     )}
                   </>
-                )}
+                ))}
               </div>
             </div>
           )}

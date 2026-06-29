@@ -9,7 +9,7 @@ import { FormField, Input, Textarea, Select } from "@/components/ui/FormField";
 import { formatDate } from "@/lib/ui-utils";
 import {
   Plus, Search, Trash2, FileText, ExternalLink, Pencil,
-  FileCheck,
+  FileCheck, UploadCloud, X,
 } from "lucide-react";
 
 export default function DatasheetsPage() {
@@ -32,6 +32,7 @@ export default function DatasheetsPage() {
     mimeType: "",
     fileSize: 0,
   });
+  const [file, setFile] = useState<File | null>(null);
 
   const loadDatasheets = useCallback(async () => {
     setLoading(true);
@@ -61,7 +62,29 @@ export default function DatasheetsPage() {
 
   useEffect(() => { loadDatasheets(); loadProducts(); }, [loadDatasheets, loadProducts]);
 
-  const resetForm = () => setFormData({ id: "", productId: "", name: "", fileUrl: "", description: "", mimeType: "", fileSize: 0 });
+  const resetForm = () => {
+    setFormData({ id: "", productId: "", name: "", fileUrl: "", description: "", mimeType: "", fileSize: 0 });
+    setFile(null);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+    setFile(selected);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormData({ ...formData, fileUrl: reader.result as string, mimeType: selected.type, fileSize: selected.size });
+    };
+    reader.readAsDataURL(selected);
+    if (!formData.name) {
+      setFormData({ ...formData, name: selected.name.replace(/\.[^/.]+$/, "") });
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setFile(null);
+    setFormData({ ...formData, fileUrl: "", mimeType: "", fileSize: 0 });
+  };
 
   const handleSave = async () => {
     if (!formData.productId || !formData.name || !formData.fileUrl) {
@@ -189,27 +212,27 @@ export default function DatasheetsPage() {
           <table className="crm-table">
             <thead>
               <tr>
-                <th className="text-left">Document</th>
-                <th className="text-left">Product</th>
-                <th className="text-left">Version</th>
-                <th className="text-left">Uploaded By</th>
-                <th className="text-left">Date</th>
-                <th className="text-right">Actions</th>
+                <th className="crm-th">Document</th>
+                <th className="crm-th">Product</th>
+                <th className="crm-th">Version</th>
+                <th className="crm-th">Uploaded By</th>
+                <th className="crm-th">Date</th>
+                <th className="crm-th text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12">
-                    <div className="inline-flex items-center gap-3 text-slate-400">
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-300 border-t-transparent" />
+                  <td colSpan={6} className="crm-td text-center py-12">
+                    <div className="inline-flex items-center gap-3 text-muted-foreground">
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-muted-foreground border-t-transparent" />
                       <span className="text-sm font-medium">Loading datasheets...</span>
                     </div>
                   </td>
                 </tr>
               ) : docs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12">
+                  <td colSpan={6} className="crm-td text-center py-12">
                     <FileText size={32} className="mx-auto text-slate-300 mb-2" />
                     <p className="text-sm text-slate-500 font-medium">No datasheets found</p>
                     <p className="text-xs text-slate-400 mt-0.5">Upload your first product datasheet to get started</p>
@@ -217,37 +240,37 @@ export default function DatasheetsPage() {
                 </tr>
               ) : (
                 docs.map((doc) => (
-                  <tr key={doc.id}>
-                    <td>
+                  <tr key={doc.id} className="crm-tr">
+                    <td className="crm-td">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
                           <FileText size={16} />
                         </div>
                         <div className="min-w-0">
-                          <div className="font-semibold text-slate-800 text-sm truncate max-w-[200px]">{doc.name}</div>
-                          <div className="text-xs text-slate-400 font-mono truncate max-w-[200px]">{doc.documentCode}</div>
+                          <div className="font-medium text-foreground text-sm truncate max-w-[200px]">{doc.name}</div>
+                          <div className="text-xs text-muted-foreground font-mono truncate max-w-[200px]">{doc.documentCode}</div>
                         </div>
                       </div>
                     </td>
-                    <td>
+                    <td className="crm-td">
                       {doc.product ? (
                         <div className="min-w-0">
-                          <div className="text-sm font-medium text-slate-700 truncate max-w-[160px]">{doc.product.name}</div>
-                          <div className="text-xs text-slate-400 font-mono">{doc.product.productCode}</div>
+                          <div className="text-sm font-medium text-foreground truncate max-w-[160px]">{doc.product.name}</div>
+                          <div className="text-xs text-muted-foreground font-mono">{doc.product.productCode}</div>
                         </div>
                       ) : (
-                        <span className="text-slate-400">—</span>
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td>
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600">
-                        <FileCheck size={13} className="text-slate-400" />
+                    <td className="crm-td">
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
+                        <FileCheck size={13} className="text-muted-foreground" />
                         v{doc.version}
                       </span>
                     </td>
-                    <td className="text-sm text-slate-600 truncate max-w-[120px]">{doc.uploadedBy?.name || "—"}</td>
-                    <td className="text-sm text-slate-500 whitespace-nowrap">{formatDate(doc.createdAt)}</td>
-                    <td>
+                    <td className="crm-td text-foreground truncate max-w-[120px]">{doc.uploadedBy?.name || "—"}</td>
+                    <td className="crm-td text-muted-foreground">{formatDate(doc.createdAt)}</td>
+                    <td className="crm-td text-right">
                       <div className="flex items-center justify-end gap-1">
                         <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="action-icon-btn text-blue-600 hover:bg-blue-50" title="View">
                           <ExternalLink size={15} />
@@ -300,12 +323,51 @@ export default function DatasheetsPage() {
               placeholder="e.g. Technical Specifications Sheet"
             />
           </FormField>
-          <FormField label="File URL" required hint="Link to a PDF or external document">
+          <FormField label="File Upload" required hint="Upload PDF or external document link">
+            <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-[var(--primary)]/40 transition-colors">
+              <input
+                type="file"
+                id="file-upload"
+                className="hidden"
+                onChange={handleFileChange}
+                accept=".pdf,.doc,.docx,.xls,.xlsx"
+              />
+              <label htmlFor="file-upload" className="cursor-pointer">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-10 h-10 rounded-full bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center">
+                    <UploadCloud size={20} />
+                  </div>
+                  {file ? (
+                    <div className="flex items-center gap-3">
+                      <div className="text-left">
+                        <p className="text-sm font-medium text-slate-900">{file.name}</p>
+                        <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); handleRemoveFile(); }}
+                        className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Click to upload or drag and drop</p>
+                      <p className="text-xs text-slate-500">PDF, DOC, XLS up to 10MB</p>
+                    </div>
+                  )}
+                </div>
+              </label>
+            </div>
+          </FormField>
+          <FormField label="Or paste external URL" hint="Alternative to file upload">
             <Input
               type="url"
-              value={formData.fileUrl}
+              value={formData.fileUrl && !file ? formData.fileUrl : ""}
               onChange={(e) => setFormData({ ...formData, fileUrl: e.target.value })}
               placeholder="https://example.com/datasheet.pdf"
+              disabled={!!file}
             />
           </FormField>
           <FormField label="Description">

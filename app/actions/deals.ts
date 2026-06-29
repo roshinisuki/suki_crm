@@ -173,7 +173,7 @@ export async function createDealAction(data: {
       return { success: false, message: "Unauthorized: SuperAdmin must access business data via support/impersonation mode." };
     }
 
-    const { dealName, customerId, dealValue, expectedCloseDate, assignedUserId, notes, status = "Active" } = data;
+    const { dealName, customerId, dealValue, expectedCloseDate, assignedUserId, notes, status } = data;
 
     if (!dealName || !customerId || !expectedCloseDate || dealValue === undefined) {
       return { success: false, message: "Required fields are missing" };
@@ -191,8 +191,28 @@ export async function createDealAction(data: {
       ? userPayload.id
       : assignedUserId || null;
 
+    // Use same logic as POST /api/opportunities - always start at SalesOpportunity
+    const initialStage = status || "SalesOpportunity";
+
+    // Get probability from PipelineStageMaster
+    let probabilityPercent = 20;
+    const stageMaster = await prisma.pipelineStageMaster.findFirst({
+      where: { stageName: initialStage, isActive: true },
+    });
+    if (stageMaster) {
+      probabilityPercent = stageMaster.probabilityPercent;
+    }
+
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Create the Deal
+      // Generate opportunity code: OPP-YYYY-NNNNN
+      const year = new Date().getFullYear();
+      const oppPrefix = `OPP-${year}-`;
+      const oppCount = await tx.deal.count({
+        where: { opportunityCode: { startsWith: oppPrefix } },
+      });
+      const opportunityCode = `${oppPrefix}${String(oppCount + 1).padStart(5, "0")}`;
+
+      // Create the Deal (Opportunity)
       const deal = await tx.deal.create({
         data: {
           dealName,
@@ -201,28 +221,41 @@ export async function createDealAction(data: {
           expectedCloseDate: new Date(expectedCloseDate),
           assignedUserId: finalAssignedUserId,
           notes: notes || null,
-          status: status as any,
+          status: initialStage,
+          opportunityCode,
+          probabilityPercent,
           companyId: userPayload.companyId,
-        }
+        },
       });
 
-      // Log to Stage History
+      // Insert initial stage history
       await tx.dealStageHistory.create({
         data: {
           dealId: deal.id,
           fromStatus: null,
-          toStatus: status,
-          changedById: userPayload.id
-        }
+          toStatus: initialStage,
+          changedById: userPayload.id,
+          daysInPreviousStage: 0,
+        },
       });
 
-      // 2. Automations: Deal Won -> Customer becomes ActiveCustomer
-      if (status === "Won") {
-        await tx.customer.update({
-          where: { id: customerId },
-          data: { status: "ActiveCustomer" }
-        });
-      }
+      // Auto-create stage-appropriate follow-up
+      const followUpDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // +2 days
+      await tx.followUp.create({
+        data: {
+          customerId: customerId,
+          assignedUserId: finalAssignedUserId || userPayload.id,
+          nextMeetingDate: followUpDate,
+          dueDate: followUpDate,
+          remarks: "Schedule discovery call",
+          status: "Pending",
+          priority: "High",
+          sourceType: "OPPORTUNITY_CREATE",
+          sourceId: deal.id,
+          autoCreated: true,
+          companyId: userPayload.companyId,
+        },
+      });
 
       return deal;
     });
@@ -231,17 +264,22 @@ export async function createDealAction(data: {
       userPayload.id,
       "Deal",
       "Create",
-      `Created deal "${dealName}" for customer ID ${customerId} (Value: ${dealValue}, Status: ${status})`
+      `Created deal ${result.opportunityCode} (${dealName})`,
+      {
+        resourceId: result.id,
+        newState: { opportunityCode: result.opportunityCode, stage: initialStage, dealValue: result.dealValue },
+        severity: "INFO",
+      }
     );
 
-    // Notify assigned executive if creator is different
+    // Notify assigned user if different from creator
     if (finalAssignedUserId && finalAssignedUserId !== userPayload.id) {
       await dispatchNotification({
         userId: finalAssignedUserId,
-        title: "New Deal Assigned",
-        message: `You have been assigned a new deal: "${dealName}".`,
+        title: "New Opportunity Assigned",
+        message: `You have been assigned a new opportunity: "${dealName}" (${result.opportunityCode}).`,
         type: "deal",
-        link: `/customer-master/${customerId}`
+        link: `/sales-pipeline/${result.id}`,
       });
     }
 
@@ -254,10 +292,10 @@ export async function createDealAction(data: {
     if (managerIds.length > 0) {
       await dispatchNotificationsToMany({
         userIds: managerIds,
-        title: "New Deal Created",
-        message: `${userPayload.email} created a new deal "${dealName}" for customer ID ${customerId}.`,
+        title: "New Opportunity Created",
+        message: `${userPayload.email} created a new opportunity "${dealName}" (${result.opportunityCode}).`,
         type: "deal",
-        link: `/customer-master/${customerId}`
+        link: `/sales-pipeline/${result.id}`,
       });
     }
 
@@ -427,104 +465,42 @@ export async function updateDealStatusAction(id: string, status: string, lostRea
       return { success: false, message: "Unauthorized: Access denied." };
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      // Get existing status and opportunity detail
-      const existingDeal = await tx.deal.findUnique({
-        where: { id },
-        select: { status: true, opportunityDetail: true }
-      });
+    // Stage-gate Validation (BRD Variant 1 only)
+    const details = currentDeal.opportunityDetail;
+    const currentStatus = currentDeal.status;
 
-      if (!existingDeal) throw new Error("Deal not found in transaction");
-
-      // Stage-gate Validation (BRD Variant 1 only)
-      const details = existingDeal.opportunityDetail;
-      const currentStatus = existingDeal.status;
-
-      // MeetingScheduled: only validate meeting details if already in MeetingScheduled stage (re-save)
-      // When advancing FROM RequirementGathering, meeting details get filled AFTER entering this stage
-      if (status === "MeetingScheduled" && currentStatus === "MeetingScheduled") {
-        if (!details || !details.meetingDate || !details.meetingMode || !details.meetingAgenda) {
-          throw new Error("Validation Failed: Must complete Meeting Details (Date, Mode, Agenda).");
-        }
+    // MeetingScheduled: only validate meeting details if already in MeetingScheduled stage (re-save)
+    // When advancing FROM RequirementGathering, meeting details get filled AFTER entering this stage
+    if (status === "MeetingScheduled" && currentStatus === "MeetingScheduled") {
+      if (!details || !details.meetingDate || !details.meetingMode || !details.meetingAgenda) {
+        throw new Error("Validation Failed: Must complete Meeting Details (Date, Mode, Agenda).");
       }
-      if (status === "SolutionReview") {
-        if (!details || !details.meetingDate) {
-          throw new Error("Validation Failed: Must schedule a meeting before moving to Solution Review.");
-        }
-      }
-      if (status === "ProposalSent") {
-        if (!details || !details.proposedSolution) {
-          throw new Error("Validation Failed: Must fill in Proposed Solution before sending proposal.");
-        }
-      }
-      // Negotiation: no pre-validation needed - negotiation details are filled AFTER entering this stage
-      // (expectedBudget, commercialTerms, negotiationNotes are all filled during negotiation)
-
-      // 1. Update status
-      const dataUpdate: any = { status: status as any };
-      if (status === "Lost" && lostReason) {
-        dataUpdate.lostReason = lostReason;
-      }
-
-      const deal = await tx.deal.update({
-        where: { id },
-        data: dataUpdate
-      });
-
-      // Log transition
-      if (existingDeal && existingDeal.status !== status) {
-        await tx.dealStageHistory.create({
-          data: {
-            dealId: deal.id,
-            fromStatus: existingDeal.status,
-            toStatus: status as any,
-            changedById: userPayload.id
-          }
-        });
-      }
-
-      // 2. Sync Customer status if Won
-      if (status === "Won") {
-        await tx.customer.update({
-          where: { id: deal.customerId },
-          data: { status: "ActiveCustomer" }
-        });
-      }
-
-      return deal;
-    });
-
-    await logAudit(
-      userPayload.id,
-      "Deal",
-      "Update",
-      `Changed deal status of "${result.dealName}" to ${status}${status === "Lost" && lostReason ? ` (Reason: ${lostReason})` : ""}`
-    );
-
-    // Notify owner (if updated by someone else)
-    if (result.assignedUserId && result.assignedUserId !== userPayload.id) {
-      await dispatchNotification({
-        userId: result.assignedUserId,
-        title: "Deal Status Changed",
-        message: `The status of your deal "${result.dealName}" has been changed to "${status}".`,
-        type: "deal",
-        link: `/customer-master/${result.customerId}`
-      });
     }
+    if (status === "SolutionReview") {
+      if (!details || !details.meetingDate) {
+        throw new Error("Validation Failed: Must schedule a meeting before moving to Solution Review.");
+      }
+    }
+    if (status === "ProposalSent") {
+      if (!details || !details.proposedSolution) {
+        throw new Error("Validation Failed: Must fill in Proposed Solution before sending proposal.");
+      }
+    }
+    // Negotiation: no pre-validation needed - negotiation details are filled AFTER entering this stage
+    // (expectedBudget, commercialTerms, negotiationNotes are all filled during negotiation)
 
-    // Notify managers (scoped to tenant company)
-    const managers = await prisma.user.findMany({
-      where: { role: { in: ["Admin", "SalesManager"] }, isActive: true, companyId: userPayload.companyId },
-      select: { id: true }
+    // Use centralized transitionDealStatus for all status changes
+    await transitionDealStatus(id, status, {
+      actorId: userPayload.id,
+      reason: lostReason ? `Lost: ${lostReason}` : undefined,
+      companyId: userPayload.companyId,
     });
-    const managerIds = managers.map(m => m.id).filter(id => id !== userPayload.id);
-    if (managerIds.length > 0) {
-      await dispatchNotificationsToMany({
-        userIds: managerIds,
-        title: "Deal Stage Promoted",
-        message: `Deal "${result.dealName}" has been changed to stage "${status}".`,
-        type: "deal",
-        link: `/customer-master/${result.customerId}`
+
+    // Update lost reason separately if provided (not part of transitionDealStatus)
+    if (status === "Lost" && lostReason) {
+      await prisma.deal.update({
+        where: { id },
+        data: { lostReason }
       });
     }
 
@@ -672,10 +648,11 @@ export async function requestDiscountAction(_data: {
         },
       });
 
-      // Transition deal status (approval workflow disabled in V1 \u2014 kept as Active)
+      // Transition deal status (approval workflow disabled in V1 — kept as Active)
       await transitionDealStatus(dealId, "Active", {
         actorId: userPayload!.id,
         reason: `Discount of ${discountPercent}% requested`,
+        companyId: userPayload!.companyId,
       });
 
       // Create entry in ApprovalHistory, store previous status for rollback
@@ -819,6 +796,7 @@ export async function resolveDiscountAction(data: {
       await transitionDealStatus(dealId, "Active", {
         actorId: userPayload.id,
         reason: `Discount of ${deal.discountPercent}% approved`,
+        companyId: userPayload.companyId,
       });
 
       // Find pending ApprovalHistory and update
@@ -891,6 +869,7 @@ export async function resolveDiscountAction(data: {
       await transitionDealStatus(dealId, restoredStatus, {
         actorId: userPayload.id,
         reason: `Discount request rejected — deal restored to previous stage (${restoredStatus})`,
+        companyId: userPayload.companyId,
       });
 
       if (pendingApprovalForReject) {

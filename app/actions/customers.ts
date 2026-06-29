@@ -333,25 +333,9 @@ export async function createCustomerAction(data: any) {
       },
     });
 
-    // Auto-create User account for the customer if email is provided
-    if (email) {
-      const existingUser = await prisma.user.findFirst({
-        where: { email, companyId: userPayload.companyId }
-      });
-      if (!existingUser) {
-        const passwordHash = await bcrypt.hash("Welcome@123", 10);
-        await prisma.user.create({
-          data: {
-            email,
-            name,
-            passwordHash,
-            role: "Customer",
-            userType: "customer",
-            companyId: userPayload.companyId,
-          },
-        });
-      }
-    }
+    // Portal user creation removed - portal access should only be granted explicitly
+    // via "Activate Portal" button or when a deal is marked as Won
+    // This prevents automatic portal access with hardcoded passwords
 
     await logAudit(
       userPayload.id,
@@ -654,11 +638,29 @@ export async function deleteCustomersAction(customerIds: string[]) {
       );
     } else {
       // Soft Delete for Admin / SalesManager
-      await prisma.customer.updateMany({
-        where: { id: { in: verifiedIds } },
-        data: {
-          deletedAt: new Date(),
-          deletedById: userPayload.id
+      await prisma.$transaction(async (tx) => {
+        // Soft delete the customer
+        await tx.customer.updateMany({
+          where: { id: { in: verifiedIds } },
+          data: {
+            deletedAt: new Date(),
+            deletedById: userPayload.id
+          }
+        });
+
+        // Deactivate linked portal users
+        if (emailsToDelete.length > 0) {
+          const portalUsers = await tx.user.findMany({
+            where: { email: { in: emailsToDelete }, userType: "customer" },
+            select: { id: true }
+          });
+          const portalUserIds = portalUsers.map(u => u.id);
+          if (portalUserIds.length > 0) {
+            await tx.user.updateMany({
+              where: { id: { in: portalUserIds } },
+              data: { isActive: false }
+            });
+          }
         }
       });
 
@@ -666,7 +668,7 @@ export async function deleteCustomersAction(customerIds: string[]) {
         userPayload.id,
         "Customer",
         "Delete",
-        `Soft-deleted ${verifiedIds.length} customers`
+        `Soft-deleted ${verifiedIds.length} customers and deactivated their portal users`
       );
     }
 

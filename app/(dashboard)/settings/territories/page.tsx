@@ -124,86 +124,88 @@ export default function TerritoriesSettingsPage() {
         />
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Region</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">States</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Assigned To</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
+      <div className="crm-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="crm-table">
+            <thead>
               <tr>
-                <td colSpan={6} className="py-12 text-center">
-                  <div className="flex justify-center">
-                    <CRMSpinner size={36} label="Loading..." />
-                  </div>
-                </td>
+                <th className="crm-th">Name</th>
+                <th className="crm-th">Region</th>
+                <th className="crm-th">States</th>
+                <th className="crm-th">Assigned To</th>
+                <th className="crm-th">Status</th>
+                <th className="crm-th text-right">Actions</th>
               </tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-8 text-slate-400">No territories found</td></tr>
-            ) : (
-              filtered.map((t) => (
-                <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                  {editingId === t.id ? (
-                    <>
-                      <td className="px-4 py-3">
-                        <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="w-full px-2 py-1 rounded border border-slate-200 text-sm" />
-                      </td>
-                      <td className="px-4 py-3">
-                        <input value={editForm.region} onChange={(e) => setEditForm({ ...editForm, region: e.target.value })} className="w-full px-2 py-1 rounded border border-slate-200 text-sm" />
-                      </td>
-                      <td className="px-4 py-3">
-                        <input value={editForm.states} onChange={(e) => setEditForm({ ...editForm, states: e.target.value })} className="w-full px-2 py-1 rounded border border-slate-200 text-sm" />
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-500">—</td>
-                      <td className="px-4 py-3">
-                        <select value={editForm.isActive ? "true" : "false"} onChange={(e) => setEditForm({ ...editForm, isActive: e.target.value === "true" })} className="px-2 py-1 rounded border border-slate-200 text-sm">
-                          <option value="true">Active</option>
-                          <option value="false">Inactive</option>
-                        </select>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button onClick={() => handleSave(t.id)} disabled={saving} className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600 cursor-pointer mr-1" title="Save">
-                          <Ico d={icons.save} size={15} />
-                        </button>
-                        <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 cursor-pointer" title="Cancel">
-                          <Ico d={icons.x} size={15} />
-                        </button>
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="px-4 py-3">
-                        <button onClick={() => router.push(`/territories/${t.id}`)} className="text-sm font-medium text-slate-800 hover:text-[var(--primary)] transition-colors">
-                          {t.name}
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{t.region || "—"}</td>
-                      <td className="px-4 py-3 text-sm text-slate-600 max-w-xs truncate">{t.states || "—"}</td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{t.assignedUser?.name || "—"}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${t.isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
-                          {t.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button onClick={() => startEdit(t)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 cursor-pointer" title="Edit">
-                          <Ico d={icons.edit} size={15} />
-                        </button>
-                      </td>
-                    </>
-                  )}
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="crm-td py-12 text-center">
+                    <div className="flex justify-center">
+                      <CRMSpinner size={36} label="Loading..." />
+                    </div>
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={6} className="crm-td text-center py-8 text-muted-foreground">No territories found</td></tr>
+              ) : (
+                filtered.map((t) => (
+                  <tr key={t.id} className="crm-tr">
+                    {editingId === t.id ? (
+                      <>
+                        <td className="crm-td">
+                          <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="w-full px-2 py-1 rounded border border-slate-200 text-sm" />
+                        </td>
+                        <td className="crm-td">
+                          <input value={editForm.region} onChange={(e) => setEditForm({ ...editForm, region: e.target.value })} className="w-full px-2 py-1 rounded border border-slate-200 text-sm" />
+                        </td>
+                        <td className="crm-td">
+                          <input value={editForm.states} onChange={(e) => setEditForm({ ...editForm, states: e.target.value })} className="w-full px-2 py-1 rounded border border-slate-200 text-sm" />
+                        </td>
+                        <td className="crm-td text-sm text-muted-foreground">—</td>
+                        <td className="crm-td">
+                          <select value={editForm.isActive ? "true" : "false"} onChange={(e) => setEditForm({ ...editForm, isActive: e.target.value === "true" })} className="px-2 py-1 rounded border border-slate-200 text-sm">
+                            <option value="true">Active</option>
+                            <option value="false">Inactive</option>
+                          </select>
+                        </td>
+                        <td className="crm-td text-right">
+                          <button onClick={() => handleSave(t.id)} disabled={saving} className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600 cursor-pointer mr-1" title="Save">
+                            <Ico d={icons.save} size={15} />
+                          </button>
+                          <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg hover:bg-muted text-slate-500 cursor-pointer" title="Cancel">
+                            <Ico d={icons.x} size={15} />
+                          </button>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="crm-td">
+                          <button onClick={() => router.push(`/territories/${t.id}`)} className="text-sm font-medium text-foreground hover:text-[var(--primary)] transition-colors">
+                            {t.name}
+                          </button>
+                        </td>
+                        <td className="crm-td text-foreground">{t.region || "—"}</td>
+                        <td className="crm-td text-foreground max-w-xs truncate">{t.states || "—"}</td>
+                        <td className="crm-td text-foreground">{t.assignedUser?.name || "—"}</td>
+                        <td className="crm-td">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${t.isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
+                            {t.isActive ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td className="crm-td text-right">
+                          <button onClick={() => startEdit(t)} className="p-1.5 rounded-lg hover:bg-muted text-slate-600 cursor-pointer" title="Edit">
+                            <Ico d={icons.edit} size={15} />
+                          </button>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </PageContainer>
   );

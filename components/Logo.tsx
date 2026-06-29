@@ -91,64 +91,71 @@ export default function Logo({
   if (theme === "dark" || theme === "neutral") {
     if (variant === "mark-only") {
       return (
-        <svg
-          width={Math.round(size * (620 / 445))}
-          height={size}
-          viewBox="0 0 620 445"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className={className}
-          aria-label="SUKI CRM"
-        >
-          <image href="/crm black (3).svg" width="1282" height="445" />
-        </svg>
+        <div suppressHydrationWarning>
+          <svg
+            width={Math.round(size * (620 / 445))}
+            height={size}
+            viewBox="0 0 620 445"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className={className}
+            aria-label="SUKI CRM"
+          >
+            <image href="/crm black (3).svg" width="1282" height="445" />
+          </svg>
+        </div>
       );
     }
 
     return (
-      <img
-        src="/crm black (3).svg"
-        alt="SUKI CRM"
-        width={Math.round(size * (1282 / 445))}
-        height={size}
-        className={className}
-      />
+      <div suppressHydrationWarning>
+        <img
+          src="/crm black (3).svg"
+          alt="SUKI CRM"
+          width={Math.round(size * (1282 / 445))}
+          height={size}
+          className={className}
+        />
+      </div>
     );
   }
 
   if (variant === "mark-only") {
     return (
-      <svg
-        width={Math.round(size * (620 / 440))}
-        height={size}
-        viewBox="0 0 620 440"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className={className}
-        aria-label="SUKI CRM"
-      >
-        <defs>
-          <GlowFilter id={glowId} color={glowColor} />
-        </defs>
-        <path d={MARK_TOP} fill="white" />
-        <g filter={`url(#${glowId})`}>
-          <path d={MARK_BOT} fill={accent} />
-        </g>
-      </svg>
+      <div suppressHydrationWarning>
+        <svg
+          width={Math.round(size * (620 / 440))}
+          height={size}
+          viewBox="0 0 620 440"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className={className}
+          aria-label="SUKI CRM"
+        >
+          <defs>
+            <GlowFilter id={glowId} color={glowColor} />
+          </defs>
+          <path d={MARK_TOP} fill="white" />
+          <g filter={`url(#${glowId})`}>
+            <path d={MARK_BOT} fill={accent} />
+          </g>
+        </svg>
+      </div>
     );
   }
 
   // variant === "full" — complete brand lockup (1286 × 440)
   return (
-    <svg
-      width={Math.round(size * (1286 / 440))}
-      height={size}
-      viewBox="0 0 1286 440"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-label="SUKI CRM"
-    >
+    <div suppressHydrationWarning>
+      <svg
+        width={Math.round(size * (1286 / 440))}
+        height={size}
+        viewBox="0 0 1286 440"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className={className}
+        aria-label="SUKI CRM"
+      >
       <defs>
         <GlowFilter id={glowId} color={glowColor} />
       </defs>
@@ -174,5 +181,6 @@ export default function Logo({
       {/* Decorative circle */}
       <circle cx="1269.25" cy="383.496" r="16.5" fill="white" />
     </svg>
+    </div>
   );
 }

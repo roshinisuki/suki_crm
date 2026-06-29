@@ -224,17 +224,17 @@ export default function DealsPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-slate-50/80 text-slate-500 font-semibold text-[11px] uppercase tracking-wider border-b border-slate-100">
+          <table className="crm-table">
+            <thead>
               <tr>
-                <th className="px-5 py-3">Deal Name</th>
-                <th className="px-5 py-3">Customer</th>
-                <th className="px-5 py-3 text-right">Value</th>
-                <th className="px-5 py-3 text-center">Stage</th>
-                <th className="px-5 py-3">Assigned To</th>
-                <th className="px-5 py-3">Expected Close</th>
-                <th className="px-5 py-3">Status</th>
-                {currentUser?.role !== "Customer" && <th className="px-5 py-3 text-right">Actions</th>}
+                <th className="crm-th">Deal Name</th>
+                <th className="crm-th">Customer</th>
+                <th className="crm-th text-right">Value</th>
+                <th className="crm-th text-center">Stage</th>
+                <th className="crm-th">Assigned To</th>
+                <th className="crm-th">Expected Close</th>
+                <th className="crm-th">Status</th>
+                {currentUser?.role !== "Customer" && <th className="crm-th text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

@@ -220,7 +220,7 @@ export default function SpecificationsPage() {
                 </button>
               </form>
 
-              {/* Specs List */}
+              {/* Specs Table */}
               {specs.length === 0 ? (
                 <div className="text-center py-10">
                   <SlidersHorizontal size={32} className="mx-auto text-slate-300 mb-2" />
@@ -228,46 +228,55 @@ export default function SpecificationsPage() {
                   <p className="text-xs text-slate-400 mt-0.5">Add specifications using the form above</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {specs.map((spec, index) => (
-                    <div
-                      key={spec.id}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50/50 border border-slate-100 hover:border-slate-200 transition-colors"
-                    >
-                      <span className="text-slate-400 text-sm font-mono w-6 text-center">{index + 1}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-slate-800 text-sm truncate">{spec.specKey}</div>
-                        <div className="text-sm text-slate-500 truncate">
-                          {spec.specValue}{spec.unit && <span className="text-slate-400 ml-1">{spec.unit}</span>}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-0.5 shrink-0">
-                        <button
-                          onClick={() => index > 0 && handleReorder(spec.id, index)}
-                          disabled={index === 0}
-                          className="action-icon-btn disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="Move Up"
-                        >
-                          <ChevronUp size={15} />
-                        </button>
-                        <button
-                          onClick={() => index < specs.length - 1 && handleReorder(spec.id, index + 2)}
-                          disabled={index === specs.length - 1}
-                          className="action-icon-btn disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="Move Down"
-                        >
-                          <ChevronDown size={15} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSpec(spec.id)}
-                          className="action-icon-btn text-rose-500 hover:bg-rose-50"
-                          title="Delete"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                <div className="overflow-x-auto">
+                  <table className="crm-table">
+                    <thead>
+                      <tr>
+                        <th className="crm-th w-16">#</th>
+                        <th className="crm-th">Spec Key</th>
+                        <th className="crm-th">Value</th>
+                        <th className="crm-th">Unit</th>
+                        <th className="crm-th text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {specs.map((spec, index) => (
+                        <tr key={spec.id} className="crm-tr">
+                          <td className="crm-td font-mono text-sm text-muted-foreground text-center">{index + 1}</td>
+                          <td className="crm-td font-medium text-foreground">{spec.specKey}</td>
+                          <td className="crm-td text-muted-foreground">{spec.specValue}</td>
+                          <td className="crm-td text-muted-foreground">{spec.unit || "—"}</td>
+                          <td className="crm-td text-right">
+                            <div className="flex items-center justify-end gap-0.5">
+                              <button
+                                onClick={() => index > 0 && handleReorder(spec.id, index)}
+                                disabled={index === 0}
+                                className="action-icon-btn disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Move Up"
+                              >
+                                <ChevronUp size={15} />
+                              </button>
+                              <button
+                                onClick={() => index < specs.length - 1 && handleReorder(spec.id, index + 2)}
+                                disabled={index === specs.length - 1}
+                                className="action-icon-btn disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Move Down"
+                              >
+                                <ChevronDown size={15} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSpec(spec.id)}
+                                className="action-icon-btn text-rose-500 hover:bg-rose-50"
+                                title="Delete"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>

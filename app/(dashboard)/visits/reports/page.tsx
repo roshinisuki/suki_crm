@@ -16,8 +16,19 @@ const icons = { download: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4 4l-4 4m0 0l-
 const statusColors: Record<string, string> = {
   PLANNED: "bg-blue-100 text-blue-700",
   CHECKED_IN: "bg-amber-100 text-amber-700",
+  CHECKED_OUT: "bg-teal-100 text-teal-700",
   COMPLETED: "bg-green-100 text-green-700",
   MISSED: "bg-red-100 text-red-700",
+  CUSTOMER_UNAVAILABLE: "bg-slate-100 text-slate-700",
+};
+
+const statusLabels: Record<string, string> = {
+  PLANNED: "Planned",
+  CHECKED_IN: "Checked In",
+  CHECKED_OUT: "Checked Out",
+  COMPLETED: "Completed",
+  MISSED: "Missed",
+  CUSTOMER_UNAVAILABLE: "Unavailable",
 };
 
 export default function VisitReportsPage() {
@@ -25,7 +36,7 @@ export default function VisitReportsPage() {
   const { user } = useAuth();
 
   const [visits, setVisits] = useState<any[]>([]);
-  const [summary, setSummary] = useState({ total: 0, completed: 0, missed: 0, planned: 0, avgDuration: 0 });
+  const [summary, setSummary] = useState({ total: 0, planned: 0, checkedIn: 0, checkedOut: 0, completed: 0, missed: 0, unavailable: 0, avgDuration: 0, completionRate: 0, keyAccountComplianceRate: 0 });
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -106,10 +117,13 @@ export default function VisitReportsPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
-          { label: "Total Visits", value: summary.total, color: "text-slate-800" },
+          { label: "Total", value: summary.total, color: "text-slate-800" },
+          { label: "Planned", value: summary.planned, color: "text-blue-600" },
+          { label: "Checked In", value: summary.checkedIn, color: "text-amber-600" },
+          { label: "Checked Out", value: summary.checkedOut, color: "text-teal-600" },
           { label: "Completed", value: summary.completed, color: "text-green-600" },
           { label: "Missed", value: summary.missed, color: "text-red-600" },
-          { label: "Planned", value: summary.planned, color: "text-blue-600" },
+          { label: "Unavailable", value: summary.unavailable, color: "text-slate-600" },
           { label: "Avg Duration (min)", value: summary.avgDuration, color: "text-amber-600" },
         ].map((card) => (
           <div key={card.label} className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-4">
@@ -124,7 +138,7 @@ export default function VisitReportsPage() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <div><label className="block text-xs font-semibold text-slate-600 mb-1">Start Date</label><input type="date" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20" /></div>
           <div><label className="block text-xs font-semibold text-slate-600 mb-1">End Date</label><input type="date" value={filters.endDate} onChange={(e) => setFilters({ ...filters, endDate: e.target.value })} className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20" /></div>
-          <div><label className="block text-xs font-semibold text-slate-600 mb-1">Status</label><select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 cursor-pointer"><option>All</option><option>Planned</option><option>Completed</option><option>Missed</option></select></div>
+          <div><label className="block text-xs font-semibold text-slate-600 mb-1">Status</label><select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 cursor-pointer"><option>All</option><option>Planned</option><option>Checked In</option><option>Checked Out</option><option>Completed</option><option>Missed</option><option>Unavailable</option></select></div>
           <div><label className="block text-xs font-semibold text-slate-600 mb-1">Hosted By</label><select value={filters.hostedBy} onChange={(e) => setFilters({ ...filters, hostedBy: e.target.value })} className="w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 cursor-pointer"><option value="">All Users</option>{users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Customer</label>
@@ -163,7 +177,7 @@ export default function VisitReportsPage() {
                 <td className="px-4 py-3 text-sm text-slate-700">{v.checkOutTime ? new Date(v.checkOutTime).toLocaleString() : "—"}</td>
                 <td className="px-4 py-3 text-sm text-slate-700 text-right">{v.duration !== null ? `${v.duration} min` : "—"}</td>
                 <td className="px-4 py-3 text-sm text-slate-700">{v.outcome}</td>
-                <td className="px-4 py-3"><span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[v.status] || "bg-gray-100 text-gray-600"}`}>{v.status.replace("_", " ")}</span></td>
+                <td className="px-4 py-3"><span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[v.status] || "bg-gray-100 text-gray-600"}`}>{statusLabels[v.status] || v.status.replace(/_/g, " ")}</span></td>
               </tr>
             ))}
           </tbody>

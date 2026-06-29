@@ -3,81 +3,127 @@ import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
 import { logAudit, extractAuditContext } from "@/lib/audit";
 
+const OUTCOME_TYPES = ["POSITIVE", "NEUTRAL", "NEEDS_FOLLOWUP", "LOST"];
+
 // POST /api/visits/[id]/complete
-// Body: { visit_summary, next_action, create_followup, followup_type, followup_datetime }
+// Body: { visit_summary, next_action, outcome_type, create_followup, followup_type, followup_datetime }
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await verifyAuth();
-  if (!user) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-  if (user.role === "Customer") return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
+  try {
+    const user = await verifyAuth();
+    if (!user) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    if (user.role === "Customer") return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
 
-  const { id } = await params;
-  const body = await request.json();
-  const { visit_summary, next_action, create_followup, followup_type, followup_datetime } = body;
+    const { id } = await params;
+    const body = await request.json();
+    const { visit_summary, next_action, outcome_type, create_followup, followup_type, followup_datetime } = body;
 
-  // Require visit_summary
-  if (!visit_summary || !visit_summary.trim()) {
-    return NextResponse.json(
-      { success: false, message: "visit_summary is required to complete a visit" },
-      { status: 400 }
-    );
-  }
-
-  const visit = await prisma.customerVisit.findFirst({
-    where: { id, deletedAt: null, companyId: user.companyId },
-    include: { customer: { select: { name: true } } },
-  });
-
-  if (!visit) return NextResponse.json({ success: false, message: "Visit not found" }, { status: 404 });
-
-  if (visit.status !== "CHECKED_IN" && visit.status !== "CHECKED_OUT") {
-    return NextResponse.json(
-      { success: false, message: `Cannot complete — visit must be checked in first (current: ${visit.status})` },
-      { status: 400 }
-    );
-  }
-
-  const result = await prisma.$transaction(async (tx) => {
-    const updated = await tx.customerVisit.update({
-      where: { id },
-      data: {
-        status: "COMPLETED",
-        visitSummary: visit_summary,
-        nextAction: next_action || null,
-        ...(visit.status === "CHECKED_IN" ? { checkOutTime: new Date() } : {}),
-      },
-    });
-
-    // Create follow-up if requested
-    if (create_followup && followup_datetime) {
-      await tx.followUp.create({
-        data: {
-          customerId: visit.customerId,
-          assignedUserId: visit.hostedBy,
-          nextMeetingDate: new Date(followup_datetime),
-          dueDate: new Date(followup_datetime),
-          remarks: followup_type || "Visit follow-up",
-          status: "Pending",
-          priority: "Medium",
-          sourceType: "VISIT_COMPLETE",
-          sourceId: visit.id,
-          autoCreated: true,
-          companyId: visit.companyId,
-        },
-      });
+    // Require visit_summary
+    if (!visit_summary || !visit_summary.trim()) {
+      return NextResponse.json(
+        { success: false, message: "visit_summary is required to complete a visit" },
+        { status: 400 }
+      );
     }
 
-    return updated;
-  });
+    // Require outcome_type
+    if (!outcome_type || !OUTCOME_TYPES.includes(outcome_type)) {
+      return NextResponse.json(
+        { success: false, message: `outcome_type is required and must be one of: ${OUTCOME_TYPES.join(", ")}` },
+        { status: 400 }
+      );
+    }
 
-  await logAudit(user.id, "CustomerVisit", "Complete", `Completed visit to ${visit.customer?.name}`, {
-    resourceId: id,
-    newState: { status: "COMPLETED", visitSummary: visit_summary },
-    context: extractAuditContext(request),
-    severity: "WARN",
-  });
+    const visit = await prisma.customerVisit.findFirst({
+      where: { id, deletedAt: null, companyId: user.companyId },
+      include: { customer: { select: { name: true } } },
+    });
 
-  return NextResponse.json({ success: true, data: result, message: "Visit completed" });
+    if (!visit) return NextResponse.json({ success: false, message: "Visit not found" }, { status: 404 });
+
+    // Completion is gated behind checkout with GPS
+    if (visit.status !== "CHECKED_OUT") {
+      return NextResponse.json(
+        { success: false, message: `Cannot complete — visit must be checked out first (current: ${visit.status})` },
+        { status: 400 }
+      );
+    }
+    if (!visit.checkOutGpsLocation) {
+      return NextResponse.json(
+        { success: false, message: "Cannot complete — checkout GPS location is missing. Please check out again with GPS enabled." },
+        { status: 400 }
+      );
+    }
+
+    // Long visits require justification before completion
+    if (visit.longVisit) {
+      const justification = body.long_visit_justification;
+      if (!justification || !justification.trim()) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "JUSTIFICATION_REQUIRED",
+            message: "This visit exceeded 9 hours. Please provide a justification for the extended duration before completing the visit.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const updated = await tx.customerVisit.update({
+        where: { id },
+        data: {
+          status: "COMPLETED",
+          visitSummary: visit_summary,
+          nextAction: next_action || null,
+          outcomeType: outcome_type,
+          ...(visit.longVisit && body.long_visit_justification
+            ? { longVisitJustification: body.long_visit_justification.trim() }
+            : {}),
+        },
+      });
+
+      // Create follow-up visit if requested
+      if (create_followup && followup_datetime) {
+        const followUpDate = new Date(followup_datetime);
+        if (isNaN(followUpDate.getTime())) {
+          throw new Error("Invalid followup_datetime");
+        }
+        await tx.customerVisit.create({
+          data: {
+            customerId: visit.customerId,
+            hostedBy: visit.hostedBy,
+            purpose: followup_type || "Follow-up Visit",
+            plannedDate: followUpDate,
+            plannedTime: `${String(followUpDate.getHours()).padStart(2, "0")}:${String(followUpDate.getMinutes()).padStart(2, "0")}`,
+            status: "PLANNED",
+            parentVisitId: visit.id,
+            agenda: `Follow-up visit created from completed visit. Type: ${followup_type || "N/A"}`,
+            companyId: visit.companyId,
+            plantLocationId: visit.plantLocationId,
+          },
+        });
+      }
+
+      return updated;
+    });
+
+    await logAudit(user.id, "CustomerVisit", "Complete", `Completed visit to ${visit.customer?.name}`, {
+      resourceId: id,
+      newState: { status: "COMPLETED", visitSummary: visit_summary, outcomeType: outcome_type },
+      context: extractAuditContext(request),
+      severity: "WARN",
+    });
+
+    return NextResponse.json({ success: true, data: result, message: "Visit completed" });
+  } catch (error: any) {
+    console.error("[Visit Complete Error]", error);
+    return NextResponse.json(
+      { success: false, message: error?.message || "Internal server error" },
+      { status: 500 }
+    );
+  }
 }

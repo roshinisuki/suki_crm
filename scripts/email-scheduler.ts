@@ -100,14 +100,33 @@ export async function sendOverdueSummaries() {
 }
 
 // If script is run directly, execute immediately and start cron
+async function runVisitsAutoCheckout() {
+  console.log("Running visits auto-checkout cron...");
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const res = await fetch(`${baseUrl}/api/cron/visits-auto-checkout`);
+    const data = await res.json();
+    console.log("Visits auto-checkout result:", data);
+  } catch (error) {
+    console.error("Error running visits auto-checkout:", error);
+  }
+}
+
 if (require.main === module) {
   console.log("Email scheduler started. Job configured to run daily at 8:00 AM.");
-  
+  console.log("Visits auto-checkout scheduler configured to run every 30 minutes.");
+
   // Run every day at 8:00 AM
   cron.schedule("0 8 * * *", () => {
     sendOverdueSummaries();
   });
-  
-  // Also run it once immediately on startup for testing/verification
+
+  // Run every 30 minutes for long-running checked-in visits
+  cron.schedule("*/30 * * * *", () => {
+    runVisitsAutoCheckout();
+  });
+
+  // Also run both once immediately on startup for testing/verification
   sendOverdueSummaries();
+  runVisitsAutoCheckout();
 }

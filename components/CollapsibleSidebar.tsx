@@ -26,6 +26,11 @@ import {
   CheckSquare,
   Menu,
   X,
+  Package,
+  FolderTree,
+  SlidersHorizontal,
+  FileText,
+  BookOpen,
 } from "lucide-react";
 
 type NavItem = {
@@ -85,6 +90,14 @@ export default function CollapsibleSidebar({ user, loading, onLogout }: Collapsi
     { href: "/orders", label: "Orders", icon: <Briefcase size={20} />, end: true },
     { href: "/user-reports", label: "User Reports", icon: <Users size={20} />, end: true },
     { href: "/manage-notifications", label: "Manage Notifications", icon: <Settings size={20} />, end: true },
+  ];
+
+  const catalogueNavItems: NavItem[] = [
+    { href: "/catalogue/categories", label: "Categories", icon: <FolderTree size={20} /> },
+    { href: "/catalogue/products", label: "Products", icon: <Package size={20} /> },
+    { href: "/catalogue/specifications", label: "Specifications", icon: <SlidersHorizontal size={20} /> },
+    { href: "/catalogue/datasheets", label: "Datasheets", icon: <FileText size={20} /> },
+    { href: "/catalogue/brochures", label: "Brochures", icon: <BookOpen size={20} /> },
   ];
 
   const settingsNavItems: NavItem[] = [
@@ -156,6 +169,24 @@ export default function CollapsibleSidebar({ user, loading, onLogout }: Collapsi
             </p>
           )}
           {secondaryNavItems.map((item) => (
+            <NavLink
+              key={item.href}
+              item={item}
+              active={isActive(item)}
+              collapsed={collapsed}
+              onHover={setHoveredItem}
+            />
+          ))}
+        </div>
+
+        {/* Product Catalogue */}
+        <div className="space-y-1">
+          {!collapsed && (
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2 animate-in fade-in slide-in-from-left-2 duration-200" style={{ color: "var(--sidebar-heading)" }}>
+              Product Catalogue
+            </p>
+          )}
+          {catalogueNavItems.map((item) => (
             <NavLink
               key={item.href}
               item={item}

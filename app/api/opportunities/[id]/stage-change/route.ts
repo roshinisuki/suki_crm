@@ -45,16 +45,28 @@ export async function POST(
     return NextResponse.json({ success: true, message: "Already at this stage", data: deal });
   }
 
-  // Get display_order for current and target stages from PipelineStageMaster
-  const currentStageMaster = await prisma.pipelineStageMaster.findFirst({
-    where: { stageName: currentStage },
-  });
-  const targetStageMaster = await prisma.pipelineStageMaster.findFirst({
-    where: { stageName: to_stage, isActive: true },
-  });
+  // Stage order and default probabilities — defined inline (no PipelineStageMaster table needed)
+  const STAGE_ORDER: Record<string, number> = {
+    SalesOpportunity:    1,
+    RequirementGathering: 2,
+    MeetingScheduled:    3,
+    ProposalSent:        4,
+    Negotiation:         5,
+    Won:                 6,
+    Lost:                0,
+  };
+  const STAGE_PROBABILITY: Record<string, number> = {
+    SalesOpportunity:    20,
+    RequirementGathering: 30,
+    MeetingScheduled:    50,
+    ProposalSent:        70,
+    Negotiation:         85,
+    Won:                100,
+    Lost:                  0,
+  };
 
-  const currentOrder = currentStageMaster?.displayOrder ?? 0;
-  const targetOrder = targetStageMaster?.displayOrder ?? 0;
+  const currentOrder = STAGE_ORDER[currentStage] ?? 0;
+  const targetOrder  = STAGE_ORDER[to_stage]     ?? 0;
 
   // If backward stage change, require Sales Manager or Admin
   if (targetOrder < currentOrder) {
@@ -77,13 +89,8 @@ export async function POST(
     );
   }
 
-  // Won requires an accepted quotation
-  if (to_stage === "Won" && !acceptedQuotation) {
-    return NextResponse.json(
-      { success: false, message: "An accepted quotation is required before marking this opportunity as Won" },
-      { status: 400 }
-    );
-  }
+  // Won gate is now enforced in the central transitionDealStatus function
+  // Duplicate check removed here to avoid inconsistency
 
   // Requirement Gathering → next stage: server-side re-validate mandatory fields
   if (currentStage === "RequirementGathering") {
@@ -120,8 +127,7 @@ export async function POST(
     daysInPreviousStage = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   }
 
-  // Get probability from target stage master
-  const newProbability = targetStageMaster?.probabilityPercent ?? deal.probabilityPercent;
+  const newProbability = STAGE_PROBABILITY[to_stage] ?? deal.probabilityPercent;
 
   const result = await prisma.$transaction(async (tx) => {
     // Update deal stage and probability
@@ -144,6 +150,32 @@ export async function POST(
         notes: notes || null,
       },
     });
+
+    // Sync customer status to ActiveCustomer when deal is Won
+    if (to_stage === "Won") {
+      const customer = await tx.customer.findUnique({
+        where: { id: deal.customerId },
+        select: { status: true }
+      });
+      
+      if (customer && customer.status !== "ActiveCustomer") {
+        await tx.customer.update({
+          where: { id: deal.customerId },
+          data: { status: "ActiveCustomer" }
+        });
+        
+        // Write AccountStatusHistory
+        await tx.accountStatusHistory.create({
+          data: {
+            customerId: deal.customerId,
+            fromStatus: customer.status,
+            toStatus: "ActiveCustomer",
+            changedById: user.id,
+            changedAt: new Date(),
+          },
+        });
+      }
+    }
 
     // Auto-create stage-appropriate follow-up
     const stageFollowUpMap: Record<string, string> = {

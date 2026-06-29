@@ -404,7 +404,7 @@ export default function UserMasterPage() {
         <div className="overflow-x-auto">
           <table className="crm-table">
             <thead>
-              <tr className="crm-tr border-b border-slate-200/60">
+              <tr>
                 <th className="crm-th whitespace-nowrap">
                   {activeTab === "internal" ? "Team Member" : "Customer Account"}
                 </th>
@@ -416,10 +416,10 @@ export default function UserMasterPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="text-center py-12 text-sm text-slate-500">Loading users…</td></tr>
+                <tr><td colSpan={5} className="crm-td text-center py-12 text-sm text-muted-foreground">Loading users…</td></tr>
               ) : displayedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-12 text-sm text-slate-400">
+                  <td colSpan={5} className="crm-td text-center py-12 text-sm text-muted-foreground">
                     {activeTab === "internal"
                       ? "No internal team members found."
                       : "No customer portal accounts found. Use the 'Add Customer Portal' button to create one."}

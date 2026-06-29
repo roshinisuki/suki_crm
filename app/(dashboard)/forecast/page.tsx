@@ -88,40 +88,44 @@ export default function ForecastListPage() {
         <div><label className="block text-xs font-semibold text-slate-600 mb-1">Assigned User</label><select value={filters.assignedUserId} onChange={(e) => setFilters({ ...filters, assignedUserId: e.target.value })} className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"><option value="">All Users</option>{users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead><tr className="bg-slate-50 border-b border-slate-200">
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Month</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Year</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Type</th>
-            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Target ({preferredCurrency})</th>
-            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Achieved ({preferredCurrency})</th>
-            <th className="text-center px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Achievement %</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Assigned To</th>
-            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Actions</th>
-          </tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan={8} className="text-center py-8 text-slate-400">Loading...</td></tr>
-            : entries.length === 0 ? <tr><td colSpan={8} className="text-center py-8 text-slate-400">No forecast entries found</td></tr>
-            : entries.map((e: any) => (
-              <tr key={e.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                <td className="px-4 py-3 text-sm text-slate-700">{months[e.month - 1]}</td>
-                <td className="px-4 py-3 text-sm text-slate-700">{e.year}</td>
-                <td className="px-4 py-3 text-sm text-slate-700">{e.forecastType}</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-right">{formatCurrency(e.targetAmount)}</td>
-                <td className="px-4 py-3 text-sm text-slate-700 text-right">{formatCurrency(e.achievedAmount)}</td>
-                <td className="px-4 py-3 text-center"><span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${achievementColor(e.targetAmount > 0 ? (e.achievedAmount / e.targetAmount) * 100 : 0)}`}>{e.targetAmount > 0 ? Math.round((e.achievedAmount / e.targetAmount) * 100) : 0}%</span></td>
-                <td className="px-4 py-3 text-sm text-slate-700">{e.assignedUser?.name || "—"}</td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => router.push(`/forecast/${e.id}`)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 cursor-pointer"><Ico d={icons.edit} size={15} /></button>
-                    <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 cursor-pointer"><Ico d={icons.x} size={15} /></button>
-                  </div>
-                </td>
+      <div className="crm-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="crm-table">
+            <thead>
+              <tr>
+                <th className="crm-th">Month</th>
+                <th className="crm-th">Year</th>
+                <th className="crm-th">Type</th>
+                <th className="crm-th text-right">Target ({preferredCurrency})</th>
+                <th className="crm-th text-right">Achieved ({preferredCurrency})</th>
+                <th className="crm-th text-center">Achievement %</th>
+                <th className="crm-th">Assigned To</th>
+                <th className="crm-th text-right">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {loading ? <tr><td colSpan={8} className="crm-td text-center py-8 text-muted-foreground">Loading...</td></tr>
+              : entries.length === 0 ? <tr><td colSpan={8} className="crm-td text-center py-8 text-muted-foreground">No forecast entries found</td></tr>
+              : entries.map((e: any) => (
+                <tr key={e.id} className="crm-tr">
+                  <td className="crm-td text-foreground">{months[e.month - 1]}</td>
+                  <td className="crm-td text-foreground">{e.year}</td>
+                  <td className="crm-td text-foreground">{e.forecastType}</td>
+                  <td className="crm-td text-right text-foreground">{formatCurrency(e.targetAmount)}</td>
+                  <td className="crm-td text-right text-foreground">{formatCurrency(e.achievedAmount)}</td>
+                  <td className="crm-td text-center"><span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${achievementColor(e.targetAmount > 0 ? (e.achievedAmount / e.targetAmount) * 100 : 0)}`}>{e.targetAmount > 0 ? Math.round((e.achievedAmount / e.targetAmount) * 100) : 0}%</span></td>
+                  <td className="crm-td text-foreground">{e.assignedUser?.name || "—"}</td>
+                  <td className="crm-td text-right">
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => router.push(`/forecast/${e.id}`)} className="p-1.5 rounded-lg hover:bg-muted text-slate-600 cursor-pointer"><Ico d={icons.edit} size={15} /></button>
+                      <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 cursor-pointer"><Ico d={icons.x} size={15} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <ConfirmModal isOpen={confirmState.isOpen} title={confirmState.title} message={confirmState.message} onConfirm={confirmState.action} onCancel={() => setConfirmState({ isOpen: false, title: "", message: "", action: () => {} })} isDestructive={true} />

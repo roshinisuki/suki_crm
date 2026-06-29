@@ -11,6 +11,7 @@ import MobileBottomNav from "@/components/MobileBottomNav";
 import Logo from "@/components/Logo";
 import { useLogoTheme } from "@/lib/use-logo-theme";
 import { cn } from "@/lib/ui-utils";
+import { getSettingsForVariant } from "@/lib/config/variantSettingsMap";
 import {
   LayoutDashboard, Users, CalendarClock, Briefcase, BookUser,
   CheckSquare, Settings, LogOut, Menu, X, TrendingUp, Building,
@@ -195,6 +196,7 @@ function SidebarContent({
   const isVariant2 = (user?.variant || user?.company?.variant || 1) >= 2;
   const isVariant3 = (user?.variant || user?.company?.variant || 1) >= 3;
   const isVariant4 = (user?.variant || user?.company?.variant || 1) >= 4;
+  const activeVariant: number = user?.variant || user?.company?.variant || 1;
 
   // Accordion: only one section open at a time
   const [openSection, setOpenSection] = useState<string | null>(null);
@@ -315,20 +317,6 @@ function SidebarContent({
     ] : []),
   ] : [];
 
-  const settingsSubItemsV3 = isVariant3 ? [
-    { href: "/settings/approval-matrix", label: "Approval Matrix" },
-    { href: "/settings/notification-rules", label: "Notification Rules" },
-    { href: "/settings/email-templates", label: "Email Templates" },
-    { href: "/settings/whatsapp-templates", label: "WhatsApp Templates" },
-    { href: "/settings/document-types", label: "Document Types" },
-    { href: "/settings/sample-config", label: "Sample Configuration" },
-    ...(isVariant4 ? [
-      { href: "/settings/competitor-master", label: "Competitor Master" },
-      { href: "/settings/loss-reason-master", label: "Loss Reason Master" },
-      { href: "/settings/territories", label: "Territories" },
-    ] : []),
-  ] : [];
-
   const reportsSubItems = isVariant2 ? [
     { href: "/reports", label: "All Reports" },
     { href: "/reports/leads", label: "Lead Report" },
@@ -347,27 +335,12 @@ function SidebarContent({
     { href: "/reports/quotations", label: "Quotation Report" },
   ];
 
-  const userManagementSubItems = isVariant2 ? [
-    { href: "/user-master", label: "Users" },
-    { href: "/settings/roles", label: "Roles & Permissions" },
-    { href: "/settings/approval-matrix", label: "Approval Matrix" },
-  ] : [
+  const userManagementSubItems = [
     { href: "/user-master", label: "Users" },
     { href: "/settings/roles", label: "Roles & Permissions" },
   ];
 
-  const settingsSubItems = isVariant2 ? [
-    { href: "/settings/lead-sources", label: "Lead Sources" },
-    { href: "/settings/pipeline-stages", label: "Pipeline Stages" },
-    { href: "/settings/loss-reason-master", label: "Loss Reasons" },
-    { href: "/settings/tax-master", label: "Tax Master" },
-    { href: "/settings/product-categories", label: "Product Categories" },
-    { href: "/settings/custom-fields", label: "Custom Fields" },
-    ...(isVariant3 ? settingsSubItemsV3 : []),
-  ] : [
-    { href: "/settings/lead-sources", label: "Lead Sources" },
-    { href: "/settings/email-templates", label: "Email Templates" },
-  ];
+  const settingsSubItems = getSettingsForVariant(activeVariant);
 
   // Variant 2 navigation items
   const customerVisitsSubItems = [
@@ -549,9 +522,7 @@ function SidebarContent({
             {isVariant4 && (
               <ExpandableNavSection label="Competitor Mgmt" icon={<Swords size={17} />} subItems={competitorMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} isOpen={openSection === "Competitor Mgmt"} onToggle={makeToggle("Competitor Mgmt")} />
             )}
-            {!isVariant3 && (
-              <ExpandableNavSection label="Quotation Management" icon={<DollarSign size={17} />} subItems={quotationSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} isOpen={openSection === "Quotation Management"} onToggle={makeToggle("Quotation Management")} />
-            )}
+            <ExpandableNavSection label="Quotation Management" icon={<DollarSign size={17} />} subItems={quotationSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} isOpen={openSection === "Quotation Management"} onToggle={makeToggle("Quotation Management")} />
             {isVariant3 && (
               <ExpandableNavSection label="Negotiation Mgmt" icon={<MessageSquare size={17} />} subItems={negotiationMgmtSubItems} pathname={pathname} onNavClick={onNavClick} collapsed={collapsed} isOpen={openSection === "Negotiation Mgmt"} onToggle={makeToggle("Negotiation Mgmt")} />
             )}

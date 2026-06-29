@@ -139,31 +139,31 @@ export default function TasksPage() {
         </div>
 
         {/* Tasks table */}
-        <div className="crm-card overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-100">
+        <div className="crm-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="crm-table">
               <thead>
-                <tr className="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-                  <th className="px-4 py-4 w-8"></th>
-                  <th className="px-4 py-4">Code</th>
-                  <th className="px-4 py-4">Title</th>
-                  <th className="px-4 py-4">Priority</th>
-                  <th className="px-4 py-4">Due Date</th>
-                  <th className="px-4 py-4">Assigned To</th>
-                  <th className="px-4 py-4">Status</th>
-                  <th className="px-4 py-4 text-right">Actions</th>
+                <tr>
+                  <th className="crm-th w-8"></th>
+                  <th className="crm-th">Code</th>
+                  <th className="crm-th">Title</th>
+                  <th className="crm-th">Priority</th>
+                  <th className="crm-th">Due Date</th>
+                  <th className="crm-th">Assigned To</th>
+                  <th className="crm-th">Status</th>
+                  <th className="crm-th text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="py-10 text-center text-sm text-slate-400">Loading tasks...</td>
+                    <td colSpan={8} className="crm-td text-center py-10 text-sm text-muted-foreground">Loading tasks...</td>
                   </tr>
                 ) : pagedTasks.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-16 text-center">
+                    <td colSpan={8} className="crm-td text-center py-16">
                       <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-3"><CheckSquare size={20} className="text-amber-400" /></div>
-                      <p className="text-sm font-semibold text-slate-700">No tasks found</p>
+                      <p className="text-sm font-semibold text-foreground">No tasks found</p>
                     </td>
                   </tr>
                 ) : pagedTasks.map((task) => {
@@ -171,31 +171,31 @@ export default function TasksPage() {
                   return (
                     <tr
                       key={task.id}
-                      className={cn("border-b border-slate-50 hover:bg-slate-50/50 transition-colors text-slate-600 text-sm table-row-clickable", task.status === "Done" && "opacity-60")}
+                      className={cn("crm-tr table-row-clickable", task.status === "Done" && "opacity-60")}
                       onClick={() => router.push(`/tasks/${task.id}`)}
                     >
-                      <td className="px-4 py-4" onClick={e => e.stopPropagation()}>
+                      <td className="crm-td" onClick={e => e.stopPropagation()}>
                         <button onClick={() => toggleDone(task)} title={task.status === "Done" ? "Mark as open" : "Mark as done"} className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors", task.status === "Done" ? "border-green-400 bg-green-400" : "border-slate-300 hover:border-green-400")}>
                           {task.status === "Done" && <CheckCircle2 size={12} className="text-white" />}
                         </button>
                       </td>
-                      <td className="px-4 py-4 font-mono text-xs font-semibold text-[var(--primary)]">{task.taskCode}</td>
-                      <td className="px-4 py-4 max-w-xs">
-                        <span className={cn("row-primary-link truncate", task.status === "Done" && "line-through text-slate-400")}>{task.title}</span>
-                        {task.description && <p className="text-xs text-slate-400 truncate mt-0.5">{task.description}</p>}
+                      <td className="crm-td font-mono text-xs font-semibold text-[var(--primary)]">{task.taskCode}</td>
+                      <td className="crm-td max-w-xs">
+                        <span className={cn("row-primary-link truncate", task.status === "Done" && "line-through text-muted-foreground")}>{task.title}</span>
+                        {task.description && <p className="text-xs text-muted-foreground truncate mt-0.5">{task.description}</p>}
                       </td>
-                      <td className="px-4 py-4"><span className={cn("inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full", PRIORITY_COLOR[task.priority] ?? "bg-slate-100 text-slate-500")}><Tag size={10} /> {task.priority}</span></td>
-                      <td className="px-4 py-4">
+                      <td className="crm-td"><span className={cn("inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full", PRIORITY_COLOR[task.priority] ?? "bg-slate-100 text-slate-500")}><Tag size={10} /> {task.priority}</span></td>
+                      <td className="crm-td">
                         {task.dueDate ? (
-                          <div className={cn("flex items-center gap-1.5 text-xs font-medium", isOverdue ? "text-red-500" : "text-slate-500")}>
+                          <div className={cn("flex items-center gap-1.5 text-xs font-medium", isOverdue ? "text-red-500" : "text-muted-foreground")}>
                             <CalendarClock size={12} /> {formatDate(task.dueDate)}
                             {isOverdue && <span className="text-[10px] bg-red-50 text-red-500 px-1.5 py-0.5 rounded-full font-bold">Overdue</span>}
                           </div>
-                        ) : <span className="text-xs text-slate-300">—</span>}
+                        ) : <span className="text-xs text-muted-foreground">—</span>}
                       </td>
-                      <td className="px-4 py-4"><div className="flex items-center gap-1.5 text-xs text-slate-500"><User2 size={12} /><span className="truncate max-w-[120px]">{task.User?.name || "—"}</span></div></td>
-                      <td className="px-4 py-4"><StatusBadge status={task.status} size="sm" /></td>
-                      <td className="px-4 py-4" onClick={e => e.stopPropagation()}>
+                      <td className="crm-td"><div className="flex items-center gap-1.5 text-xs text-muted-foreground"><User2 size={12} /><span className="truncate max-w-[120px]">{task.User?.name || "—"}</span></div></td>
+                      <td className="crm-td"><StatusBadge status={task.status} size="sm" /></td>
+                      <td className="crm-td text-right" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
                           <button onClick={() => router.push(`/tasks/${task.id}`)} className="row-action-btn" title="Edit"><Pencil size={14} /></button>
                           <button onClick={() => confirmDelete(task)} className="row-action-btn row-action-btn-danger" title="Delete"><Trash2 size={14} /></button>

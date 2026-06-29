@@ -151,25 +151,25 @@ export default function ContactsPage() {
         </div>
 
         {/* Contacts table */}
-        <div className="crm-card overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-100">
+        <div className="crm-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="crm-table">
               <thead>
-                <tr className="bg-slate-50 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-                  <th className="px-4 py-4">Code</th>
-                  <th className="px-4 py-4">Name</th>
-                  <th className="px-4 py-4">Customer</th>
-                  <th className="px-4 py-4">Type</th>
-                  <th className="px-4 py-4">Phone</th>
-                  <th className="px-4 py-4">Email</th>
-                  <th className="px-4 py-4">Status</th>
-                  <th className="px-4 py-4 text-right">Actions</th>
+                <tr>
+                  <th className="crm-th">Code</th>
+                  <th className="crm-th">Name</th>
+                  <th className="crm-th">Customer</th>
+                  <th className="crm-th">Type</th>
+                  <th className="crm-th">Phone</th>
+                  <th className="crm-th">Email</th>
+                  <th className="crm-th">Status</th>
+                  <th className="crm-th text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center">
+                    <td colSpan={8} className="crm-td text-center py-12">
                       <div className="flex justify-center">
                         <CRMSpinner size={36} label="Loading contacts..." />
                       </div>
@@ -177,49 +177,49 @@ export default function ContactsPage() {
                   </tr>
                 ) : paginatedContacts.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-16 text-center">
-                      <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3"><BookUser size={20} className="text-slate-400" /></div>
-                      <p className="text-sm font-semibold text-slate-700">No contacts found</p>
-                      <p className="text-xs text-slate-400 mt-1">Try adjusting your filters or search terms.</p>
+                    <td colSpan={8} className="crm-td text-center py-16">
+                      <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3"><BookUser size={20} className="text-muted-foreground" /></div>
+                      <p className="text-sm font-medium text-foreground">No contacts found</p>
+                      <p className="text-xs text-muted-foreground mt-1">Try adjusting your filters or search terms.</p>
                     </td>
                   </tr>
                 ) : (
                   paginatedContacts.map((contact) => (
                     <tr
                       key={contact.id}
-                      className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors text-slate-600 text-sm table-row-clickable"
+                      className="crm-tr table-row-clickable"
                       onClick={() => router.push(`/contacts/${contact.id}`)}
                     >
-                      <td className="px-4 py-4 font-mono text-xs font-semibold text-[var(--primary)]">{contact.contactCode}</td>
-                      <td className="px-4 py-4">
+                      <td className="crm-td font-mono text-xs font-medium text-[var(--primary)]">{contact.contactCode}</td>
+                      <td className="crm-td">
                         <div className="flex items-center gap-3">
                           <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white uppercase shadow-sm", getAvatarColor(contact.name))}>
                             {getInitials(contact.name)}
                           </div>
                           <div>
                             <div className="row-primary-link">{contact.name}</div>
-                            {contact.isPrimary && <span className="text-[10px] bg-[var(--primary)]/10 text-[var(--primary)] px-1.5 py-0.5 rounded font-bold">Primary</span>}
+                            {contact.isPrimary && <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">Primary</span>}
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-xs">
+                      <td className="crm-td text-xs">
                         {contact.customer ? (
-                          <div className="flex items-center gap-1.5"><User size={12} className="text-slate-400" />{contact.customer.name}</div>
+                          <div className="flex items-center gap-1.5"><User size={12} className="text-muted-foreground" />{contact.customer.name}</div>
                         ) : (
-                          <span className="text-slate-300">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-4">
-                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-600"><Tag size={10} />{contact.contactType}</span>
+                      <td className="crm-td">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-muted text-muted-foreground"><Tag size={10} />{contact.contactType}</span>
                       </td>
-                      <td className="px-4 py-4">
-                        {contact.phone ? <div className="flex items-center gap-1.5 text-xs"><Phone size={12} className="text-slate-400" />{contact.phone}</div> : <span className="text-xs text-slate-300">—</span>}
+                      <td className="crm-td">
+                        {contact.phone ? <div className="flex items-center gap-1.5 text-xs"><Phone size={12} className="text-muted-foreground" />{contact.phone}</div> : <span className="text-xs text-muted-foreground">—</span>}
                       </td>
-                      <td className="px-4 py-4">
-                        {contact.email ? <div className="flex items-center gap-1.5 text-xs"><Mail size={12} className="text-slate-400" />{contact.email}</div> : <span className="text-xs text-slate-300">—</span>}
+                      <td className="crm-td">
+                        {contact.email ? <div className="flex items-center gap-1.5 text-xs"><Mail size={12} className="text-muted-foreground" />{contact.email}</div> : <span className="text-xs text-muted-foreground">—</span>}
                       </td>
-                      <td className="px-4 py-4"><StatusBadge status={contact.status} size="sm" /></td>
-                      <td className="px-4 py-4 text-right" onClick={e => e.stopPropagation()}>
+                      <td className="crm-td"><StatusBadge status={contact.status} size="sm" /></td>
+                      <td className="crm-td text-right" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
                           <button onClick={() => router.push(`/contacts/${contact.id}`)} className="row-action-btn" title="Edit"><Pencil size={15} /></button>
                           <button onClick={() => confirmDelete(contact)} className="row-action-btn row-action-btn-danger" title="Delete"><Trash2 size={15} /></button>

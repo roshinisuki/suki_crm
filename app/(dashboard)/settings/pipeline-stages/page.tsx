@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/components/ToastProvider";
 import PageContainer from "@/components/PageContainer";
 import { CRMSpinner } from "@/components/CRMSpinner";
+import { cn } from "@/lib/ui-utils";
 
 const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
   <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -98,46 +99,50 @@ export default function PipelineStagesSettingsPage() {
         <button onClick={() => { setShowAdd(true); setForm({ name: "", color: "#378ADD" }); }} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] cursor-pointer"><Ico d={icons.plus} size={16} /> Add Stage</button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead><tr className="bg-slate-50 border-b border-slate-200">
-            <th className="text-center px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Order</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Stage Name</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Color</th>
-            <th className="text-center px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Active</th>
-            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Actions</th>
-          </tr></thead>
-          <tbody>
-            {loading ? <tr>
-              <td colSpan={5} className="py-12 text-center">
-                <div className="flex justify-center">
-                  <CRMSpinner size={36} label="Loading..." />
-                </div>
-              </td>
-            </tr>
-            : stages.length === 0 ? <tr><td colSpan={5} className="text-center py-8 text-slate-400">No stages configured</td></tr>
-            : stages.map((stage, idx) => (
-              <tr key={stage.id} className={`border-b border-slate-100 hover:bg-slate-50/50 ${!stage.isActive ? "opacity-50" : ""}`}>
-                <td className="px-4 py-3 text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <button onClick={() => handleMove(stage, "up")} disabled={idx === 0} className="p-1 rounded hover:bg-slate-100 text-slate-500 disabled:opacity-30 cursor-pointer"><Ico d={icons.up} size={14} /></button>
-                    <span className="text-sm text-slate-600 w-6">{stage.order}</span>
-                    <button onClick={() => handleMove(stage, "down")} disabled={idx === stages.length - 1} className="p-1 rounded hover:bg-slate-100 text-slate-500 disabled:opacity-30 cursor-pointer"><Ico d={icons.down} size={14} /></button>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm font-medium text-slate-800">{stage.name}</td>
-                <td className="px-4 py-3"><div className="flex items-center gap-2"><div className="w-5 h-5 rounded-full" style={{ backgroundColor: stage.color }} /><span className="text-xs text-slate-500">{stage.color}</span></div></td>
-                <td className="px-4 py-3 text-center"><button onClick={() => handleToggleActive(stage)} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer ${stage.isActive ? "bg-green-500" : "bg-slate-300"}`}><span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${stage.isActive ? "translate-x-5" : "translate-x-1"}`} /></button></td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => openEdit(stage)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 cursor-pointer"><Ico d={icons.edit} size={15} /></button>
-                    <button onClick={() => handleDelete(stage)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 cursor-pointer"><Ico d={icons.x} size={15} /></button>
+      <div className="crm-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="crm-table">
+            <thead>
+              <tr>
+                <th className="crm-th text-center">Order</th>
+                <th className="crm-th">Stage Name</th>
+                <th className="crm-th">Color</th>
+                <th className="crm-th text-center">Active</th>
+                <th className="crm-th text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? <tr>
+                <td colSpan={5} className="crm-td py-12 text-center">
+                  <div className="flex justify-center">
+                    <CRMSpinner size={36} label="Loading..." />
                   </div>
                 </td>
               </tr>
-            ))}
-          </tbody>
-        </table>
+              : stages.length === 0 ? <tr><td colSpan={5} className="crm-td text-center py-8 text-muted-foreground">No stages configured</td></tr>
+              : stages.map((stage, idx) => (
+                <tr key={stage.id} className={cn("crm-tr", !stage.isActive && "opacity-50")}>
+                  <td className="crm-td text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => handleMove(stage, "up")} disabled={idx === 0} className="p-1 rounded hover:bg-muted text-slate-500 disabled:opacity-30 cursor-pointer"><Ico d={icons.up} size={14} /></button>
+                      <span className="text-sm text-foreground w-6">{stage.order}</span>
+                      <button onClick={() => handleMove(stage, "down")} disabled={idx === stages.length - 1} className="p-1 rounded hover:bg-muted text-slate-500 disabled:opacity-30 cursor-pointer"><Ico d={icons.down} size={14} /></button>
+                    </div>
+                  </td>
+                  <td className="crm-td font-medium text-foreground">{stage.name}</td>
+                  <td className="crm-td"><div className="flex items-center gap-2"><div className="w-5 h-5 rounded-full" style={{ backgroundColor: stage.color }} /><span className="text-xs text-muted-foreground">{stage.color}</span></div></td>
+                  <td className="crm-td text-center"><button onClick={() => handleToggleActive(stage)} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer ${stage.isActive ? "bg-green-500" : "bg-slate-300"}`}><span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${stage.isActive ? "translate-x-5" : "translate-x-1"}`} /></button></td>
+                  <td className="crm-td text-right">
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => openEdit(stage)} className="p-1.5 rounded-lg hover:bg-muted text-slate-600 cursor-pointer"><Ico d={icons.edit} size={15} /></button>
+                      <button onClick={() => handleDelete(stage)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 cursor-pointer"><Ico d={icons.x} size={15} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Add/Edit Modal */}

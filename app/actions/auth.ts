@@ -380,7 +380,17 @@ export async function activateCustomerPortal(customerId: string) {
     }
 
     if (!customer.email) return { success: false, message: "Customer does not have an email address." };
-    if (customer.status !== "ActiveCustomer") return { success: false, message: "Only Active customers can be granted portal access." };
+    
+    // Status check removed - portal activation should be allowed from any status
+    // Status transitions are handled separately through deal Won or admin actions
+
+    // Check for cross-tenant email uniqueness
+    const existingUserGlobal = await prisma.user.findFirst({
+      where: { email: customer.email.toLowerCase() }
+    });
+    if (existingUserGlobal && existingUserGlobal.companyId !== customer.companyId) {
+      return { success: false, message: "A user with this email already exists in another company." };
+    }
 
     // Find or create user record for customer
     let user = await prisma.user.findUnique({ where: { email: customer.email } });
@@ -980,6 +990,20 @@ export async function requestNewActivationLink(email: string) {
     // Always return success to prevent email enumeration
     if (!user || !user.isFirstLogin) {
       return { success: true, message: "If that email is registered and pending activation, a new link has been sent." };
+    }
+
+    // Rate limit: max 3 requests per email per hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentRequests = await prisma.auditLog.count({
+      where: {
+        userId: user.id,
+        action: "PORTAL_ACTIVATION",
+        createdAt: { gte: oneHourAgo }
+      }
+    });
+
+    if (recentRequests >= 3) {
+      return { success: false, message: "Too many activation requests. Please wait before trying again." };
     }
 
     // Find linked customer to use activateCustomerPortal flow

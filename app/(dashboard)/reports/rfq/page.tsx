@@ -125,37 +125,37 @@ export default function RFQReportPage() {
         {/* Data Table */}
         <div className="crm-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="crm-table">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">RFQ Code</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Customer</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Product</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Qty</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Assigned To</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Received Date</th>
+                <tr>
+                  <th className="crm-th">RFQ Code</th>
+                  <th className="crm-th">Customer</th>
+                  <th className="crm-th">Product</th>
+                  <th className="crm-th text-right">Qty</th>
+                  <th className="crm-th">Status</th>
+                  <th className="crm-th">Assigned To</th>
+                  <th className="crm-th">Received Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center">
+                    <td colSpan={7} className="crm-td py-12 text-center">
                       <div className="flex justify-center">
                         <CRMSpinner size={36} label="Loading report..." />
                       </div>
                     </td>
                   </tr>
                 ) : rfqs.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-12 text-slate-400 text-sm">No RFQs found</td></tr>
+                  <tr><td colSpan={7} className="crm-td text-center py-12 text-muted-foreground text-sm">No RFQs found</td></tr>
                 ) : (
                   rfqs.map(r => (
-                    <tr key={r.id} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-3 text-sm font-mono text-xs text-slate-600">{r.rfqCode}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{r.customerName}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{r.productName}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 text-right">{r.quantity}</td>
-                      <td className="px-4 py-3">
+                    <tr key={r.id} className="crm-tr">
+                      <td className="crm-td font-mono text-xs text-muted-foreground">{r.rfqCode}</td>
+                      <td className="crm-td text-foreground">{r.customerName}</td>
+                      <td className="crm-td text-foreground">{r.productName}</td>
+                      <td className="crm-td text-right text-foreground">{r.quantity}</td>
+                      <td className="crm-td">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
                           r.status === "QuotationCreated" ? "bg-emerald-50 text-emerald-600" :
                           r.status === "Closed" ? "bg-blue-50 text-blue-600" :
@@ -164,8 +164,8 @@ export default function RFQReportPage() {
                           "bg-slate-100 text-slate-600"
                         }`}>{r.status}</span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{r.assignedTo}</td>
-                      <td className="px-4 py-3 text-sm text-slate-500">{r.receivedDate ? new Date(r.receivedDate).toLocaleDateString() : "—"}</td>
+                      <td className="crm-td text-foreground">{r.assignedTo}</td>
+                      <td className="crm-td text-muted-foreground">{r.receivedDate ? new Date(r.receivedDate).toLocaleDateString() : "—"}</td>
                     </tr>
                   ))
                 )}

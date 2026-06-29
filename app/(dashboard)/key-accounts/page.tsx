@@ -230,48 +230,50 @@ export default function KeyAccountsPage() {
       ) : keyAccounts.length === 0 ? (
         <div className="py-12 text-center text-sm text-gray-500">No key accounts found.</div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Customer</th>
-                <th className="px-4 py-3 font-semibold">Account Manager</th>
-                <th className="px-4 py-3 font-semibold text-right">Revenue Potential</th>
-                <th className="px-4 py-3 font-semibold">Strategic Importance</th>
-                <th className="px-4 py-3 font-semibold">Relationship Status</th>
-                <th className="px-4 py-3 font-semibold">Next Review</th>
-                <th className="px-4 py-3 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {keyAccounts.map((ka) => (
-                <tr key={ka.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <Link href={`/key-accounts/${ka.id}`} className="font-medium text-blue-600 hover:underline">{ka.customer?.name}</Link>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{ka.accountManager?.name || "—"}</td>
-                  <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(ka.revenuePotential ?? 0)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${importanceColors[ka.strategicImportance] || "bg-gray-100 text-gray-600"}`}>{ka.strategicImportance}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {ka.relationshipStatus && <span className={`px-2 py-0.5 rounded-full text-xs ${statusColors[ka.relationshipStatus] || "bg-gray-100 text-gray-600"}`}>{ka.relationshipStatus}</span>}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{ka.nextReviewDate ? new Date(ka.nextReviewDate).toLocaleDateString() : "—"}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="inline-flex gap-1.5">
-                      {canManage && (
-                        <>
-                          <button onClick={() => openEdit(ka)} className="p-1.5 rounded hover:bg-gray-100" title="Edit"><Ico d={icons.edit} /></button>
-                          <button onClick={() => handleDelete(ka)} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Remove"><Ico d={icons.trash} /></button>
-                        </>
-                      )}
-                    </div>
-                  </td>
+        <div className="crm-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="crm-table">
+              <thead>
+                <tr>
+                  <th className="crm-th">Customer</th>
+                  <th className="crm-th">Account Manager</th>
+                  <th className="crm-th text-right">Revenue Potential</th>
+                  <th className="crm-th">Strategic Importance</th>
+                  <th className="crm-th">Relationship Status</th>
+                  <th className="crm-th">Next Review</th>
+                  <th className="crm-th text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {keyAccounts.map((ka) => (
+                  <tr key={ka.id} className="crm-tr">
+                    <td className="crm-td">
+                      <Link href={`/key-accounts/${ka.id}`} className="font-medium text-foreground hover:text-[var(--accent)]">{ka.customer?.name}</Link>
+                    </td>
+                    <td className="crm-td text-muted-foreground">{ka.accountManager?.name || "—"}</td>
+                    <td className="crm-td text-right text-muted-foreground">{formatCurrency(ka.revenuePotential ?? 0)}</td>
+                    <td className="crm-td">
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${importanceColors[ka.strategicImportance] || "bg-gray-100 text-gray-600"}`}>{ka.strategicImportance}</span>
+                    </td>
+                    <td className="crm-td">
+                      {ka.relationshipStatus && <span className={`px-2 py-0.5 rounded-full text-xs ${statusColors[ka.relationshipStatus] || "bg-gray-100 text-gray-600"}`}>{ka.relationshipStatus}</span>}
+                    </td>
+                    <td className="crm-td text-muted-foreground">{ka.nextReviewDate ? new Date(ka.nextReviewDate).toLocaleDateString() : "—"}</td>
+                    <td className="crm-td text-right">
+                      <div className="inline-flex gap-1.5">
+                        {canManage && (
+                          <>
+                            <button onClick={() => openEdit(ka)} className="p-1.5 rounded hover:bg-muted" title="Edit"><Ico d={icons.edit} /></button>
+                            <button onClick={() => handleDelete(ka)} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Remove"><Ico d={icons.trash} /></button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

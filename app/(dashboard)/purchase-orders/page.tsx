@@ -168,71 +168,73 @@ export default function PurchaseOrderListPage() {
         />
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">PO Code</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Final Amount</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">ERP</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Items</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Expected Delivery</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={8} className="text-center py-8 text-slate-400">Loading...</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={8} className="text-center py-8 text-slate-400">No purchase orders found</td></tr>
-            ) : (
-              filtered.map((p: any) => (
-                <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-3 text-sm font-medium text-slate-800">
-                    {p.poCode}
-                    {p.poNumber && <div className="text-xs text-slate-400">{p.poNumber}</div>}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{p.customer?.name || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{p.finalAmount ? formatCurrency(p.finalAmount) : "—"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[p.status] || "bg-gray-100 text-gray-600"}`}>{p.status}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {p.erpSyncStatus ? (
-                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${erpStatusColors[p.erpSyncStatus] || "bg-gray-100 text-gray-600"}`}>{p.erpSyncStatus}</span>
-                    ) : (
-                      <span className="text-xs text-slate-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{p._count?.items || 0}</td>
-                  <td className="px-4 py-3 text-sm text-slate-500">{p.expectedDelivery ? new Date(p.expectedDelivery).toLocaleDateString() : "—"}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-2">
-                      {p.status === "Approved" && p.erpSyncStatus !== "Synced" && (
-                        <button
-                          onClick={() => handleSyncErp(p.id)}
-                          disabled={syncingId === p.id}
-                          className="p-1.5 rounded-lg hover:bg-green-50 text-green-600 cursor-pointer disabled:opacity-40"
-                          title="Sync to ERP"
-                        >
-                          <Ico d={icons.sync} size={15} className={syncingId === p.id ? "animate-spin" : ""} />
-                        </button>
+      <div className="crm-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="crm-table">
+            <thead>
+              <tr>
+                <th className="crm-th">PO Code</th>
+                <th className="crm-th">Customer</th>
+                <th className="crm-th">Final Amount</th>
+                <th className="crm-th">Status</th>
+                <th className="crm-th">ERP</th>
+                <th className="crm-th">Items</th>
+                <th className="crm-th">Expected Delivery</th>
+                <th className="crm-th text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={8} className="crm-td text-center py-8 text-muted-foreground">Loading...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={8} className="crm-td text-center py-8 text-muted-foreground">No purchase orders found</td></tr>
+              ) : (
+                filtered.map((p: any) => (
+                  <tr key={p.id} className="crm-tr">
+                    <td className="crm-td font-medium text-foreground">
+                      {p.poCode}
+                      {p.poNumber && <div className="text-xs text-muted-foreground">{p.poNumber}</div>}
+                    </td>
+                    <td className="crm-td text-foreground">{p.customer?.name || "—"}</td>
+                    <td className="crm-td text-foreground">{p.finalAmount ? formatCurrency(p.finalAmount) : "—"}</td>
+                    <td className="crm-td">
+                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[p.status] || "bg-gray-100 text-gray-600"}`}>{p.status}</span>
+                    </td>
+                    <td className="crm-td">
+                      {p.erpSyncStatus ? (
+                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${erpStatusColors[p.erpSyncStatus] || "bg-gray-100 text-gray-600"}`}>{p.erpSyncStatus}</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
                       )}
-                      <button onClick={() => router.push(`/purchase-orders/${p.id}`)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 cursor-pointer" title="View">
-                        <Ico d={icons.eye} size={15} />
-                      </button>
-                      <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 cursor-pointer" title="Delete">
-                        <Ico d={icons.x} size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                    </td>
+                    <td className="crm-td text-foreground">{p._count?.items || 0}</td>
+                    <td className="crm-td text-muted-foreground">{p.expectedDelivery ? new Date(p.expectedDelivery).toLocaleDateString() : "—"}</td>
+                    <td className="crm-td text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {p.status === "Approved" && p.erpSyncStatus !== "Synced" && (
+                          <button
+                            onClick={() => handleSyncErp(p.id)}
+                            disabled={syncingId === p.id}
+                            className="p-1.5 rounded-lg hover:bg-green-50 text-green-600 cursor-pointer disabled:opacity-40"
+                            title="Sync to ERP"
+                          >
+                            <Ico d={icons.sync} size={15} className={syncingId === p.id ? "animate-spin" : ""} />
+                          </button>
+                        )}
+                        <button onClick={() => router.push(`/purchase-orders/${p.id}`)} className="p-1.5 rounded-lg hover:bg-muted text-slate-600 cursor-pointer" title="View">
+                          <Ico d={icons.eye} size={15} />
+                        </button>
+                        <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 cursor-pointer" title="Delete">
+                          <Ico d={icons.x} size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <ConfirmModal

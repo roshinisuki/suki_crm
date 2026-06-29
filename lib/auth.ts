@@ -20,11 +20,11 @@ export interface TokenPayload {
   exp: number;
 }
 
-/** Returns true if the email belongs to any of the allowed internal domains */
+/** Returns true if the email belongs to any of the allowed internal domains (or their subdomains) */
 export function isInternalEmail(email: string): boolean {
   const domain = email.split("@")[1]?.toLowerCase();
   if (!domain) return false;
-  return ALLOWED_DOMAINS.includes(domain);
+  return ALLOWED_DOMAINS.some(d => domain === d || domain.endsWith("." + d));
 }
 
 /** Returns true if the role requires an internal (company) email */

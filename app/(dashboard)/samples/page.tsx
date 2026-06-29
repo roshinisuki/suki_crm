@@ -145,54 +145,56 @@ export default function SampleListPage() {
         />
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Sample Code</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Product</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Qty</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Assigned To</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Request Date</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={8} className="text-center py-8 text-slate-400">Loading...</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={8} className="text-center py-8 text-slate-400">No sample requests found</td></tr>
-            ) : (
-              filtered.map((sample: any) => (
-                <tr key={sample.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-3 text-sm font-medium text-slate-800">{sample.sampleCode}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{sample.customer?.name || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{sample.product ? `${sample.product.productCode} - ${sample.product.name}` : "—"}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{sample.quantity}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[sample.status] || "bg-gray-100 text-gray-600"}`}>
-                      {sample.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{sample.assignedUser?.name || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{new Date(sample.requestDate).toLocaleDateString()}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => router.push(`/samples/${sample.id}`)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 cursor-pointer" title="View">
-                        <Ico d={icons.eye} size={15} />
-                      </button>
-                      <button onClick={() => handleDelete(sample.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 cursor-pointer" title="Delete">
-                        <Ico d={icons.x} size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div className="crm-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="crm-table">
+            <thead>
+              <tr>
+                <th className="crm-th">Sample Code</th>
+                <th className="crm-th">Customer</th>
+                <th className="crm-th">Product</th>
+                <th className="crm-th">Qty</th>
+                <th className="crm-th">Status</th>
+                <th className="crm-th">Assigned To</th>
+                <th className="crm-th">Request Date</th>
+                <th className="crm-th text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={8} className="crm-td text-center py-8 text-muted-foreground">Loading...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={8} className="crm-td text-center py-8 text-muted-foreground">No sample requests found</td></tr>
+              ) : (
+                filtered.map((sample: any) => (
+                  <tr key={sample.id} className="crm-tr">
+                    <td className="crm-td font-medium text-foreground">{sample.sampleCode}</td>
+                    <td className="crm-td text-foreground">{sample.customer?.name || "—"}</td>
+                    <td className="crm-td text-foreground">{sample.product ? `${sample.product.productCode} - ${sample.product.name}` : "—"}</td>
+                    <td className="crm-td text-foreground">{sample.quantity}</td>
+                    <td className="crm-td">
+                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[sample.status] || "bg-gray-100 text-gray-600"}`}>
+                        {sample.status}
+                      </span>
+                    </td>
+                    <td className="crm-td text-foreground">{sample.assignedUser?.name || "—"}</td>
+                    <td className="crm-td text-foreground">{new Date(sample.requestDate).toLocaleDateString()}</td>
+                    <td className="crm-td text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => router.push(`/samples/${sample.id}`)} className="p-1.5 rounded-lg hover:bg-muted text-slate-600 cursor-pointer" title="View">
+                          <Ico d={icons.eye} size={15} />
+                        </button>
+                        <button onClick={() => handleDelete(sample.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 cursor-pointer" title="Delete">
+                          <Ico d={icons.x} size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <ConfirmModal

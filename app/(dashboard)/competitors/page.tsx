@@ -135,52 +135,54 @@ export default function CompetitorsPage() {
       ) : competitors.length === 0 ? (
         <div className="py-12 text-center text-sm text-gray-500">No competitors found.</div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Name</th>
-                <th className="px-4 py-3 font-semibold">Website</th>
-                <th className="px-4 py-3 font-semibold">Products</th>
-                <th className="px-4 py-3 font-semibold">Lost Deals</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {competitors.map((c) => (
-                <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <Link href={`/competitors/${c.id}`} className="font-medium text-blue-600 hover:underline">{c.name}</Link>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {c.website ? (
-                      <a href={c.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:underline">
-                        {c.website} <Ico d={icons.external} size={12} />
-                      </a>
-                    ) : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{c._count?.products ?? 0}</td>
-                  <td className="px-4 py-3 text-gray-600">{c._count?.lostDealAnalyses ?? 0}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${c.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}>
-                      {c.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="inline-flex gap-1.5">
-                      {canManage && (
-                        <>
-                          <button onClick={() => openEdit(c)} className="p-1.5 rounded hover:bg-gray-100" title="Edit"><Ico d={icons.edit} /></button>
-                          <button onClick={() => handleDelete(c)} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Delete"><Ico d={icons.trash} /></button>
-                        </>
-                      )}
-                    </div>
-                  </td>
+        <div className="crm-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="crm-table">
+              <thead>
+                <tr>
+                  <th className="crm-th">Name</th>
+                  <th className="crm-th">Website</th>
+                  <th className="crm-th">Products</th>
+                  <th className="crm-th">Lost Deals</th>
+                  <th className="crm-th">Status</th>
+                  <th className="crm-th text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {competitors.map((c) => (
+                  <tr key={c.id} className="crm-tr">
+                    <td className="crm-td">
+                      <Link href={`/competitors/${c.id}`} className="font-medium text-foreground hover:text-[var(--accent)]">{c.name}</Link>
+                    </td>
+                    <td className="crm-td text-foreground">
+                      {c.website ? (
+                        <a href={c.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--accent)] hover:underline">
+                          {c.website} <Ico d={icons.external} size={12} />
+                        </a>
+                      ) : "—"}
+                    </td>
+                    <td className="crm-td text-foreground">{c._count?.products ?? 0}</td>
+                    <td className="crm-td text-foreground">{c._count?.lostDealAnalyses ?? 0}</td>
+                    <td className="crm-td">
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${c.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}>
+                        {c.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="crm-td text-right">
+                      <div className="inline-flex gap-1.5">
+                        {canManage && (
+                          <>
+                            <button onClick={() => openEdit(c)} className="p-1.5 rounded hover:bg-muted" title="Edit"><Ico d={icons.edit} /></button>
+                            <button onClick={() => handleDelete(c)} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Delete"><Ico d={icons.trash} /></button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

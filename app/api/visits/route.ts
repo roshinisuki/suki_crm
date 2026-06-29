@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
   const status = searchParams.get("status");
   const customerId = searchParams.get("customerId");
   const hostedBy = searchParams.get("hostedBy");
+  const autoCheckedOut = searchParams.get("autoCheckedOut") === "true";
   const page = parseInt(searchParams.get("page") || "1");
   const pageSize = 50;
 
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
   if (status) where.status = status;
   if (customerId) where.customerId = customerId;
   if (hostedBy) where.hostedBy = hostedBy;
+  if (autoCheckedOut) where.autoCheckedOut = true;
 
   // SalesExecutive sees only own visits
   if (user.role === "SalesExecutive") where.hostedBy = user.id;

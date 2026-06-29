@@ -211,11 +211,11 @@ export default function SalesPipelineListPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="px-5 py-12 text-center text-slate-400">Loading opportunities...</td>
+                    <td colSpan={9} className="crm-td text-center py-12">Loading opportunities...</td>
                   </tr>
                 ) : deals.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-5 py-12 text-center text-slate-400">No opportunities found for the selected criteria.</td>
+                    <td colSpan={9} className="crm-td text-center py-12 text-muted-foreground">No opportunities found for the selected criteria.</td>
                   </tr>
                 ) : (
                   deals.map((deal) => {

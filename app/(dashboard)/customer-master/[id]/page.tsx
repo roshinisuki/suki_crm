@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { getCustomerByIdAction, updateCustomerAction } from "@/app/actions/customers";
 import { createFollowUpAction } from "@/app/actions/followUps";
 import { createCallAction } from "@/app/actions/activities";
-import { getCallLogsAction } from "@/app/actions/calls";
 import { createDealAction, updateDealAction, updateDealStatusAction, deleteDealAction } from "@/app/actions/deals";
 import { getUsersAction } from "@/app/actions/users";
 import { useAuth } from "@/components/AuthProvider";
@@ -32,13 +31,11 @@ const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?
 );
 
 const STATUS_OPTIONS = [
-  "New",
-  "Contacted",
-  "Qualified",
-  "ProposalSent",
-  "Negotiation",
-  "Converted",
-  "Lost"
+  "Prospect",
+  "ActiveCustomer",
+  "Renewed",
+  "Churned",
+  "Inactive"
 ];
 
 const LEAD_SOURCES = [
@@ -87,12 +84,6 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
   const [expectedCloseDate, setExpectedCloseDate] = useState("");
   const [assignedUserId, setAssignedUserId] = useState("");
   const [dealNotes, setDealNotes] = useState("");
-
-  // Document Upload State
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [uploadingDoc, setUploadingDoc] = useState(false);
-  const [docType, setDocType] = useState("Customer");
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [dealStatus, setDealStatus] = useState("Open");
   const [savingDeal, setSavingDeal] = useState(false);
 
@@ -119,12 +110,6 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
     loadCustomer();
     loadExecutives();
   }, [customerId]);
-
-  useEffect(() => {
-    if (activeTab === "documents" && customer) {
-      loadDocuments();
-    }
-  }, [activeTab, customer]);
 
   const handleStatusChange = async (newStatus: string) => {
     if (!customer) return;
@@ -185,7 +170,7 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
       toast.success("Call logged successfully.");
       setCallNotes("");
       setCallDuration("");
-      loadCustomer(); // reload lists and timeline
+      loadCustomer();
     } else {
       toast.error(res.message || "Failed to log call");
     }
@@ -285,7 +270,7 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
     if (res.success) {
       toast.success(res.message || "Deal processed successfully");
       setShowDealModal(false);
-      loadCustomer(); // Refreshes deals & status
+      loadCustomer();
     } else {
       toast.error(res.message || "Failed to save deal");
     }
@@ -313,56 +298,10 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
     }
   };
 
-  // Document upload handlers
-  const loadDocuments = async () => {
-    try {
-      const res = await fetch(`/api/accounts/${customer.id}/documents`);
-      const data = await res.json();
-      if (data.success) setDocuments(data.data || []);
-    } catch { /* silent */ }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingDoc(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("documentType", docType);
-      const res = await fetch(`/api/accounts/${customer.id}/documents`, { method: "POST", body: formData });
-      const data = await res.json();
-      if (data.success) {
-        toast.success("Document uploaded");
-        loadDocuments();
-      } else {
-        toast.error(data.message || "Upload failed");
-      }
-    } catch {
-      toast.error("Upload failed");
-    } finally {
-      setUploadingDoc(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file && fileInputRef.current) {
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      fileInputRef.current.files = dt.files;
-      handleFileUpload({ target: { files: dt.files } } as any);
-    }
-  };
-
   if (loading) {
     return <div className="p-8 text-slate-500">Loading Customer details...</div>;
   }
   if (!customer) return null;
-
-  const currentIndex = STATUS_OPTIONS.indexOf(customer.status);
 
   // Dynamic next follow-up and last contact calculation
   const pendingFollowUps = customer.followUps?.filter((f: any) => f.status === "Pending" || f.status === "Overdue");
@@ -581,7 +520,6 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
           { id: "quotations", label: `Quotations (${customer.quotations?.length || 0})` },
           { id: "rfqs", label: `RFQs (${customer.rfqs?.length || 0})` },
           { id: "visits", label: `Visits (${(customer.customerVisits?.length || 0)})` },
-          { id: "documents", label: "Documents" },
           { id: "timeline", label: "Activity Timeline" },
         ].map((tab) => (
           <button
@@ -598,10 +536,8 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
         ))}
       </div>
 
-      {/* Tab Content + Sidebar */}
-      <div className="flex gap-6">
-        {/* Main Content */}
-        <div className="flex-1 min-w-0">
+      {/* Tab Content */}
+      <div className="flex-1 min-w-0">
         {activeTab === "overview" && (
           <div className="space-y-5">
             {/* Account Details */}
@@ -730,6 +666,72 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
           </div>
         )}
 
+        {activeTab === "contacts" && (
+          <div className="crm-card p-5">
+            <h3 className="text-sm font-bold text-slate-700 mb-4">Contacts ({customer.contacts?.length || 0})</h3>
+            {customer.contacts && customer.contacts.length > 0 ? (
+              <div className="space-y-3">
+                {customer.contacts.map((contact: any) => (
+                  <div key={contact.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">{contact.name}</p>
+                      <p className="text-xs text-slate-500">{contact.email || contact.phone || "No contact info"}</p>
+                    </div>
+                    {contact.isPrimary && (
+                      <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Primary</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500 italic">No contacts added yet.</p>
+            )}
+          </div>
+        )}
+
+        {activeTab === "opportunities" && (
+          <div className="crm-card p-5">
+            <h3 className="text-sm font-bold text-slate-700 mb-4">Opportunities ({customer.deals?.filter((d: any) => d.status !== "Won" && d.status !== "Lost").length || 0})</h3>
+            {customer.deals && customer.deals.filter((d: any) => d.status !== "Won" && d.status !== "Lost").length > 0 ? (
+              <div className="space-y-3">
+                {customer.deals.filter((d: any) => d.status !== "Won" && d.status !== "Lost").map((deal: any) => (
+                  <div key={deal.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">{deal.dealName}</p>
+                      <p className="text-xs text-slate-500">${deal.dealValue?.toLocaleString()} • {new Date(deal.expectedCloseDate).toLocaleDateString()}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={deal.status}
+                        onChange={(e) => handleFastDealStatusChange(deal.id, e.target.value)}
+                        className="text-[10px] font-bold px-2 py-0.5 rounded border bg-white cursor-pointer"
+                      >
+                        {DEAL_STATUSES.map((status) => (
+                          <option key={status} value={status}>{status}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => openEditDealModal(deal)}
+                        className="text-[10px] font-bold text-slate-600 hover:text-[var(--primary)] px-2"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDeal(deal.id)}
+                        className="text-[10px] font-bold text-red-600 hover:text-red-700 px-2"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500 italic">No active opportunities.</p>
+            )}
+          </div>
+        )}
+
         {activeTab === "timeline" && (
           <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-6">
             <h3 className="text-base font-bold text-slate-800">360° Activity History</h3>
@@ -739,7 +741,6 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
               <div className="relative border-l border-slate-200 ml-4 pl-6 space-y-8">
                 {timelineEvents.map((evt, idx) => (
                   <div key={idx} className="relative">
-                    {/* Circle marker */}
                     <span className={`absolute -left-10 top-0.5 w-8 h-8 rounded-full flex items-center justify-center border border-white ring-8 ring-white ${evt.colorClass}`}>
                       <Ico d={evt.icon} size={14} />
                     </span>
@@ -760,14 +761,6 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
                         <div className="mt-2 text-xs bg-slate-50 border border-slate-200/80 p-3 rounded-xl text-slate-655 space-y-1.5 max-w-xl">
                           <div><strong>Due Date / Scheduled:</strong> {evt.scheduledDate.toLocaleString()}</div>
                           <div><strong>Assignee:</strong> {evt.assignee || "Unassigned"}</div>
-                          <div><strong>Source:</strong> <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-slate-105 text-slate-600">{evt.sourceType}</span></div>
-                          {evt.completedAt && (
-                            <div className="border-t border-slate-200/60 pt-1.5 mt-1.5 space-y-1 text-slate-500">
-                              <div><strong>Completed At:</strong> {evt.completedAt.toLocaleString()}</div>
-                              <div><strong>Completed By:</strong> {evt.completedBy || "Unknown"}</div>
-                              {evt.completionNotes && <div><strong>Outcome Remarks:</strong> {evt.completionNotes}</div>}
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>
@@ -777,909 +770,81 @@ export default function Customer360Page({ params: paramsPromise }: { params: Pro
             )}
           </div>
         )}
-
-        {activeTab === "contacts" && (
-          <div className="crm-card p-5">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-sm font-bold text-slate-700">Contacts</h3>
-              <button
-                onClick={() => router.push(`/contacts/new?customerId=${customer.id}`)}
-                className="h-8 px-3 text-xs font-semibold rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Ico d={icons.plus} size={13} /> Add Contact
-              </button>
-            </div>
-            {(!customer.contacts || customer.contacts.length === 0) ? (
-              <div className="text-center py-12">
-                <p className="text-sm font-semibold text-slate-400">No contacts yet</p>
-                <p className="text-xs text-slate-300 mt-1 mb-4">Add contacts to manage account relationships</p>
-                <button
-                  onClick={() => router.push(`/contacts/new?customerId=${customer.id}`)}
-                  className="h-8 px-3 text-xs font-semibold rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white flex items-center gap-1.5 mx-auto transition-colors cursor-pointer"
-                >
-                  <Ico d={icons.plus} size={13} /> Add Contact
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {customer.contacts.map((contact: any) => (
-                  <div
-                    key={contact.id}
-                    className="border border-slate-200 rounded-xl p-4 hover:border-[var(--primary)] transition-colors cursor-pointer"
-                    onClick={() => router.push(`/contacts/${contact.id}`)}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold bg-slate-100 text-slate-600 shrink-0">
-                        {(contact.name || "C").charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-semibold text-slate-800 text-sm truncate">{contact.name}</p>
-                          {contact.isPrimary && (
-                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Primary</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-500 truncate">{contact.designation || contact.title || "No designation"}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                            contact.contactType === "Technical"
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
-                              : contact.contactType === "Purchase"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : contact.contactType === "Finance"
-                              ? "bg-purple-50 text-purple-700 border-purple-200"
-                              : "bg-slate-100 text-slate-700 border-slate-200"
-                          }`}>
-                            {contact.contactType || "General"}
-                          </span>
-                          {contact.isDecisionMaker && (
-                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-0.5">👑 DM</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "opportunities" && (
-          <div className="crm-card p-5">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-sm font-bold text-slate-700">Opportunities</h3>
-              <button
-                onClick={openCreateDealModal}
-                className="h-8 px-3 text-xs font-semibold rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Ico d={icons.plus} size={13} /> New Opportunity
-              </button>
-            </div>
-            {(!customer.deals || customer.deals.length === 0) ? (
-              <div className="text-center py-12">
-                <p className="text-sm font-semibold text-slate-400">No opportunities yet</p>
-                <p className="text-xs text-slate-300 mt-1 mb-4">Create opportunities to track sales pipeline</p>
-                <button
-                  onClick={openCreateDealModal}
-                  className="h-8 px-3 text-xs font-semibold rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white flex items-center gap-1.5 mx-auto transition-colors cursor-pointer"
-                >
-                  <Ico d={icons.plus} size={13} /> New Opportunity
-                </button>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="crm-table" style={{ minWidth: "800px" }}>
-                  <colgroup>
-                    <col style={{ width: "120px" }} />
-                    <col style={{ width: "180px" }} />
-                    <col style={{ width: "100px" }} />
-                    <col style={{ width: "80px" }} />
-                    <col style={{ width: "120px" }} />
-                    <col style={{ width: "100px" }} />
-                    <col style={{ width: "80px" }} />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th className="crm-th">Stage</th>
-                      <th className="crm-th">Name</th>
-                      <th className="crm-th">Value</th>
-                      <th className="crm-th">Prob%</th>
-                      <th className="crm-th">Expected Close</th>
-                      <th className="crm-th">Progress</th>
-                      <th className="crm-th text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {customer.deals.map((deal: any) => {
-                      const stageOrder = ["SalesOpportunity", "RequirementGathering", "MeetingScheduled", "ProposalSent", "Negotiation", "Active", "Won"];
-                      const stageIdx = stageOrder.indexOf(deal.status);
-                      const progressPct = deal.status === "Won" ? 100 : deal.status === "Lost" ? 0 : stageIdx >= 0 ? Math.round((stageIdx / (stageOrder.length - 1)) * 100) : 0;
-                      return (
-                      <tr key={deal.id} className="crm-tr">
-                        <td className="crm-td">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                            deal.status === "Won"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : deal.status === "Lost"
-                              ? "bg-rose-50 text-rose-700 border-rose-200"
-                              : "bg-blue-50 text-blue-700 border-blue-200"
-                          }`}>
-                            {deal.status}
-                          </span>
-                        </td>
-                        <td className="crm-td font-semibold text-slate-700">{deal.dealName}</td>
-                        <td className="crm-td font-mono text-slate-600">₹{deal.dealValue?.toLocaleString("en-IN") || "—"}</td>
-                        <td className="crm-td text-center text-slate-600 font-semibold">{deal.discountPercent ? `${Math.round(deal.discountPercent)}%` : "60%"}</td>
-                        <td className="crm-td text-slate-600">{deal.expectedCloseDate ? new Date(deal.expectedCloseDate).toLocaleDateString() : "-"}</td>
-                        <td className="crm-td">
-                          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full transition-all ${
-                              deal.status === "Won" ? "bg-emerald-500" : deal.status === "Lost" ? "bg-rose-500" : "bg-[var(--primary)]"
-                            }`} style={{ width: `${progressPct}%` }} />
-                          </div>
-                        </td>
-                        <td className="crm-td text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => openEditDealModal(deal)}
-                              className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-[var(--primary)] hover:bg-slate-100 transition-colors cursor-pointer"
-                              title="Edit"
-                            >
-                              <Ico d={icons.pencil} size={12} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteDeal(deal.id)}
-                              className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                              title="Delete"
-                            >
-                              <Ico d={icons.trash} size={12} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "quotations" && (
-          <div className="crm-card p-5">
-            <h3 className="text-sm font-bold text-slate-700 mb-5">Quotations</h3>
-            {(!customer.quotations || customer.quotations.length === 0) ? (
-              <div className="text-center py-12">
-                <p className="text-sm font-semibold text-slate-400">No quotations yet</p>
-                <p className="text-xs text-slate-300 mt-1">Quotations linked to this account will appear here</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="crm-table" style={{ minWidth: "700px" }}>
-                  <colgroup>
-                    <col style={{ width: "120px" }} />
-                    <col style={{ width: "100px" }} />
-                    <col style={{ width: "100px" }} />
-                    <col style={{ width: "100px" }} />
-                    <col style={{ width: "100px" }} />
-                    <col style={{ width: "60px" }} />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th className="crm-th">Quote #</th>
-                      <th className="crm-th">Amount</th>
-                      <th className="crm-th">Validity</th>
-                      <th className="crm-th">Date</th>
-                      <th className="crm-th">Status</th>
-                      <th className="crm-th text-center">PDF</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {customer.quotations.map((q: any) => (
-                      <tr key={q.id} className="crm-tr">
-                        <td className="crm-td font-mono text-xs text-slate-600">{q.quotationCode || q.id.slice(-8)}</td>
-                        <td className="crm-td font-mono text-slate-600">₹{q.totalAmount?.toLocaleString("en-IN") || "—"}</td>
-                        <td className="crm-td text-slate-600">{q.validUntil ? new Date(q.validUntil).toLocaleDateString() : "—"}</td>
-                        <td className="crm-td text-slate-600">{q.createdAt ? new Date(q.createdAt).toLocaleDateString() : "-"}</td>
-                        <td className="crm-td">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                            q.status === "Accepted"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : q.status === "Rejected" || q.status === "Expired"
-                              ? "bg-rose-50 text-rose-700 border-rose-200"
-                              : "bg-amber-50 text-amber-700 border-amber-200"
-                          }`}>
-                            {q.status || "Draft"}
-                          </span>
-                        </td>
-                        <td className="crm-td text-center">
-                          {q.pdfUrl ? (
-                            <a href={q.pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-[var(--primary)] hover:bg-slate-100 transition-colors cursor-pointer" title="Download PDF">
-                              <Ico d={icons.document} size={14} />
-                            </a>
-                          ) : (
-                            <span className="text-slate-300 text-xs">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "rfqs" && (
-          <div className="crm-card p-5">
-            <h3 className="text-sm font-bold text-slate-700 mb-5">RFQs</h3>
-            {(!customer.rfqs || customer.rfqs.length === 0) ? (
-              <div className="text-center py-12">
-                <p className="text-sm font-semibold text-slate-400">No RFQs yet</p>
-                <p className="text-xs text-slate-300 mt-1">RFQs linked to this account will appear here</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="crm-table" style={{ minWidth: "700px" }}>
-                  <colgroup>
-                    <col style={{ width: "120px" }} />
-                    <col style={{ width: "80px" }} />
-                    <col style={{ width: "120px" }} />
-                    <col style={{ width: "100px" }} />
-                    <col style={{ width: "100px" }} />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th className="crm-th">RFQ #</th>
-                      <th className="crm-th">Priority</th>
-                      <th className="crm-th">Due Date</th>
-                      <th className="crm-th">Date</th>
-                      <th className="crm-th">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {customer.rfqs.map((r: any) => (
-                      <tr key={r.id} className="crm-tr">
-                        <td className="crm-td font-mono text-xs text-slate-600">{r.rfqCode || r.id.slice(-8)}</td>
-                        <td className="crm-td">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                            r.priority === "Urgent"
-                              ? "bg-rose-50 text-rose-700 border-rose-200"
-                              : "bg-slate-100 text-slate-600 border-slate-200"
-                          }`}>
-                            {r.priority || "Normal"}
-                          </span>
-                        </td>
-                        <td className="crm-td text-slate-600">{r.customerDueDate ? new Date(r.customerDueDate).toLocaleDateString() : "—"}</td>
-                        <td className="crm-td text-slate-600">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "-"}</td>
-                        <td className="crm-td">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                            r.status === "Closed"
-                              ? "bg-slate-100 text-slate-600 border-slate-200"
-                              : "bg-blue-50 text-blue-700 border-blue-200"
-                          }`}>
-                            {r.status || "Open"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "documents" && (
-          <div className="crm-card p-5">
-            <h3 className="text-sm font-bold text-slate-700 mb-5">Documents</h3>
-
-            {/* Upload Dropzone */}
-            <div
-              className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-[var(--primary)] transition-colors cursor-pointer mb-5"
-              onClick={() => fileInputRef.current?.click()}
-              onDrop={handleDrop}
-              onDragOver={(e) => e.preventDefault()}
-            >
-              <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png" />
-              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
-                <Ico d={icons.document} size={22} className="text-slate-400" />
-              </div>
-              {uploadingDoc ? (
-                <p className="text-sm font-semibold text-[var(--primary)]">Uploading...</p>
-              ) : (
-                <>
-                  <p className="text-sm font-semibold text-slate-600">Drop file here or click to upload</p>
-                  <p className="text-xs text-slate-400 mt-1">PDF, DOC, XLS, PPT, images — max 10MB</p>
-                </>
-              )}
-            </div>
-
-            {/* File List */}
-            {documents.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-sm font-semibold text-slate-400">No documents uploaded yet</p>
-                <p className="text-xs text-slate-300 mt-1">Upload contracts, proposals, and other account-related documents</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {documents.map((doc: any) => (
-                  <div key={doc.id} className="flex items-center gap-3 border border-slate-200 rounded-xl p-3 hover:border-slate-300 transition-colors">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-slate-100 text-slate-500">
-                      <Ico d={icons.document} size={16} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-700 truncate">{doc.name}</p>
-                      <p className="text-xs text-slate-400">
-                        {doc.documentType} · {doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : ""} · {new Date(doc.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--primary)] hover:underline font-medium shrink-0">
-                      Download
-                    </a>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "deals" && (
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-800">Associated Sales Deals</h3>
-              {currentUser?.role !== "Customer" && (
-                <button
-                  onClick={openCreateDealModal}
-                  className="text-xs font-bold bg-red-50 text-[#C94F4F] hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                >
-                  <Ico d={icons.plus} size={14} />
-                  Add Deal
-                </button>
-              )}
-            </div>
-            <div className="overflow-x-auto">
-              {!customer.deals || customer.deals.length === 0 ? (
-                <p className="text-sm text-slate-500 italic text-center py-8">No deals logged for this customer.</p>
-              ) : (
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="p-4">Deal Name</th>
-                      <th className="p-4">Value</th>
-                      <th className="p-4">Expected Close</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4">Executive</th>
-                      {currentUser?.role !== "Customer" && <th className="p-4 text-right">Actions</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                    {customer.deals.map((deal: any) => (
-                      <tr key={deal.id} className="hover:bg-slate-55/30 transition-colors">
-                        <td className="p-4 font-bold text-slate-800">{deal.dealName}</td>
-                        <td className="p-4">${deal.dealValue.toLocaleString()}</td>
-                        <td className="p-4">{new Date(deal.expectedCloseDate).toLocaleDateString()}</td>
-                        <td className="p-4">
-                          <select
-                            value={deal.status}
-                            onChange={(e) => handleFastDealStatusChange(deal.id, e.target.value)}
-                            className="bg-slate-50 border border-slate-200 rounded px-2 py-0.5 font-semibold text-slate-800 cursor-pointer"
-                          >
-                            {DEAL_STATUSES.map((st) => (
-                              <option key={st} value={st}>{st}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="p-4">{deal.assignedUser?.name || "System"}</td>
-                        {currentUser?.role !== "Customer" && (
-                          <td className="p-4 text-right space-x-2">
-                            <button
-                              onClick={() => openEditDealModal(deal)}
-                              className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
-                            >
-                              <Ico d={icons.pencil} size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteDeal(deal.id)}
-                              className="text-slate-400 hover:text-red-600 p-1 cursor-pointer"
-                            >
-                              <Ico d={icons.trash} size={14} />
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            {/* Deal Stage progression Audit Trail */}
-            {customer.deals && customer.deals.length > 0 && (
-              <div className="mt-4 border-t border-slate-100 pt-5 pb-5">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-5">Deal Stage Progression Audit Trail</h4>
-                <div className="px-5 space-y-4">
-                  {customer.deals.map((deal: any) => (
-                    <div key={deal.id} className="bg-slate-50/50 border border-slate-200/60 rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
-                        <span className="text-xs font-bold text-slate-800">{deal.dealName}</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          deal.status === "Won" ? "bg-emerald-50 text-emerald-600" :
-                          deal.status === "Lost" ? "bg-red-50 text-red-600" :
-                          "bg-blue-50 text-blue-600"
-                        }`}>{deal.status}</span>
-                      </div>
-                      
-                      {!deal.stageHistories || deal.stageHistories.length === 0 ? (
-                        <p className="text-[11px] text-slate-500 italic">No transition history logged yet.</p>
-                      ) : (
-                        <div className="relative border-l-2 border-slate-200 ml-2.5 pl-4 space-y-4">
-                          {deal.stageHistories.map((hist: any) => (
-                            <div key={hist.id} className="relative">
-                              {/* Dot */}
-                              <span className="absolute -left-[22.5px] top-1 w-2.5 h-2.5 rounded-full bg-white border-2 border-[var(--primary)] flex items-center justify-center shrink-0" />
-                              <div className="text-xs">
-                                <p className="font-semibold text-slate-750">
-                                  {hist.fromStatus ? (
-                                    <>Changed from <span className="text-slate-500">{hist.fromStatus}</span> to <span className="text-slate-800 font-extrabold">{hist.toStatus}</span></>
-                                  ) : (
-                                    <>Initialized stage as <span className="text-slate-850 font-extrabold">{hist.toStatus}</span></>
-                                  )}
-                                </p>
-                                <p className="text-[10px] text-slate-400 mt-0.5">
-                                  by {hist.changedBy?.name || "System"} on {new Date(hist.changedAt).toLocaleString()}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "visits" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Field Visits */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-                <h4 className="text-xs font-bold text-slate-800">Field Visits Log</h4>
-              </div>
-              <div className="p-4 divide-y divide-slate-100 space-y-4">
-                {!customer.marketingVisits || customer.marketingVisits.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic text-center py-4">No field visits recorded.</p>
-                ) : (
-                  customer.marketingVisits.map((v: any) => (
-                    <div key={v.id} className="pt-3 first:pt-0">
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="font-bold text-slate-800">{new Date(v.checkIn).toLocaleString()}</span>
-                        <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">{v.status}</span>
-                      </div>
-                      <p className="text-xs text-slate-500">Executive: {v.executive?.name || "System"}</p>
-                      {v.purpose && <p className="text-xs text-slate-600 mt-1"><strong>Purpose:</strong> {v.purpose}</p>}
-                      {v.remarks && <p className="text-xs text-slate-650 bg-slate-50/70 p-2 rounded border border-slate-100 mt-1">{v.remarks}</p>}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Office Visits */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-                <h4 className="text-xs font-bold text-slate-800">Office Check-Ins</h4>
-              </div>
-              <div className="p-4 divide-y divide-slate-100 space-y-4">
-                {!customer.customerVisits || customer.customerVisits.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic text-center py-4">No office visits recorded.</p>
-                ) : (
-                  customer.customerVisits.map((v: any) => (
-                    <div key={v.id} className="pt-3 first:pt-0">
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="font-bold text-slate-800">{new Date(v.checkInTime).toLocaleString()}</span>
-                        <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 border border-emerald-100 font-semibold">{v.status}</span>
-                      </div>
-                      <p className="text-xs text-slate-500 font-medium">Host: {v.host?.name || "System"}</p>
-                      {v.purpose && <p className="text-xs text-slate-600 mt-1"><strong>Purpose:</strong> {v.purpose}</p>}
-                      {v.outcome && <p className="text-xs text-slate-600"><strong>Outcome:</strong> {v.outcome}</p>}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "followups" && (
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-800">Follow-up Checklist</h3>
-              <button 
-                onClick={() => setShowFollowUpModal(true)}
-                className="text-xs font-bold bg-red-50 text-[#C94F4F] hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-              >
-                <Ico d={icons.plus} size={14} />
-                Schedule Follow-up
-              </button>
-            </div>
-            <div className="p-5">
-              {!customer.followUps || customer.followUps.length === 0 ? (
-                <p className="text-sm text-slate-500 italic text-center py-4">No follow-up tasks registered.</p>
-              ) : (
-                <div className="space-y-4">
-                  {customer.followUps.map((f: any) => {
-                    const isCompleted = f.status === "Completed";
-                    const isOverdue = f.status === "Overdue";
-                    
-                    const priorityStyles =
-                      f.priority === "High"
-                        ? "bg-red-50 text-red-707 border-red-200"
-                        : f.priority === "Low"
-                        ? "bg-slate-50 text-slate-600 border-slate-200"
-                        : "bg-blue-50 text-blue-700 border-blue-200";
-
-                    const sourceStyles =
-                      f.sourceType === "LEAD_INGESTION"
-                        ? "bg-purple-50 text-purple-700 border-purple-200"
-                        : f.sourceType === "VISIT_CHECKOUT"
-                        ? "bg-indigo-50 text-indigo-705 border-indigo-200"
-                        : "bg-amber-50 text-amber-700 border-amber-200";
-
-                    return (
-                      <div key={f.id} className={`flex gap-4 p-4 rounded-xl border bg-slate-50/30 ${isOverdue ? "border-red-200 bg-red-50/[0.05]" : "border-slate-100"}`}>
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                          isCompleted ? "bg-emerald-100 text-emerald-600" : isOverdue ? "bg-red-100 text-red-600 animate-pulse" : "bg-red-100 text-[var(--primary)]"
-                        }`}>
-                          <Ico d={icons.clock} size={18} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <span className="text-sm font-bold text-slate-800">
-                              Due: {new Date(f.nextMeetingDate).toLocaleString()}
-                            </span>
-                            {f.status === "Cancelled" && <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold border bg-red-100/60 text-red-800 border-red-200 leading-none">Cancelled</span>}
-                            {isCompleted && <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold border bg-emerald-50 text-emerald-700 border-emerald-200 leading-none">Completed</span>}
-                            {isOverdue && <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold border bg-red-100/60 text-red-800 border-red-200 leading-none animate-pulse">Overdue</span>}
-                            {f.escalationLevel > 0 && <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold border bg-red-600 text-white border-red-700 leading-none">Escalated</span>}
-
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold border leading-none ${priorityStyles}`}>
-                              {f.priority || "Medium"}
-                            </span>
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold border leading-none ${sourceStyles}`}>
-                              {f.sourceType || "Manual"}
-                            </span>
-                          </div>
-                          
-                          <p className="text-xs font-semibold text-slate-505 mt-0.5">
-                            Assigned to: {f.assignedUser?.name || "System"}
-                            {f.autoCreated && <span className="text-purple-600 font-bold ml-1.5">• Auto-Created</span>}
-                          </p>
-
-                          {f.remarks && (
-                            <p className="text-xs text-slate-600 mt-2 bg-white p-3 rounded-lg border border-slate-150 leading-relaxed font-semibold">
-                              {f.remarks}
-                            </p>
-                          )}
-
-                          {isCompleted && (
-                            <div className="mt-2.5 p-3 rounded-xl border border-slate-200 bg-emerald-50/10">
-                              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Completion Details:</p>
-                              <p className="text-xs text-slate-600 font-semibold mt-0.5 leading-relaxed">{f.completionNotes || "No outcome notes."}</p>
-                              <p className="text-[9px] text-slate-400 font-bold mt-1">
-                                Completed by {f.completedBy?.name || "Unknown"} on {f.completedAt ? new Date(f.completedAt).toLocaleString() : ""}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "subscriptions" && (
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-              <h4 className="text-sm font-bold text-slate-800">Subscription History</h4>
-            </div>
-            <div className="overflow-x-auto">
-              {!customer.subscriptions || customer.subscriptions.length === 0 ? (
-                <p className="text-xs text-slate-500 italic text-center py-6">No subscriptions record found.</p>
-              ) : (
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="p-4">Plan Name</th>
-                      <th className="p-4">Start Date</th>
-                      <th className="p-4">End Date</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                    {customer.subscriptions.map((sub: any) => (
-                      <tr key={sub.id}>
-                        <td className="p-4 font-bold text-slate-800">{sub.planName}</td>
-                        <td className="p-4">{new Date(sub.startDate).toLocaleDateString()}</td>
-                        <td className="p-4">{new Date(sub.endDate).toLocaleDateString()}</td>
-                        <td className="p-4">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            sub.status === "Active" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-slate-100 text-slate-500"
-                          }`}>{sub.status}</span>
-                        </td>
-                        <td className="p-4 text-slate-500">{sub.notes || "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Follow Up Modal */}
-      {showFollowUpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-red-50 to-slate-50 shrink-0">
-              <h2 className="text-base font-bold text-slate-800">Schedule Follow-up</h2>
-              <button onClick={() => setShowFollowUpModal(false)} className="w-8 h-8 rounded-xl bg-white/80 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-all cursor-pointer">
-                <Ico d={icons.plus} size={16} className="rotate-45" />
-              </button>
-            </div>
-            <form onSubmit={handleAddFollowUp} className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Date & Time</label>
-                <input 
-                  type="datetime-local" 
-                  required
-                  value={followUpDate}
-                  onChange={(e) => setFollowUpDate(e.target.value)}
-                  className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-all" 
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Priority</label>
-                <select
-                  value={followUpPriority}
-                  onChange={(e) => setFollowUpPriority(e.target.value as any)}
-                  className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-all text-slate-800 font-semibold cursor-pointer"
-                >
-                  <option value="Low">Low</option>
-                  <option value="Medium">Medium</option>
-                  <option value="High">High</option>
-                </select>
-              </div>
-              {currentUser?.role !== "SalesExecutive" && (
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Assign To</label>
-                  <select
-                    value={followUpAssigneeId}
-                    onChange={(e) => setFollowUpAssigneeId(e.target.value)}
-                    className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-all text-slate-800 font-semibold cursor-pointer"
-                  >
-                    <option value="">Default (Self)</option>
-                    {executives.map((exec) => (
-                      <option key={exec.id} value={exec.id}>{exec.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Notes (Optional)</label>
-                <textarea 
-                  value={followUpNotes}
-                  onChange={(e) => setFollowUpNotes(e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-all resize-none" 
-                  placeholder="What is this follow up regarding?"
-                />
-              </div>
-              <div className="pt-2 flex justify-end gap-3">
-                <button 
-                  type="button" 
-                  onClick={() => setShowFollowUpModal(false)} 
-                  className="px-4 py-2 rounded-xl text-sm font-medium text-slate-650 hover:bg-slate-100 transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={savingFollowUp}
-                  className="px-5 py-2 rounded-xl text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] transition-colors shadow-sm disabled:opacity-75 cursor-pointer"
-                >
-                  {savingFollowUp ? "Saving..." : "Schedule"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Right Sidebar */}
-      <div className="w-72 shrink-0 space-y-4 hidden lg:block">
-        {/* Credit Info Card */}
-        <div className="crm-card p-4">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Credit Info</h3>
-          <div className="space-y-3">
-            <div>
-              <p className="text-xs text-slate-400 mb-1">Credit Limit</p>
-              <p className="text-sm font-bold text-slate-700">₹{customer.creditLimit?.toLocaleString("en-IN") || "₹0"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 mb-1">Credit Terms</p>
-              <p className="text-sm font-bold text-slate-700">{customer.creditTermsDays || 30} days</p>
-            </div>
-            {["Admin", "Finance"].includes(currentUser?.role || "") && (
-              <button className="w-full text-xs text-[var(--primary)] hover:underline font-medium">
-                Edit Credit
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Account Details Card */}
-        <div className="crm-card p-4">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Account Details</h3>
-          <div className="space-y-2 text-sm">
-            <div>
-              <p className="text-xs text-slate-400">Sales Owner</p>
-              <p className="font-medium text-slate-700">{customer.assignedUser?.name || "Unassigned"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Account Type</p>
-              <p className="font-medium text-slate-700">{customer.accountType || "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Industry</p>
-              <p className="font-medium text-slate-700">{customer.industryType || "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Territory</p>
-              <p className="font-medium text-slate-700">{customer.territory || customer.city || "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Created</p>
-              <p className="font-medium text-slate-700">{new Date(customer.createdAt).toLocaleDateString()}</p>
-            </div>
-          </div>
-          {/* Key Account Toggle */}
-          {["Admin", "SalesManager", "SuperAdmin"].includes(currentUser?.role || "") && (
-            <div className="mt-3 pt-3 border-t border-slate-100">
-              <label className="flex items-center justify-between cursor-pointer select-none">
-                <span className="text-xs font-semibold text-slate-600 flex items-center gap-1">
-                  <span className="text-amber-500">⭐</span> Key Account
-                </span>
-                <button
-                  onClick={async () => {
-                    const res = await updateCustomerAction({ id: customer.id, isKeyAccountV2: !customer.isKeyAccountV2 });
-                    if (res.success) {
-                      toast.success(customer.isKeyAccountV2 ? "Removed key account flag" : "Marked as key account");
-                      loadCustomer();
-                    } else {
-                      toast.error("Failed to update");
-                    }
-                  }}
-                  className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer ${customer.isKeyAccountV2 ? "bg-amber-500" : "bg-slate-200"}`}
-                >
-                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${customer.isKeyAccountV2 ? "translate-x-5" : ""}`} />
-                </button>
-              </label>
-            </div>
-          )}
-        </div>
-      </div>
-      </div>
-
-      {/* Deal Create / Edit Modal */}
+      {/* Deal Modal */}
       {showDealModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-red-50 to-slate-50 shrink-0">
-              <h2 className="text-base font-bold text-slate-800">
-                {dealModalMode === "create" ? "Add Sales Deal" : "Edit Sales Deal"}
-              </h2>
-              <button onClick={() => setShowDealModal(false)} className="w-8 h-8 rounded-xl bg-white/80 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-all cursor-pointer">
-                <Ico d={icons.plus} size={16} className="rotate-45" />
-              </button>
-            </div>
-            <form onSubmit={handleDealSubmit} className="p-5 space-y-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-slate-800 mb-4">
+              {dealModalMode === "create" ? "Create Opportunity" : "Edit Opportunity"}
+            </h3>
+            <form onSubmit={handleDealSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-750 uppercase mb-1">Deal Name</label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="e.g. Q3 Software Renewal"
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Deal Name *</label>
+                <input
+                  type="text"
                   value={dealName}
                   onChange={(e) => setDealName(e.target.value)}
-                  className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)] transition-all" 
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)] rounded-lg"
+                  required
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-750 uppercase mb-1">Deal Value ($)</label>
-                  <input 
-                    type="number" 
-                    required
-                    step="0.01"
-                    placeholder="e.g. 5000"
-                    value={dealValue}
-                    onChange={(e) => setDealValue(e.target.value)}
-                    className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)] transition-all" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-750 uppercase mb-1">Expected Close</label>
-                  <input 
-                    type="date" 
-                    required
-                    value={expectedCloseDate}
-                    onChange={(e) => setExpectedCloseDate(e.target.value)}
-                    className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)] transition-all" 
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-750 uppercase mb-1">Status</label>
-                  <select
-                    value={dealStatus}
-                    onChange={(e) => setDealStatus(e.target.value)}
-                    className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)] transition-all cursor-pointer"
-                  >
-                    {DEAL_STATUSES.map((st) => (
-                      <option key={st} value={st}>{st}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-750 uppercase mb-1">Assigned Executive</label>
-                  <select
-                    value={assignedUserId}
-                    onChange={(e) => setAssignedUserId(e.target.value)}
-                    className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)] transition-all cursor-pointer"
-                  >
-                    <option value="">Unassigned</option>
-                    {executives.map((exec) => (
-                      <option key={exec.id} value={exec.id}>{exec.name}</option>
-                    ))}
-                  </select>
-                </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-750 uppercase mb-1">Deal Notes</label>
-                <textarea 
-                  value={dealNotes}
-                  onChange={(e) => setDealNotes(e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)] transition-all resize-none" 
-                  placeholder="Key details of the deal..."
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Deal Value ($) *</label>
+                <input
+                  type="number"
+                  value={dealValue}
+                  onChange={(e) => setDealValue(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)] rounded-lg"
+                  required
                 />
               </div>
-              <div className="pt-2 flex justify-end gap-3 shrink-0">
-                <button 
-                  type="button" 
-                  onClick={() => setShowDealModal(false)} 
-                  className="px-4 py-2 rounded-xl text-sm font-medium text-slate-650 hover:bg-slate-100 transition-colors cursor-pointer"
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Expected Close Date *</label>
+                <input
+                  type="date"
+                  value={expectedCloseDate}
+                  onChange={(e) => setExpectedCloseDate(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)] rounded-lg"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Status</label>
+                <select
+                  value={dealStatus}
+                  onChange={(e) => setDealStatus(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)] rounded-lg"
+                >
+                  {DEAL_STATUSES.map((status) => (
+                    <option key={status} value={status}>{status}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Notes</label>
+                <textarea
+                  value={dealNotes}
+                  onChange={(e) => setDealNotes(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[var(--primary)] focus:border-[var(--primary)] rounded-lg"
+                  rows={3}
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDealModal(false)}
+                  className="flex-1 px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={savingDeal}
-                  className="px-5 py-2 rounded-xl text-sm font-medium text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] transition-colors shadow-sm disabled:opacity-75 cursor-pointer"
+                  className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] rounded-lg transition-colors disabled:opacity-50"
                 >
-                  {savingDeal ? "Saving..." : "Save Deal"}
+                  {savingDeal ? "Saving..." : dealModalMode === "create" ? "Create" : "Update"}
                 </button>
               </div>
             </form>

@@ -6,23 +6,10 @@ import { useAuth } from "@/components/AuthProvider";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
-import PageContainer from "@/components/PageContainer";
-
-const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
-  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d={d} />
-  </svg>
-);
-
-const icons = {
-  arrowLeft: "M10 19l-7-7m0 0l7-7m-7 7h18",
-  save: "M5 13l4 4L19 7",
-  edit: "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7 M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
-  x: "M6 18L18 6M6 6l12 12",
-  file: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
-  plus: "M12 4v16m8-8H4",
-  trash: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 011-1h2a1 1 0 011 1v3M4 7h16",
-};
+import { PageShell } from "@/components/ui/PageShell";
+import { FormField, Input, Select, Textarea } from "@/components/ui/FormField";
+import { Modal } from "@/components/ui/Modal";
+import { ArrowLeft, Save, Edit, X, FileText, Plus, Trash2, Package, UploadCloud, Image as ImageIcon } from "lucide-react";
 
 export default function ProductDetailPage() {
   const [product, setProduct] = useState<any>(null);
@@ -49,7 +36,9 @@ export default function ProductDetailPage() {
     isActive: true,
     datasheetUrl: "",
     brochureUrl: "",
+    productImageUrl: "",
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const [specForm, setSpecForm] = useState({
     specKey: "",
@@ -75,6 +64,7 @@ export default function ProductDetailPage() {
           isActive: data.data.isActive,
           datasheetUrl: data.data.datasheetUrl || "",
           brochureUrl: data.data.brochureUrl || "",
+          productImageUrl: data.data.productImageUrl || "",
         });
       } else {
         toast.error("Product not found");
@@ -120,6 +110,22 @@ export default function ProductDetailPage() {
     }
   }, [params.id]);
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+    setImageFile(selected);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormData({ ...formData, productImageUrl: reader.result as string });
+    };
+    reader.readAsDataURL(selected);
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setFormData({ ...formData, productImageUrl: "" });
+  };
+
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
@@ -146,31 +152,6 @@ export default function ProductDetailPage() {
     } finally {
       setFormLoading(false);
     }
-  };
-
-  const handleDelete = async () => {
-    setConfirmState({
-      isOpen: true,
-      title: "Delete Product",
-      message: "Are you sure you want to delete this product? This action cannot be undone.",
-      action: async () => {
-        try {
-          const res = await fetch(`/api/catalogue/products/${params.id}`, {
-            method: "DELETE",
-          });
-          const data = await res.json();
-          if (data.success) {
-            toast.success("Product deleted successfully");
-            router.push("/catalogue/products");
-          } else {
-            toast.error(data.message || "Failed to delete product");
-          }
-        } catch (err) {
-          console.error(err);
-          toast.error("Failed to delete product");
-        }
-      },
-    });
   };
 
   const handleAddSpec = async (e: React.FormEvent) => {
@@ -220,127 +201,176 @@ export default function ProductDetailPage() {
     }
   };
 
+  const handleDelete = () => {
+    setConfirmState({
+      isOpen: true,
+      title: "Delete Product",
+      message: "Are you sure you want to delete this product? This action cannot be undone.",
+      action: async () => {
+        try {
+          const res = await fetch(`/api/catalogue/products/${params.id}`, { method: "DELETE" });
+          const data = await res.json();
+          if (data.success) {
+            toast.success("Product deleted successfully");
+            router.push("/catalogue/products");
+          } else {
+            toast.error(data.message || "Failed to delete product");
+          }
+        } catch {
+          toast.error("Failed to delete product");
+        }
+      },
+    });
+  };
+
   if (loading) {
     return (
-      <PageContainer>
+      <PageShell title="Loading...">
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-300 border-t-transparent" />
         </div>
-      </PageContainer>
+      </PageShell>
     );
   }
 
   if (!product) {
     return (
-      <PageContainer>
+      <PageShell title="Product Not Found">
         <div className="text-center py-12">
           <p className="text-slate-500">Product not found</p>
         </div>
-      </PageContainer>
+      </PageShell>
     );
   }
 
   return (
-    <PageContainer>
-      <div className="mb-6">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors mb-4"
-        >
-          <Ico d={icons.arrowLeft} size={18} />
-          Back to Products
-        </button>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">{product.productCode}</h1>
-            <p className="text-slate-500 mt-1">{product.name}</p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-white transition-colors"
-            >
-              <Ico d={icons.edit} size={18} />
-              {isEditing ? "Cancel" : "Edit"}
-            </button>
-            <button
-              onClick={handleDelete}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-colors"
-            >
-              <Ico d={icons.trash} size={18} />
-              Delete
-            </button>
-          </div>
+    <PageShell
+      title={product.productCode}
+      subtitle={product.name}
+      breadcrumb={[
+        { label: "Product Catalogue", href: "/catalogue" },
+        { label: "Products", href: "/catalogue/products" },
+        { label: product.productCode },
+      ]}
+      action={
+        <div className="flex gap-2">
+          <button
+            onClick={() => setIsEditing(!isEditing)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-white transition-colors"
+          >
+            <Edit size={18} />
+            {isEditing ? "Cancel" : "Edit"}
+          </button>
+          <button
+            onClick={handleDelete}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-colors"
+          >
+            <Trash2 size={18} />
+            Delete
+          </button>
         </div>
-      </div>
+      }
+    >
 
       {isEditing ? (
         <form onSubmit={handleUpdate} className="space-y-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Product Name *</label>
-              <input
+            <FormField label="Product Name" required>
+              <Input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                placeholder="Enter product name"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Category</label>
-              <select
+            </FormField>
+            <FormField label="Category">
+              <Select
                 value={formData.categoryId}
                 onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               >
                 <option value="">Select category</option>
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </FormField>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
-            <textarea
+          <FormField label="Description">
+            <Textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
+              placeholder="Enter product description"
               rows={4}
             />
-          </div>
+          </FormField>
+
+          <FormField label="Product Image" hint="Upload product photo for display">
+            <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-[var(--primary)]/40 transition-colors">
+              <input
+                type="file"
+                id="image-upload"
+                className="hidden"
+                onChange={handleImageChange}
+                accept="image/*"
+              />
+              <label htmlFor="image-upload" className="cursor-pointer">
+                <div className="flex flex-col items-center gap-2">
+                  {formData.productImageUrl ? (
+                    <div className="relative">
+                      <img
+                        src={formData.productImageUrl}
+                        alt="Product preview"
+                        className="w-32 h-32 object-cover rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); handleRemoveImage(); }}
+                        className="absolute -top-2 -right-2 p-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center">
+                      <ImageIcon size={24} />
+                    </div>
+                  )}
+                  <p className="text-sm text-slate-600">
+                    {formData.productImageUrl ? "Click to change image" : "Click to upload image"}
+                  </p>
+                  <p className="text-xs text-slate-400">JPG, PNG, WEBP up to 5MB</p>
+                </div>
+              </label>
+            </div>
+          </FormField>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Unit</label>
-              <input
+            <FormField label="Unit" hint="e.g., PCS, KG, MTR">
+              <Input
                 type="text"
                 value={formData.unit}
                 onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                placeholder="PCS"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Base Price</label>
-              <input
+            </FormField>
+            <FormField label="Base Price">
+              <Input
                 type="number"
                 step="0.01"
                 value={formData.basePrice}
                 onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                placeholder="0.00"
               />
-            </div>
+            </FormField>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Product Type</label>
-              <select
+            <FormField label="Product Type">
+              <Select
                 value={formData.productType}
                 onChange={(e) => setFormData({ ...formData, productType: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               >
                 <option value="">Select type</option>
                 <option value="FinishedGood">Finished Good</option>
@@ -348,40 +378,36 @@ export default function ProductDetailPage() {
                 <option value="Component">Component</option>
                 <option value="SubAssembly">Sub-Assembly</option>
                 <option value="Consumable">Consumable</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Min Order Quantity</label>
-              <input
+              </Select>
+            </FormField>
+            <FormField label="Min Order Quantity">
+              <Input
                 type="number"
                 step="0.01"
                 value={formData.minOrderQuantity}
                 onChange={(e) => setFormData({ ...formData, minOrderQuantity: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                 placeholder="0"
               />
-            </div>
+            </FormField>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Datasheet URL</label>
-              <input
+            <FormField label="Datasheet URL">
+              <Input
                 type="url"
                 value={formData.datasheetUrl}
                 onChange={(e) => setFormData({ ...formData, datasheetUrl: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                placeholder="https://..."
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Brochure URL</label>
-              <input
+            </FormField>
+            <FormField label="Brochure URL">
+              <Input
                 type="url"
                 value={formData.brochureUrl}
                 onChange={(e) => setFormData({ ...formData, brochureUrl: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                placeholder="https://..."
               />
-            </div>
+            </FormField>
           </div>
 
           <div className="flex items-center gap-2">
@@ -408,7 +434,7 @@ export default function ProductDetailPage() {
               disabled={formLoading || !formData.name}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              <Ico d={icons.save} size={18} />
+              <Save size={18} />
               {formLoading ? "Saving..." : "Save Changes"}
             </button>
           </div>
@@ -459,7 +485,7 @@ export default function ProductDetailPage() {
                   rel="noopener noreferrer"
                   className="text-blue-600 hover:text-blue-700 flex items-center gap-2"
                 >
-                  <Ico d={icons.file} size={16} />
+                  <FileText size={16} />
                   View Datasheet
                 </a>
               </div>
@@ -473,7 +499,7 @@ export default function ProductDetailPage() {
                   rel="noopener noreferrer"
                   className="text-purple-600 hover:text-purple-700 flex items-center gap-2"
                 >
-                  <Ico d={icons.file} size={16} />
+                  <FileText size={16} />
                   View Brochure
                 </a>
               </div>
@@ -487,32 +513,32 @@ export default function ProductDetailPage() {
         <h2 className="text-xl font-bold text-slate-900 mb-4">Specifications</h2>
         
         <form onSubmit={handleAddSpec} className="flex gap-3 mb-6">
-          <input
+          <Input
             type="text"
             value={specForm.specKey}
             onChange={(e) => setSpecForm({ ...specForm, specKey: e.target.value })}
             placeholder="Specification Key (e.g., Weight)"
-            className="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+            className="flex-1"
           />
-          <input
+          <Input
             type="text"
             value={specForm.specValue}
             onChange={(e) => setSpecForm({ ...specForm, specValue: e.target.value })}
             placeholder="Value (e.g., 10kg)"
-            className="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+            className="flex-1"
           />
-          <input
+          <Input
             type="text"
             value={specForm.unit}
             onChange={(e) => setSpecForm({ ...specForm, unit: e.target.value })}
             placeholder="Unit (e.g., kg)"
-            className="w-32 px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+            className="w-32"
           />
           <button
             type="submit"
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity"
           >
-            <Ico d={icons.plus} size={18} />
+            <Plus size={18} />
             Add
           </button>
         </form>
@@ -542,7 +568,7 @@ export default function ProductDetailPage() {
                         className="p-1.5 rounded hover:bg-red-50 text-red-600 hover:text-red-600 transition-colors"
                         title="Delete"
                       >
-                        <Ico d={icons.x} size={16} />
+                        <X size={16} />
                       </button>
                     </td>
                   </tr>
@@ -562,6 +588,6 @@ export default function ProductDetailPage() {
         onCancel={() => setConfirmState({ isOpen: false, title: "", message: "", action: () => {} })}
         isDestructive={true}
       />
-    </PageContainer>
+    </PageShell>
   );
 }

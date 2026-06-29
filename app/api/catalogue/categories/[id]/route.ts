@@ -35,6 +35,8 @@ export async function PUT(
         name: body.name,
         description: body.description,
         isActive: body.isActive,
+        defaultSpecifications: body.defaultSpecifications ?? null,
+        parentCategoryId: body.parentCategoryId ?? null,
       },
     });
 

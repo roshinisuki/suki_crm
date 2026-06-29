@@ -177,35 +177,35 @@ export default function ApprovalsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="crm-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+          <table className="crm-table">
+            <thead>
               <tr>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Type</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Related Deal/Entity</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Requested By</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Discount</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Status</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Requested On</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Resolved By</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-700">Actions</th>
+                <th className="crm-th">Type</th>
+                <th className="crm-th">Related Deal/Entity</th>
+                <th className="crm-th">Requested By</th>
+                <th className="crm-th">Discount</th>
+                <th className="crm-th">Status</th>
+                <th className="crm-th">Requested On</th>
+                <th className="crm-th">Resolved By</th>
+                <th className="crm-th text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-400">Loading approvals...</td></tr>
+                <tr><td colSpan={8} className="crm-td text-center py-12 text-muted-foreground">Loading approvals...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-400">No approvals found</td></tr>
+                <tr><td colSpan={8} className="crm-td text-center py-12 text-muted-foreground">No approvals found</td></tr>
               ) : (
                 filtered.map((a: any) => (
-                  <tr key={a.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
+                  <tr key={a.id} className="crm-tr">
+                    <td className="crm-td">
                       <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--primary)]/10 text-[var(--primary)]">
                         {a.approvalType || "—"}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="crm-td">
                       {a.deal ? (
                         <Link href={`/deals/${a.deal.id}`} className="text-[var(--primary)] hover:underline text-xs font-medium">
                           {a.deal.dealName}
@@ -215,26 +215,26 @@ export default function ApprovalsPage() {
                           {a.entityType}
                         </Link>
                       ) : (
-                        <span className="text-gray-500 text-xs">{a.entityType || "—"}</span>
+                        <span className="text-muted-foreground text-xs">{a.entityType || "—"}</span>
                       )}
                       {a.deal?.customer && (
-                        <div className="text-xs text-gray-500 mt-0.5">{a.deal.customer.name}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{a.deal.customer.name}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-700">{a.requestedBy?.name || "—"}</td>
-                    <td className="px-4 py-3 text-gray-700">
+                    <td className="crm-td text-foreground">{a.requestedBy?.name || "—"}</td>
+                    <td className="crm-td text-foreground">
                       {a.discountPercent > 0 ? `${a.discountPercent}%` : "—"}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="crm-td">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[a.status] || "bg-gray-100 text-gray-700"}`}>
                         {a.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-600 text-xs">
+                    <td className="crm-td text-muted-foreground text-xs">
                       {new Date(a.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                     </td>
-                    <td className="px-4 py-3 text-gray-600 text-xs">{a.resolvedBy?.name || "—"}</td>
-                    <td className="px-4 py-3">
+                    <td className="crm-td text-muted-foreground text-xs">{a.resolvedBy?.name || "—"}</td>
+                    <td className="crm-td text-right">
                       <div className="flex items-center justify-end gap-2">
                         {a.status === "Pending" && canApprove ? (
                           <>

@@ -210,42 +210,44 @@ export default function TerritoriesPage() {
       ) : territories.length === 0 ? (
         <div className="py-12 text-center text-sm text-gray-500">No territories found.</div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Name</th>
-                <th className="px-4 py-3 font-semibold">Region</th>
-                <th className="px-4 py-3 font-semibold">States / Area</th>
-                <th className="px-4 py-3 font-semibold">Assigned User</th>
-                <th className="px-4 py-3 font-semibold">Accounts</th>
-                <th className="px-4 py-3 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {territories.map((t) => (
-                <tr key={t.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <Link href={`/territories/${t.id}`} className="font-medium text-blue-600 hover:underline">{t.name}</Link>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{t.region}</td>
-                  <td className="px-4 py-3 text-gray-600 max-w-xs"><div className="line-clamp-1">{t.states || "—"}</div></td>
-                  <td className="px-4 py-3 text-gray-600">{t.assignedUser?.name || "—"}</td>
-                  <td className="px-4 py-3 text-gray-600">{t._count?.accounts ?? 0}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="inline-flex gap-1.5">
-                      {canManage && (
-                        <>
-                          <button onClick={() => openEdit(t)} className="p-1.5 rounded hover:bg-gray-100" title="Edit"><Ico d={icons.edit} /></button>
-                          <button onClick={() => handleDelete(t)} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Delete"><Ico d={icons.trash} /></button>
-                        </>
-                      )}
-                    </div>
-                  </td>
+        <div className="crm-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="crm-table">
+              <thead>
+                <tr>
+                  <th className="crm-th">Name</th>
+                  <th className="crm-th">Region</th>
+                  <th className="crm-th">States / Area</th>
+                  <th className="crm-th">Assigned User</th>
+                  <th className="crm-th">Accounts</th>
+                  <th className="crm-th text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {territories.map((t) => (
+                  <tr key={t.id} className="crm-tr">
+                    <td className="crm-td">
+                      <Link href={`/territories/${t.id}`} className="font-medium text-foreground hover:text-[var(--accent)]">{t.name}</Link>
+                    </td>
+                    <td className="crm-td text-foreground">{t.region}</td>
+                    <td className="crm-td text-foreground max-w-xs"><div className="line-clamp-1">{t.states || "—"}</div></td>
+                    <td className="crm-td text-foreground">{t.assignedUser?.name || "—"}</td>
+                    <td className="crm-td text-foreground">{t._count?.accounts ?? 0}</td>
+                    <td className="crm-td text-right">
+                      <div className="inline-flex gap-1.5">
+                        {canManage && (
+                          <>
+                            <button onClick={() => openEdit(t)} className="p-1.5 rounded hover:bg-muted" title="Edit"><Ico d={icons.edit} /></button>
+                            <button onClick={() => handleDelete(t)} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Delete"><Ico d={icons.trash} /></button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

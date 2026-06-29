@@ -172,80 +172,82 @@ export default function RFQListPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">RFQ Code</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Account</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Priority</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Customer Due</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Assigned To</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Costing Owner</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Days Pending</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
+        <div className="crm-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="crm-table">
+              <thead>
                 <tr>
-                  <td colSpan={9} className="py-12 text-center">
-                    <div className="flex justify-center">
-                      <CRMSpinner size={36} label="Loading RFQs..." />
-                    </div>
-                  </td>
+                  <th className="crm-th">RFQ Code</th>
+                  <th className="crm-th">Account</th>
+                  <th className="crm-th">Priority</th>
+                  <th className="crm-th">Customer Due</th>
+                  <th className="crm-th">Status</th>
+                  <th className="crm-th">Assigned To</th>
+                  <th className="crm-th">Costing Owner</th>
+                  <th className="crm-th">Days Pending</th>
+                  <th className="crm-th text-right">Actions</th>
                 </tr>
-              ) : filtered.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-8 text-slate-400">No RFQs found</td></tr>
-              ) : (
-                filtered.map((rfq: any) => {
-                  const overdue = isOverdue(rfq);
-                  const rowClass = getAgingRowClass(rfq);
-                  return (
-                    <tr
-                      key={rfq.id}
-                      className={`border-b border-slate-100 hover:bg-slate-50/50 transition-colors table-row-clickable ${rowClass}`}
-                      onClick={() => router.push(`/rfq/${rfq.id}`)}
-                    >
-                      <td className="px-4 py-3 text-sm font-medium text-slate-800">{rfq.rfqCode}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className="row-primary-link">{rfq.customer?.name || "—"}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${rfq.priority === "Urgent" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}>
-                          {rfq.priority || "Normal"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {rfq.customerDueDate ? (
-                          <span className={overdue ? "text-red-600 font-medium" : "text-slate-700"}>
-                            {new Date(rfq.customerDueDate).toLocaleDateString()}
-                            {overdue && <span className="ml-1 text-xs">⚠</span>}
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={9} className="crm-td text-center py-12">
+                      <div className="flex justify-center">
+                        <CRMSpinner size={36} label="Loading RFQs..." />
+                      </div>
+                    </td>
+                  </tr>
+                ) : filtered.length === 0 ? (
+                  <tr><td colSpan={9} className="crm-td text-center py-8 text-muted-foreground">No RFQs found</td></tr>
+                ) : (
+                  filtered.map((rfq: any) => {
+                    const overdue = isOverdue(rfq);
+                    const rowClass = getAgingRowClass(rfq);
+                    return (
+                      <tr
+                        key={rfq.id}
+                        className={`crm-tr table-row-clickable ${rowClass}`}
+                        onClick={() => router.push(`/rfq/${rfq.id}`)}
+                      >
+                        <td className="crm-td font-medium text-foreground">{rfq.rfqCode}</td>
+                        <td className="crm-td">
+                          <span className="row-primary-link">{rfq.customer?.name || "—"}</span>
+                        </td>
+                        <td className="crm-td">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${rfq.priority === "Urgent" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}>
+                            {rfq.priority || "Normal"}
                           </span>
-                        ) : "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[rfq.status] || "bg-gray-100 text-gray-600"}`}>
-                          {rfq.status.replace(/([A-Z])/g, " $1").trim()}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{rfq.assignedUser?.name || "—"}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{rfq.costingOwner?.name || "—"}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{getDaysPending(rfq)}</td>
-                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button onClick={() => handleDelete(rfq.id)} className="row-action-btn row-action-btn-danger" title="Delete">
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        </td>
+                        <td className="crm-td">
+                          {rfq.customerDueDate ? (
+                            <span className={overdue ? "text-red-600 font-medium" : "text-foreground"}>
+                              {new Date(rfq.customerDueDate).toLocaleDateString()}
+                              {overdue && <span className="ml-1 text-xs">⚠</span>}
+                            </span>
+                          ) : "—"}
+                        </td>
+                        <td className="crm-td">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[rfq.status] || "bg-gray-100 text-gray-600"}`}>
+                            {rfq.status.replace(/([A-Z])/g, " $1").trim()}
+                          </span>
+                        </td>
+                        <td className="crm-td text-foreground">{rfq.assignedUser?.name || "—"}</td>
+                        <td className="crm-td text-foreground">{rfq.costingOwner?.name || "—"}</td>
+                        <td className="crm-td text-foreground">{getDaysPending(rfq)}</td>
+                        <td className="crm-td text-right" onClick={e => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button onClick={() => handleDelete(rfq.id)} className="row-action-btn row-action-btn-danger" title="Delete">
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

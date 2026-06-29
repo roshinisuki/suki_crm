@@ -144,52 +144,54 @@ export default function NegotiationListPage() {
         />
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Code</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Initial Amount</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Revised</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Revisions</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Assigned To</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={8} className="text-center py-8 text-slate-400">Loading...</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={8} className="text-center py-8 text-slate-400">No negotiations found</td></tr>
-            ) : (
-              filtered.map((n: any) => (
-                <tr key={n.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-3 text-sm font-medium text-slate-800">{n.negotiationCode}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{n.customer?.name || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{n.initialAmount ? formatCurrency(n.initialAmount) : "—"}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{n.revisedAmount ? formatCurrency(n.revisedAmount) : "—"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[n.status] || "bg-gray-100 text-gray-600"}`}>{n.status}</span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{n._count?.revisions || 0}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{n.assignedUser?.name || "—"}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => router.push(`/negotiations/${n.id}`)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 cursor-pointer" title="View">
-                        <Ico d={icons.eye} size={15} />
-                      </button>
-                      <button onClick={() => handleDelete(n.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 cursor-pointer" title="Delete">
-                        <Ico d={icons.x} size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div className="crm-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="crm-table">
+            <thead>
+              <tr>
+                <th className="crm-th">Code</th>
+                <th className="crm-th">Customer</th>
+                <th className="crm-th">Initial Amount</th>
+                <th className="crm-th">Revised</th>
+                <th className="crm-th">Status</th>
+                <th className="crm-th">Revisions</th>
+                <th className="crm-th">Assigned To</th>
+                <th className="crm-th text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={8} className="crm-td text-center py-8 text-muted-foreground">Loading...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={8} className="crm-td text-center py-8 text-muted-foreground">No negotiations found</td></tr>
+              ) : (
+                filtered.map((n: any) => (
+                  <tr key={n.id} className="crm-tr">
+                    <td className="crm-td font-medium text-foreground">{n.negotiationCode}</td>
+                    <td className="crm-td text-foreground">{n.customer?.name || "—"}</td>
+                    <td className="crm-td text-foreground">{n.initialAmount ? formatCurrency(n.initialAmount) : "—"}</td>
+                    <td className="crm-td text-foreground">{n.revisedAmount ? formatCurrency(n.revisedAmount) : "—"}</td>
+                    <td className="crm-td">
+                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[n.status] || "bg-gray-100 text-gray-600"}`}>{n.status}</span>
+                    </td>
+                    <td className="crm-td text-foreground">{n._count?.revisions || 0}</td>
+                    <td className="crm-td text-foreground">{n.assignedUser?.name || "—"}</td>
+                    <td className="crm-td text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => router.push(`/negotiations/${n.id}`)} className="p-1.5 rounded-lg hover:bg-muted text-slate-600 cursor-pointer" title="View">
+                          <Ico d={icons.eye} size={15} />
+                        </button>
+                        <button onClick={() => handleDelete(n.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 cursor-pointer" title="Delete">
+                          <Ico d={icons.x} size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <ConfirmModal

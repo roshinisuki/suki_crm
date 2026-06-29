@@ -22,6 +22,12 @@ export async function GET(
         orderBy: { createdAt: "asc" },
       },
       linkedOpportunity: { select: { id: true, dealName: true, opportunityCode: true, status: true } },
+      parentVisit: { select: { id: true, plannedDate: true } },
+      childVisits: {
+        where: { deletedAt: null },
+        select: { id: true, plannedDate: true, plannedTime: true, status: true, purpose: true },
+        orderBy: { plannedDate: "asc" },
+      },
     },
   });
 
@@ -46,56 +52,7 @@ export async function PUT(
   });
   if (!existing) return NextResponse.json({ success: false, message: "Visit not found" }, { status: 404 });
 
-  // Special actions
-  if (body.action === "checkin") {
-    const visit = await prisma.customerVisit.update({
-      where: { id },
-      data: { checkInTime: new Date(), status: "CHECKED_IN" },
-      include: { customer: { select: { id: true, name: true } }, host: { select: { id: true, name: true } } },
-    });
-    return NextResponse.json({ success: true, data: visit });
-  }
-
-  if (body.action === "checkout") {
-    const updateData: any = {
-      checkOutTime: new Date(),
-      status: "COMPLETED",
-      meetingSummary: body.meetingSummary,
-      outcome: body.outcome || null,
-      customerDecision: body.customerDecision || null,
-    };
-    if (body.rejectionReason) updateData.rejectionReason = body.rejectionReason;
-    if (body.nextMeetingDate) updateData.nextMeetingDate = new Date(body.nextMeetingDate);
-    if (body.nextMeetingNotes) updateData.nextMeetingNotes = body.nextMeetingNotes;
-
-    const visit = await prisma.customerVisit.update({
-      where: { id },
-      data: updateData,
-      include: { customer: { select: { id: true, name: true } }, host: { select: { id: true, name: true } } },
-    });
-
-    // Auto-create FollowUp if nextMeetingDate is provided
-    if (body.nextMeetingDate) {
-      await prisma.followUp.create({
-        data: {
-          customerId: visit.customerId,
-          assignedUserId: visit.hostedBy,
-          nextMeetingDate: new Date(body.nextMeetingDate),
-          notes: body.nextMeetingNotes || null,
-          sourceType: "VISIT_CHECKOUT",
-          sourceId: visit.id,
-          status: "Pending",
-          priority: "Medium",
-          companyId: visit.companyId,
-          autoCreated: true,
-        },
-      });
-    }
-
-    return NextResponse.json({ success: true, data: visit });
-  }
-
-  // Regular update
+  // Regular update (does not allow direct status changes — use the dedicated workflow endpoints)
   const updateData: any = {};
   if (body.customerId !== undefined) updateData.customerId = body.customerId;
   if (body.purpose !== undefined) updateData.purpose = body.purpose;
@@ -104,7 +61,6 @@ export async function PUT(
   if (body.source !== undefined) updateData.source = body.source;
   if (body.agenda !== undefined) updateData.agenda = body.agenda;
   if (body.department !== undefined) updateData.department = body.department;
-  if (body.status !== undefined) updateData.status = body.status;
 
   const visit = await prisma.customerVisit.update({
     where: { id },

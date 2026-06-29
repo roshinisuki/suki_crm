@@ -78,6 +78,7 @@ export async function GET(request: Request) {
         await transitionDealStatus(deal.id, "SalesOpportunity", {
           actorId: "system",
           reason: `Linked proposal "${proposal.proposalNumber}" expired on ${proposal.validUntil.toDateString()}`,
+          companyId: deal.companyId || "", // Use deal's companyId for tenant isolation
         });
 
         // Notify the deal's assigned executive / manager

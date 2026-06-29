@@ -20,8 +20,11 @@ export async function GET(request: NextRequest) {
   };
   if (status && status !== "All") {
     if (status === "Planned") where.status = "PLANNED";
+    else if (status === "Checked In") where.status = "CHECKED_IN";
+    else if (status === "Checked Out") where.status = "CHECKED_OUT";
     else if (status === "Completed") where.status = "COMPLETED";
     else if (status === "Missed") where.status = "MISSED";
+    else if (status === "Unavailable") where.status = "CUSTOMER_UNAVAILABLE";
   }
   if (hostedBy) where.hostedBy = hostedBy;
   if (customerId) where.customerId = customerId;
@@ -67,7 +70,13 @@ export async function GET(request: NextRequest) {
   const completed = visits.filter((v) => v.status === "COMPLETED").length;
   const missed = visits.filter((v) => v.status === "MISSED").length;
   const planned = visits.filter((v) => v.status === "PLANNED").length;
+  const checkedIn = visits.filter((v) => v.status === "CHECKED_IN").length;
+  const checkedOut = visits.filter((v) => v.status === "CHECKED_OUT").length;
+  const unavailable = visits.filter((v) => v.status === "CUSTOMER_UNAVAILABLE").length;
   const completionRate = total > 0 ? Math.round((completed / total) * 1000) / 10 : 0;
+  const avgDuration = total > 0
+    ? Math.round(visits.reduce((sum, v) => sum + (v.durationMinutes || 0), 0) / total)
+    : 0;
 
   // Key account compliance: key accounts with a visit in the period
   const keyAccounts = await prisma.customer.findMany({
@@ -81,19 +90,24 @@ export async function GET(request: NextRequest) {
   const formattedVisits = visits.map((v) => {
     return {
       id: v.id,
-      accountName: v.customer?.name || "—",
+      customerName: v.customer?.name || "—",
+      customerCode: v.customer?.customerCode || "—",
       plantLocation: v.plantLocationId || "—",
-      visitPurpose: v.purpose || "—",
+      purpose: v.purpose || "—",
       plannedDate: v.plannedDate ? new Date(v.plannedDate).toISOString() : v.checkInTime ? new Date(v.checkInTime).toISOString() : null,
-      visitStatus: v.status,
+      status: v.status,
       visitSummaryPreview: v.meetingSummary ? v.meetingSummary.substring(0, 80) : v.visitSummary ? v.visitSummary.substring(0, 80) : "",
-      assignedToName: v.host?.name || "—",
+      hostName: v.host?.name || "—",
+      checkInTime: v.checkInTime ? new Date(v.checkInTime).toISOString() : null,
+      checkOutTime: v.checkOutTime ? new Date(v.checkOutTime).toISOString() : null,
+      duration: v.durationMinutes ?? null,
+      outcome: v.outcomeType || v.outcome || null,
     };
   });
 
   return NextResponse.json({
     success: true,
-    summary: { total, planned, completed, missed, completionRate, keyAccountComplianceRate },
+    summary: { total, planned, checkedIn, checkedOut, completed, missed, unavailable, completionRate, avgDuration, keyAccountComplianceRate },
     visits: formattedVisits,
   });
 }

@@ -5,18 +5,10 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ToastProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
-import PageContainer from "@/components/PageContainer";
-
-const Ico = ({ d, size = 16, className }: { d: string; size?: number; className?: string }) => (
-  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d={d} />
-  </svg>
-);
-
-const icons = {
-  arrowLeft: "M10 19l-7-7m0 0l7-7m-7 7h18",
-  save: "M5 13l4 4L19 7",
-};
+import { PageShell } from "@/components/ui/PageShell";
+import { FormField, Input, Select, Textarea } from "@/components/ui/FormField";
+import { Modal } from "@/components/ui/Modal";
+import { ArrowLeft, Save, Plus, UploadCloud, X, Image as ImageIcon } from "lucide-react";
 
 export default function NewProductPage() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -38,7 +30,9 @@ export default function NewProductPage() {
     isActive: true,
     datasheetUrl: "",
     brochureUrl: "",
+    productImageUrl: "",
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const loadCategories = async () => {
     setLoading(true);
@@ -58,6 +52,22 @@ export default function NewProductPage() {
   useEffect(() => {
     loadCategories();
   }, []);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+    setImageFile(selected);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormData({ ...formData, productImageUrl: reader.result as string });
+    };
+    reader.readAsDataURL(selected);
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setFormData({ ...formData, productImageUrl: "" });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,90 +97,115 @@ export default function NewProductPage() {
   };
 
   return (
-    <PageContainer>
-      <div className="mb-6">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors mb-4"
-        >
-          <Ico d={icons.arrowLeft} size={18} />
-          Back to Products
-        </button>
-        <h1 className="text-2xl font-bold text-slate-900">Add New Product</h1>
-        <p className="text-slate-500 mt-1">Create a new product for your catalogue</p>
-      </div>
+    <PageShell
+      title="Add New Product"
+      subtitle="Create a new product for your catalogue"
+      breadcrumb={[
+        { label: "Product Catalogue", href: "/catalogue" },
+        { label: "Products", href: "/catalogue/products" },
+        { label: "Add New Product" },
+      ]}
+    >
 
       <div className="max-w-2xl">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Product Name *</label>
-              <input
+            <FormField label="Product Name" required>
+              <Input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                 placeholder="Enter product name"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Category</label>
-              <select
+            </FormField>
+            <FormField label="Category">
+              <Select
                 value={formData.categoryId}
                 onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               >
                 <option value="">Select category</option>
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </FormField>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
-            <textarea
+          <FormField label="Description">
+            <Textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
               placeholder="Enter product description"
               rows={4}
             />
-          </div>
+          </FormField>
+
+          <FormField label="Product Image" hint="Upload product photo for display">
+            <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-[var(--primary)]/40 transition-colors">
+              <input
+                type="file"
+                id="image-upload"
+                className="hidden"
+                onChange={handleImageChange}
+                accept="image/*"
+              />
+              <label htmlFor="image-upload" className="cursor-pointer">
+                <div className="flex flex-col items-center gap-2">
+                  {formData.productImageUrl ? (
+                    <div className="relative">
+                      <img
+                        src={formData.productImageUrl}
+                        alt="Product preview"
+                        className="w-32 h-32 object-cover rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); handleRemoveImage(); }}
+                        className="absolute -top-2 -right-2 p-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center">
+                      <ImageIcon size={24} />
+                    </div>
+                  )}
+                  <p className="text-sm text-slate-600">
+                    {formData.productImageUrl ? "Click to change image" : "Click to upload image"}
+                  </p>
+                  <p className="text-xs text-slate-400">JPG, PNG, WEBP up to 5MB</p>
+                </div>
+              </label>
+            </div>
+          </FormField>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Unit</label>
-              <input
+            <FormField label="Unit" hint="e.g., PCS, KG, MTR">
+              <Input
                 type="text"
                 value={formData.unit}
                 onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-                placeholder="e.g., PCS, KG, MTR"
+                placeholder="PCS"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Base Price</label>
-              <input
+            </FormField>
+            <FormField label="Base Price">
+              <Input
                 type="number"
                 step="0.01"
                 value={formData.basePrice}
                 onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                 placeholder="0.00"
               />
-            </div>
+            </FormField>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Product Type</label>
-              <select
+            <FormField label="Product Type">
+              <Select
                 value={formData.productType}
                 onChange={(e) => setFormData({ ...formData, productType: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               >
                 <option value="">Select type</option>
                 <option value="FinishedGood">Finished Good</option>
@@ -178,42 +213,36 @@ export default function NewProductPage() {
                 <option value="Component">Component</option>
                 <option value="SubAssembly">Sub-Assembly</option>
                 <option value="Consumable">Consumable</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Min Order Quantity</label>
-              <input
+              </Select>
+            </FormField>
+            <FormField label="Min Order Quantity">
+              <Input
                 type="number"
                 step="0.01"
                 value={formData.minOrderQuantity}
                 onChange={(e) => setFormData({ ...formData, minOrderQuantity: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                 placeholder="0"
               />
-            </div>
+            </FormField>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Datasheet URL</label>
-              <input
+            <FormField label="Datasheet URL">
+              <Input
                 type="url"
                 value={formData.datasheetUrl}
                 onChange={(e) => setFormData({ ...formData, datasheetUrl: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                 placeholder="https://..."
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Brochure URL</label>
-              <input
+            </FormField>
+            <FormField label="Brochure URL">
+              <Input
                 type="url"
                 value={formData.brochureUrl}
                 onChange={(e) => setFormData({ ...formData, brochureUrl: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                 placeholder="https://..."
               />
-            </div>
+            </FormField>
           </div>
 
           <div className="flex items-center gap-2">
@@ -240,12 +269,12 @@ export default function NewProductPage() {
               disabled={formLoading || !formData.name}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              <Ico d={icons.save} size={18} />
+              <Save size={18} />
               {formLoading ? "Creating..." : "Create Product"}
             </button>
           </div>
         </form>
       </div>
-    </PageContainer>
+    </PageShell>
   );
 }

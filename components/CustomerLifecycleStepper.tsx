@@ -22,7 +22,7 @@ export default function CustomerLifecycleStepper({ currentStage }: { currentStag
     s => s.toLowerCase() === currentStage.toLowerCase()
   );
 
-  // Fallback mappings
+  // Fallback mappings - clamp to last valid index (8) to prevent out-of-bounds crash
   if (activeIdx === -1) {
     if (currentStage === "New" || currentStage === "Contacted" || currentStage === "FollowUpDue") activeIdx = 0;
     else if (currentStage === "SQL") activeIdx = 1;
@@ -33,7 +33,7 @@ export default function CustomerLifecycleStepper({ currentStage }: { currentStag
     else if (currentStage === "Approved" || currentStage === "ContractReview") activeIdx = 6;
     else if (currentStage === "Won" || currentStage === "PaymentPending") activeIdx = 7;
     else if (currentStage === "SubscriptionActive") activeIdx = 8;
-    else if (currentStage === "ActiveCustomer") activeIdx = 10;
+    else if (currentStage === "ActiveCustomer") activeIdx = 8; // Fixed: was 10, clamped to 8 (last valid index)
     else activeIdx = 0;
   }
 

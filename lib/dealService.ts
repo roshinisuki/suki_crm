@@ -6,11 +6,15 @@
  *  - DealStageHistory is always recorded
  *  - Audit log is always written
  *  - No direct db.deal.update({ status }) calls scattered across actions
+ *  - Customer status sync on Won
+ *  - AccountStatusHistory for customer status changes
+ *  - Accepted quotation gate for Won
  * ──────────────────────────────────────────────────────────────────────────────
  */
 
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
+import { dispatchNotification, dispatchNotificationsToMany } from "@/lib/notifications";
 type DealStatus = string;
 
 type TransitionContext = {
@@ -18,11 +22,14 @@ type TransitionContext = {
   actorId: string;
   /** Optional human-readable reason / note to attach to the audit log */
   reason?: string;
+  /** Company ID for tenant isolation */
+  companyId: string;
 };
 
 /**
  * Transition a deal from its current status to a new status.
- * Records a DealStageHistory entry and writes an audit log.
+ * Records a DealStageHistory entry, writes an audit log, syncs customer status,
+ * and enforces stage gates.
  *
  * Must be called inside OR outside a Prisma transaction ($transaction).
  * Pass a transaction client (`tx`) when called inside $transaction.
@@ -37,7 +44,13 @@ export async function transitionDealStatus(
 
   const deal = await db.deal.findUnique({
     where: { id: dealId },
-    select: { status: true, dealName: true },
+    select: { 
+      status: true, 
+      dealName: true, 
+      customerId: true,
+      assignedUserId: true,
+      dealValue: true
+    },
   });
 
   if (!deal) throw new Error(`Deal ${dealId} not found in transitionDealStatus`);
@@ -47,11 +60,49 @@ export async function transitionDealStatus(
   // No-op if already at target status
   if (fromStatus === toStatus) return;
 
+  // Enforce stage order from PipelineStageMaster
+  const currentStageMaster = await db.pipelineStageMaster.findFirst({
+    where: { stageName: fromStatus },
+  });
+  const targetStageMaster = await db.pipelineStageMaster.findFirst({
+    where: { stageName: toStatus, isActive: true },
+  });
+
+  const currentOrder = currentStageMaster?.displayOrder ?? 0;
+  const targetOrder = targetStageMaster?.displayOrder ?? 0;
+
+  // Backward stage change requires Manager/Admin
+  if (targetOrder < currentOrder) {
+    const user = await db.user.findUnique({
+      where: { id: ctx.actorId },
+      select: { role: true }
+    });
+    if (!user || !["SalesManager", "Admin", "SuperAdmin"].includes(user.role)) {
+      throw new Error("Stage rollback requires Manager approval");
+    }
+  }
+
+  // Won requires an accepted quotation
+  if (toStatus === "Won") {
+    const acceptedQuotation = await db.quotation.findFirst({
+      where: { 
+        dealId: dealId,
+        status: "Accepted",
+        deletedAt: null
+      }
+    });
+    if (!acceptedQuotation) {
+      throw new Error("An accepted quotation is required before marking this opportunity as Won");
+    }
+  }
+
+  // Update deal status
   await db.deal.update({
     where: { id: dealId },
     data: { status: toStatus },
   });
 
+  // Record stage history
   await db.dealStageHistory.create({
     data: {
       dealId,
@@ -61,12 +112,114 @@ export async function transitionDealStatus(
     },
   });
 
+  // Sync customer status on Won
+  if (toStatus === "Won") {
+    const customer = await db.customer.findUnique({
+      where: { id: deal.customerId },
+      select: { status: true }
+    });
+    
+    if (customer && customer.status !== "ActiveCustomer") {
+      await db.customer.update({
+        where: { id: deal.customerId },
+        data: { status: "ActiveCustomer" }
+      });
+      
+      // Write AccountStatusHistory
+      await db.accountStatusHistory.create({
+        data: {
+          customerId: deal.customerId,
+          fromStatus: customer.status,
+          toStatus: "ActiveCustomer",
+          changedById: ctx.actorId === "system" ? (await getSystemActorId(db)) : ctx.actorId,
+          changedAt: new Date(),
+        },
+      });
+    }
+  }
+
+  // Reverse customer status if Won deal is reverted
+  if (fromStatus === "Won" && toStatus !== "Won") {
+    // Check if customer has other active Won deals or subscriptions
+    const otherWonDeals = await db.deal.count({
+      where: {
+        customerId: deal.customerId,
+        status: "Won",
+        id: { not: dealId },
+        deletedAt: null
+      }
+    });
+    
+    const activeSubscriptions = await db.subscription.count({
+      where: {
+        customerId: deal.customerId,
+        status: "Active",
+        endDate: { gte: new Date() }
+      }
+    });
+
+    if (otherWonDeals === 0 && activeSubscriptions === 0) {
+      const customer = await db.customer.findUnique({
+        where: { id: deal.customerId },
+        select: { status: true }
+      });
+      
+      if (customer && customer.status === "ActiveCustomer") {
+        await db.customer.update({
+          where: { id: deal.customerId },
+          data: { status: "Prospect" }
+        });
+        
+        // Write AccountStatusHistory
+        await db.accountStatusHistory.create({
+          data: {
+            customerId: deal.customerId,
+            fromStatus: "ActiveCustomer",
+            toStatus: "Prospect",
+            changedById: ctx.actorId === "system" ? (await getSystemActorId(db)) : ctx.actorId,
+            changedAt: new Date(),
+          },
+        });
+      }
+    }
+  }
+
+  // Audit log
   await logAudit(
     ctx.actorId,
     "Deal",
     "StatusTransition",
     `Deal "${deal.dealName}" transitioned: ${fromStatus} → ${toStatus}${ctx.reason ? `. Reason: ${ctx.reason}` : ""}`
   );
+
+  // Notify assigned user if changed by someone else
+  if (deal.assignedUserId && deal.assignedUserId !== ctx.actorId) {
+    await dispatchNotification({
+      userId: deal.assignedUserId,
+      title: "Deal Status Changed",
+      message: `Your deal "${deal.dealName}" moved from ${fromStatus} to ${toStatus}.`,
+      type: "deal",
+      link: `/sales-pipeline/${dealId}`,
+    });
+  }
+
+  // Notify managers for high-value deals
+  if (deal.dealValue > 500000) {
+    const managers = await db.user.findMany({
+      where: { role: { in: ["Admin", "SalesManager"] }, isActive: true, companyId: ctx.companyId },
+      select: { id: true }
+    });
+    const managerIds = managers.map(m => m.id).filter(id => id !== ctx.actorId);
+    if (managerIds.length > 0) {
+      await dispatchNotificationsToMany({
+        userIds: managerIds,
+        title: "High-Value Deal Status Changed",
+        message: `Deal "${deal.dealName}" moved from ${fromStatus} to ${toStatus}.`,
+        type: "deal",
+        link: `/sales-pipeline/${dealId}`,
+      });
+    }
+  }
 }
 
 /**

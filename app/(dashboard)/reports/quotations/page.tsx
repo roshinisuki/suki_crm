@@ -118,39 +118,39 @@ export default function QuotationsReportPage() {
         {/* Data Table */}
         <div className="crm-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="crm-table">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">QUO Code</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Customer</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Grand Total ({preferredCurrency})</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Discount %</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Final Amount ({preferredCurrency})</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Sent At</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Valid Until</th>
+                <tr>
+                  <th className="crm-th">QUO Code</th>
+                  <th className="crm-th">Customer</th>
+                  <th className="crm-th text-right">Grand Total ({preferredCurrency})</th>
+                  <th className="crm-th text-right">Discount %</th>
+                  <th className="crm-th text-right">Final Amount ({preferredCurrency})</th>
+                  <th className="crm-th">Status</th>
+                  <th className="crm-th">Sent At</th>
+                  <th className="crm-th">Valid Until</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center">
+                    <td colSpan={8} className="crm-td py-12 text-center">
                       <div className="flex justify-center">
                         <CRMSpinner size={36} label="Loading report..." />
                       </div>
                     </td>
                   </tr>
                 ) : quotations.length === 0 ? (
-                  <tr><td colSpan={8} className="text-center py-12 text-slate-400 text-sm">No quotations found</td></tr>
+                  <tr><td colSpan={8} className="crm-td text-center py-12 text-muted-foreground text-sm">No quotations found</td></tr>
                 ) : (
                   quotations.map(q => (
-                    <tr key={q.id} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-3 text-sm font-mono text-xs text-slate-600">{q.quotationCode}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{q.customerName}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 text-right">{formatCurrency(q.totalAmount)}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 text-right">{q.discountPercent}%</td>
-                      <td className="px-4 py-3 text-sm font-semibold text-slate-800 text-right">{formatCurrency(q.finalAmount)}</td>
-                      <td className="px-4 py-3">
+                    <tr key={q.id} className="crm-tr">
+                      <td className="crm-td font-mono text-xs text-muted-foreground">{q.quotationCode}</td>
+                      <td className="crm-td text-foreground">{q.customerName}</td>
+                      <td className="crm-td text-right text-foreground">{formatCurrency(q.totalAmount)}</td>
+                      <td className="crm-td text-right text-foreground">{q.discountPercent}%</td>
+                      <td className="crm-td font-semibold text-foreground text-right">{formatCurrency(q.finalAmount)}</td>
+                      <td className="crm-td">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
                           q.status === "Accepted" ? "bg-emerald-50 text-emerald-600" :
                           q.status === "Rejected" ? "bg-rose-50 text-rose-600" :
@@ -159,8 +159,8 @@ export default function QuotationsReportPage() {
                           "bg-blue-50 text-blue-600"
                         }`}>{q.status}</span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-500">{q.sentAt ? new Date(q.sentAt).toLocaleDateString() : "—"}</td>
-                      <td className="px-4 py-3 text-sm text-slate-500">{new Date(q.validUntil).toLocaleDateString()}</td>
+                      <td className="crm-td text-muted-foreground">{q.sentAt ? new Date(q.sentAt).toLocaleDateString() : "—"}</td>
+                      <td className="crm-td text-muted-foreground">{new Date(q.validUntil).toLocaleDateString()}</td>
                     </tr>
                   ))
                 )}

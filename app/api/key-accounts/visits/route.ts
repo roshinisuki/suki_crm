@@ -16,7 +16,7 @@ export async function GET(_request: NextRequest) {
             where: { status: "COMPLETED" },
             orderBy: { checkInTime: "desc" },
             take: 1,
-            select: { checkInTime: true, outcome: true },
+            select: { checkInTime: true, outcomeType: true },
           },
           followUps: {
             where: { nextMeetingDate: { gte: new Date() }, status: "Pending" },
@@ -40,7 +40,7 @@ export async function GET(_request: NextRequest) {
       nextReviewDate: ka.nextReviewDate,
       isOverdue: ka.nextReviewDate ? new Date(ka.nextReviewDate) < today : false,
       lastVisitDate: ka.customer.customerVisits[0]?.checkInTime || null,
-      lastOutcome: ka.customer.customerVisits[0]?.outcome || "—",
+      lastOutcome: ka.customer.customerVisits[0]?.outcomeType || "—",
       nextMeetingDate: ka.customer.followUps[0]?.nextMeetingDate || null,
     }));
 

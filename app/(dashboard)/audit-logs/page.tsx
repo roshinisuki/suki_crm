@@ -83,55 +83,55 @@ function AuditRow({ log }: { log: any }) {
     <>
       <tr
         className={cn(
-          "border-b border-slate-100 transition-colors group",
+          "crm-tr group",
           severity.row,
-          isExpandable ? "cursor-pointer hover:brightness-95" : "hover:bg-slate-50/70"
+          isExpandable ? "cursor-pointer hover:brightness-95" : ""
         )}
         onClick={() => isExpandable && setExpanded((e) => !e)}
       >
         {/* Severity */}
-        <td className="px-4 py-3 w-24">
+        <td className="crm-td w-24">
           <span className={cn("inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase", severity.badge)}>
             {severity.icon} {severity.label}
           </span>
         </td>
 
         {/* Timestamp */}
-        <td className="px-4 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">
+        <td className="crm-td text-xs text-muted-foreground font-mono whitespace-nowrap">
           {new Date(log.timestamp).toLocaleString("en-IN", { day:"2-digit", month:"short", year:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit" })}
         </td>
 
         {/* Module */}
-        <td className="px-4 py-3">
+        <td className="crm-td">
           <span className={cn("text-[10px] font-bold uppercase px-2 py-0.5 rounded-md", MODULE_COLORS[log.module] || "bg-slate-100 text-slate-600")}>
             {log.module}
           </span>
         </td>
 
         {/* Action */}
-        <td className="px-4 py-3">
+        <td className="crm-td">
           <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-lg", actionColor)}>
             {log.action}
           </span>
         </td>
 
         {/* Performed By */}
-        <td className="px-4 py-3">
+        <td className="crm-td">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-[10px] shrink-0">
               {(log.performedBy || "?")[0].toUpperCase()}
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-700 truncate max-w-[130px]">{log.performedBy || "System"}</p>
+              <p className="text-xs font-semibold text-foreground truncate max-w-[130px]">{log.performedBy || "System"}</p>
               {log.performedRole && log.performedRole !== "System" && (
-                <p className="text-[10px] text-slate-400">{log.performedRole}</p>
+                <p className="text-[10px] text-muted-foreground">{log.performedRole}</p>
               )}
             </div>
           </div>
         </td>
 
         {/* Details */}
-        <td className="px-4 py-3 text-xs text-slate-500 max-w-[220px]">
+        <td className="crm-td text-xs text-muted-foreground max-w-[220px]">
           <p className="truncate">{log.details || "—"}</p>
           {log.resourceId && (
             <p className="text-[10px] font-mono text-slate-300 mt-0.5 truncate">{log.resourceId}</p>
@@ -139,12 +139,12 @@ function AuditRow({ log }: { log: any }) {
         </td>
 
         {/* IP */}
-        <td className="px-4 py-3 text-xs font-mono text-slate-400">
+        <td className="crm-td text-xs font-mono text-muted-foreground">
           {log.ipAddress || <span className="text-slate-200">—</span>}
         </td>
 
         {/* Expand toggle */}
-        <td className="px-4 py-3 text-right w-10">
+        <td className="crm-td text-right w-10">
           {isExpandable && (
             <span className="text-slate-300 group-hover:text-slate-500 transition-colors">
               {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -337,7 +337,7 @@ export default function AuditLogsPage() {
       </div>
 
       {/* Table Card */}
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
+      <div className="crm-card overflow-hidden">
         {/* Toolbar */}
         <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-50/50">
           {/* Search */}
@@ -407,23 +407,23 @@ export default function AuditLogsPage() {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="crm-table">
             <thead>
-              <tr className="bg-slate-50/70 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200/60">
-                <th className="px-4 py-3">Severity</th>
-                <th className="px-4 py-3">Timestamp</th>
-                <th className="px-4 py-3">Module</th>
-                <th className="px-4 py-3">Action</th>
-                <th className="px-4 py-3">Performed By</th>
-                <th className="px-4 py-3">Details / Resource</th>
-                <th className="px-4 py-3">IP Address</th>
-                <th className="px-4 py-3 w-10"></th>
+              <tr>
+                <th className="crm-th">Severity</th>
+                <th className="crm-th">Timestamp</th>
+                <th className="crm-th">Module</th>
+                <th className="crm-th">Action</th>
+                <th className="crm-th">Performed By</th>
+                <th className="crm-th">Details / Resource</th>
+                <th className="crm-th">IP Address</th>
+                <th className="crm-th w-10"></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-sm text-slate-500">
+                  <td colSpan={8} className="crm-td text-center py-12 text-sm text-muted-foreground">
                     <div className="flex items-center justify-center gap-2">
                       <div className="w-4 h-4 rounded-full border-2 border-[var(--primary)] border-t-transparent animate-spin" />
                       Loading audit events...
@@ -432,7 +432,7 @@ export default function AuditLogsPage() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-16 text-sm text-slate-400">
+                  <td colSpan={8} className="crm-td text-center py-16 text-sm text-muted-foreground">
                     <Shield size={32} className="mx-auto mb-2 text-slate-200" />
                     No audit events found.
                   </td>

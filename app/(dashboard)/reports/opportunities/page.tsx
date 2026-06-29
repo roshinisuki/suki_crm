@@ -115,39 +115,39 @@ export default function OpportunitiesReportPage() {
         {/* Data Table */}
         <div className="crm-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="crm-table">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Deal Name</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Customer</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stage</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Deal Value ({preferredCurrency})</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Expected Close</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Assigned To</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Created Date</th>
+                <tr>
+                  <th className="crm-th">Deal Name</th>
+                  <th className="crm-th">Customer</th>
+                  <th className="crm-th">Stage</th>
+                  <th className="crm-th text-right">Deal Value ({preferredCurrency})</th>
+                  <th className="crm-th">Expected Close</th>
+                  <th className="crm-th">Assigned To</th>
+                  <th className="crm-th">Created Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center">
+                    <td colSpan={7} className="crm-td py-12 text-center">
                       <div className="flex justify-center">
                         <CRMSpinner size={36} label="Loading report..." />
                       </div>
                     </td>
                   </tr>
                 ) : deals.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-12 text-slate-400 text-sm">No deals found</td></tr>
+                  <tr><td colSpan={7} className="crm-td text-center py-12 text-muted-foreground text-sm">No deals found</td></tr>
                 ) : (
                   deals.map(d => (
-                    <tr key={d.id} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-3 text-sm font-medium text-slate-800">{d.dealName}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{d.customerName}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{d.stage}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 text-right font-semibold">{formatCurrency(d.dealValue)}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{d.expectedCloseDate ? new Date(d.expectedCloseDate).toLocaleDateString() : "—"}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{d.assignedTo}</td>
-                      <td className="px-4 py-3 text-sm text-slate-500">{new Date(d.createdDate).toLocaleDateString()}</td>
+                    <tr key={d.id} className="crm-tr">
+                      <td className="crm-td font-medium text-foreground">{d.dealName}</td>
+                      <td className="crm-td text-foreground">{d.customerName}</td>
+                      <td className="crm-td text-foreground">{d.stage}</td>
+                      <td className="crm-td text-right font-semibold text-foreground">{formatCurrency(d.dealValue)}</td>
+                      <td className="crm-td text-foreground">{d.expectedCloseDate ? new Date(d.expectedCloseDate).toLocaleDateString() : "—"}</td>
+                      <td className="crm-td text-foreground">{d.assignedTo}</td>
+                      <td className="crm-td text-muted-foreground">{new Date(d.createdDate).toLocaleDateString()}</td>
                     </tr>
                   ))
                 )}

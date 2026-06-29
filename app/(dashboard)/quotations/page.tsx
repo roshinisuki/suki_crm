@@ -128,34 +128,34 @@ export default function QuotationListPage() {
         <input type="text" placeholder="Search by QUO code or customer name..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-all" />
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">QUO Code</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Total</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Discount %</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Final Amount</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Valid Until</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
+      <div className="crm-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="crm-table">
+            <thead>
               <tr>
-                <td colSpan={8} className="py-12 text-center">
-                  <div className="flex justify-center">
-                    <CRMSpinner size={36} label="Loading quotations..." />
-                  </div>
-                </td>
+                <th className="crm-th">QUO Code</th>
+                <th className="crm-th">Customer</th>
+                <th className="crm-th text-right">Total</th>
+                <th className="crm-th text-right">Discount %</th>
+                <th className="crm-th text-right">Final Amount</th>
+                <th className="crm-th">Status</th>
+                <th className="crm-th">Valid Until</th>
+                <th className="crm-th text-right">Actions</th>
               </tr>
-            ) : error ? (
-              <tr><td colSpan={8} className="text-center py-8 text-red-500">{error}</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={8}>
-                <div className="text-center py-12 text-slate-500">
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="crm-td text-center py-12">
+                    <div className="flex justify-center">
+                      <CRMSpinner size={36} label="Loading quotations..." />
+                    </div>
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr><td colSpan={8} className="crm-td text-center py-8 text-red-500">{error}</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={8} className="crm-td text-center py-12 text-muted-foreground">
                   <div className="text-3xl mb-3">📄</div>
                   <p className="font-medium mb-1">No quotations found</p>
                   <p className="text-xs mb-4">
@@ -169,35 +169,35 @@ export default function QuotationListPage() {
                   >
                     + Create First Quotation
                   </button>
-                </div>
-              </td></tr>
-            ) : (
-              filtered.map((q: any) => (
-                <tr
-                  key={q.id}
-                  className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors table-row-clickable"
-                  onClick={() => router.push(`/quotations/${q.id}`)}
-                >
-                  <td className="px-4 py-3 text-sm font-medium text-slate-800">{q.quotationCode}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className="row-primary-link">{q.customer?.name || "—"}</span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-slate-700 text-right">{formatCurrency(q.totalAmount)}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700 text-right">{q.discountPercent}%</td>
-                  <td className="px-4 py-3 text-sm font-medium text-slate-800 text-right">{formatCurrency(q.finalAmount)}</td>
-                  <td className="px-4 py-3"><span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[q.status] || "bg-gray-100 text-gray-600"}`}>{q.status}</span></td>
-                  <td className="px-4 py-3 text-sm text-slate-700">{new Date(q.validUntil).toLocaleDateString()}</td>
-                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button onClick={() => handleDuplicate(q.id)} className="row-action-btn" title="Duplicate"><Ico d={icons.copy} size={15} /></button>
-                      <button onClick={() => handleDelete(q.id)} className="row-action-btn row-action-btn-danger" title="Delete"><Ico d={icons.x} size={15} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                </td></tr>
+              ) : (
+                filtered.map((q: any) => (
+                  <tr
+                    key={q.id}
+                    className="crm-tr table-row-clickable"
+                    onClick={() => router.push(`/quotations/${q.id}`)}
+                  >
+                    <td className="crm-td font-medium text-foreground">{q.quotationCode}</td>
+                    <td className="crm-td">
+                      <span className="row-primary-link">{q.customer?.name || "—"}</span>
+                    </td>
+                    <td className="crm-td text-right text-foreground">{formatCurrency(q.totalAmount)}</td>
+                    <td className="crm-td text-right text-foreground">{q.discountPercent}%</td>
+                    <td className="crm-td text-right font-medium text-foreground">{formatCurrency(q.finalAmount)}</td>
+                    <td className="crm-td"><span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[q.status] || "bg-gray-100 text-gray-600"}`}>{q.status}</span></td>
+                    <td className="crm-td text-foreground">{new Date(q.validUntil).toLocaleDateString()}</td>
+                    <td className="crm-td text-right" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button onClick={() => handleDuplicate(q.id)} className="row-action-btn" title="Duplicate"><Ico d={icons.copy} size={15} /></button>
+                        <button onClick={() => handleDelete(q.id)} className="row-action-btn row-action-btn-danger" title="Delete"><Ico d={icons.x} size={15} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <ConfirmModal isOpen={confirmState.isOpen} title={confirmState.title} message={confirmState.message} onConfirm={confirmState.action} onCancel={() => setConfirmState({ isOpen: false, title: "", message: "", action: () => {} })} isDestructive={true} />
