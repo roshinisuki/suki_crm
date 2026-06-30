@@ -676,6 +676,7 @@ model Lead {
   leadScore              Int                 @default(0)
   lostReason             String?             @db.NVarChar(Max)
   lostReasonRefId        String?
+  sourceMeta             String?             @db.Text
   callLogs               CallLog[]
   communicationLogs      CommunicationLog[]
   followUps              FollowUp[]
@@ -894,13 +895,13 @@ model Company {
   proposals             Proposal[]
   purchaseOrders        PurchaseOrder[]
   quotations            Quotation[]
-  SampleRequest         SampleRequest[]
-  subscriptions         Subscription[]
-  targets               SalesTarget[]
-  territories           Territory[]
-  rfqs                  RFQ[]
   reportExportLogs      ReportExportLog[]
   reportSchedules       ReportSchedule[]
+  rfqs                  RFQ[]
+  targets               SalesTarget[]
+  SampleRequest         SampleRequest[]
+  subscriptions         Subscription[]
+  territories           Territory[]
   users                 User[]
   whatsappTemplates     WhatsAppTemplate[]
 }
@@ -1047,9 +1048,9 @@ model Product {
   productImageUrl    String?                @db.NVarChar(Max)
   category           ProductCategory?       @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   company            Company?               @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  specifications     ProductSpecification[]
-  datasheets         ProductDatasheet[]
   brochures          ProductBrochure[]
+  datasheets         ProductDatasheet[]
+  specifications     ProductSpecification[]
   purchaseOrderItems PurchaseOrderItem[]
   quotationItems     QuotationItem[]
   rfqs               RFQ[]
@@ -1069,45 +1070,45 @@ model ProductSpecification {
   specValue    String
   unit         String?
   displayOrder Int      @default(0)
-  companyId    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  companyId    String?
   company      Company? @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
   @@index([companyId])
 }
 
 model ProductDatasheet {
-  id          String   @id @default(uuid())
-  companyId   String?
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  title       String
-  fileName    String
-  fileUrl     String?
-  storageKey  String?
-  version     String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  companyId  String?
+  productId  String
+  title      String
+  fileName   String
+  fileUrl    String?
+  storageKey String?
+  version    String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
   @@index([companyId])
 }
 
 model ProductBrochure {
-  id          String   @id @default(uuid())
-  companyId   String?
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  title       String
-  fileName    String
-  fileUrl     String?
-  storageKey  String?
-  version     String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  companyId  String?
+  productId  String
+  title      String
+  fileName   String
+  fileUrl    String?
+  storageKey String?
+  version    String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
   @@index([companyId])
@@ -1541,7 +1542,7 @@ model WelcomeEmailLog {
   id             String   @id @default(uuid())
   recipientEmail String
   subject        String
-  status         String // "Sent" | "Failed"
+  status         String
   sentAt         DateTime @default(now())
   companyId      String
   userId         String
@@ -1573,13 +1574,13 @@ model Competitor {
   weaknesses  String?             @db.NVarChar(Max)
   isActive    Boolean             @default(true)
   companyId   String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  deletedAt   DateTime?
+  deletedById String?
   company     Company?            @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   products    CompetitorProduct[]
   lostDeals   LostDealAnalysis[]
-  deletedAt   DateTime?
-  deletedById String?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
 
   @@index([companyId])
   @@index([isActive])
@@ -1603,18 +1604,18 @@ model LostDealAnalysis {
   id                 String      @id @default(uuid())
   dealId             String
   competitorId       String?
-  competitor         Competitor? @relation(fields: [competitorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   lossReasonId       String?
-  lossReason         LossReason? @relation(fields: [lossReasonId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   competitorWonPrice Float?
   ourFinalPrice      Float?
   lessonsLearned     String?     @db.NVarChar(Max)
   recordedById       String
   companyId          String?
-  company            Company?    @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  deal               Deal        @relation(fields: [dealId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  recordedBy         User        @relation("RecordedLostDealAnalyses", fields: [recordedById], references: [id], onUpdate: NoAction)
   createdAt          DateTime    @default(now())
+  company            Company?    @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  competitor         Competitor? @relation(fields: [competitorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  deal               Deal        @relation(fields: [dealId], references: [id], onUpdate: NoAction)
+  lossReason         LossReason? @relation(fields: [lossReasonId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  recordedBy         User        @relation("RecordedLostDealAnalyses", fields: [recordedById], references: [id], onUpdate: NoAction)
 
   @@index([dealId])
   @@index([competitorId])
@@ -1626,10 +1627,10 @@ model LossReason {
   name             String
   isActive         Boolean            @default(true)
   companyId        String?
-  company          Company?           @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  dealsLost        Deal[]             @relation("DealLossReason")
-  lostDealAnalyses LostDealAnalysis[]
   createdAt        DateTime           @default(now())
+  dealsLost        Deal[]             @relation("DealLossReason")
+  company          Company?           @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lostDealAnalyses LostDealAnalysis[]
 
   @@index([companyId])
   @@index([isActive])
@@ -1643,14 +1644,14 @@ model Territory {
   assignedUserId String?
   isActive       Boolean            @default(true)
   companyId      String?
-  company        Company?           @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  accounts       TerritoryAccount[]
-  targets        SalesTarget[]
-  assignedUser   User?              @relation("AssignedTerritories", fields: [assignedUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  deletedAt      DateTime?
-  deletedById    String?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
+  deletedAt      DateTime?
+  deletedById    String?
+  targets        SalesTarget[]
+  assignedUser   User?              @relation("AssignedTerritories", fields: [assignedUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company        Company?           @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  accounts       TerritoryAccount[]
 
   @@index([companyId])
   @@index([isActive])
@@ -1659,10 +1660,10 @@ model Territory {
 model TerritoryAccount {
   id          String    @id @default(uuid())
   territoryId String
-  territory   Territory @relation(fields: [territoryId], references: [id], onDelete: Cascade)
   customerId  String
-  customer    Customer  @relation(fields: [customerId], references: [id], onUpdate: NoAction)
   assignedAt  DateTime  @default(now())
+  customer    Customer  @relation(fields: [customerId], references: [id], onUpdate: NoAction)
+  territory   Territory @relation(fields: [territoryId], references: [id], onDelete: Cascade)
 
   @@unique([territoryId, customerId])
   @@index([territoryId])
@@ -1677,15 +1678,15 @@ model SalesTarget {
   achievedAmount Float      @default(0)
   assignedUserId String?
   territoryId    String?
-  territory      Territory? @relation(fields: [territoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   notes          String?
   companyId      String?
-  company        Company?   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  assignedUser   User?      @relation("AssignedSalesTargets", fields: [assignedUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  deletedAt      DateTime?
-  deletedById    String?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
+  deletedAt      DateTime?
+  deletedById    String?
+  assignedUser   User?      @relation("AssignedSalesTargets", fields: [assignedUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  company        Company?   @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  territory      Territory? @relation(fields: [territoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([targetType, period, assignedUserId, territoryId, companyId])
   @@index([companyId])
@@ -1695,20 +1696,20 @@ model SalesTarget {
 model KeyAccount {
   id                  String    @id @default(uuid())
   customerId          String
-  customer            Customer  @relation(fields: [customerId], references: [id], onUpdate: NoAction)
   accountManagerId    String
-  accountManager      User      @relation("ManagedKeyAccounts", fields: [accountManagerId], references: [id], onUpdate: NoAction)
   revenuePotential    Float?
   strategicImportance String    @default("High")
   relationshipStatus  String?
   nextReviewDate      DateTime?
   notes               String?   @db.NVarChar(Max)
   companyId           String?
-  company             Company?  @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  deletedAt           DateTime?
-  deletedById         String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+  deletedById         String?
+  accountManager      User      @relation("ManagedKeyAccounts", fields: [accountManagerId], references: [id], onUpdate: NoAction)
+  company             Company?  @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  customer            Customer  @relation(fields: [customerId], references: [id], onUpdate: NoAction)
 
   @@unique([customerId, companyId])
   @@index([companyId])
@@ -2014,4 +2015,22 @@ model ReportExportLog {
   @@index([reportId])
   @@index([exportedById])
   @@index([companyId])
+}
+
+model WebhookLog {
+  id               String   @id @default(uuid())
+  source           String
+  eventType        String
+  payload          String   @db.Text
+  status           String
+  errorMessage     String?  @db.NVarChar(Max)
+  leadId           String?
+  processingTimeMs Int?
+  receivedAt       DateTime @default(now())
+  companyId        String?
+
+  @@index([source])
+  @@index([status])
+  @@index([receivedAt])
+  @@index([leadId])
 }
